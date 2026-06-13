@@ -18,6 +18,7 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 - 用户点击时间线事件后，可以查看输入、输出、检查结果和关联 artifact。
 - 默认对敏感内容脱敏，同时保留本地 artifact 的审计能力。
 - 提供 loop replay：一次已捕获的 run 可以用于复现问题，也可以在修复后重试。
+- 每个 loop 都有自己的目录，用户可以按 loop 浏览所有历史触发记录。
 - 当没有结构化 evidence 时，现有 Meguri loop 和报告仍能正常工作。
 
 ## 非目标
@@ -27,6 +28,55 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 - 不替换现有 `run.json`、`report.md` 或 step/check 报告。
 - 本阶段不做实时报告刷新。
 
+## 文件结构和历史记录导航
+
+新的 loop run 使用 loop-first 文件结构：
+
+```text
+.meguri/
+  index.html
+  loops/
+    <loop_id>/
+      _loop.yaml
+      _scripts/
+      index.html
+      <YYYYMMDD_HHMMSS>/
+        run.json
+        report.md
+        index.html
+        replay.json
+        evidence/
+        artifacts/
+        steps/
+```
+
+每个 loop 都是一个文件夹。每次触发这个 loop 时，Meguri 在该 loop 文件夹下创建一个
+按年月日时分秒命名的文件夹。这个时间文件夹就是该次 loop 的完整运行记录。文件夹名
+使用本地开始时间，格式为 `YYYYMMDD_HHMMSS`；如果同一秒内出现多次 run，则追加短后缀，
+例如 `20260613_152717_a1b2`。
+
+以 `_` 开头的路径，例如 `_loop.yaml` 和 `_scripts/`，是 loop 定义和辅助文件，
+不是历史运行记录。只有时间戳文件夹会被当成 run history。
+
+静态历史页面：
+
+- `.meguri/index.html` 展示所有 loops、每个 loop 的 run 数、最新状态、最新运行时间，
+  并链接到每个 loop 的页面。
+- `.meguri/loops/<loop_id>/index.html` 展示这个 loop 的所有时间戳 run，按最新优先排序，
+  包含状态、耗时、replay status，以及打开每次 run 报告的链接。
+- `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/index.html` 是单次 run 的详细 attempt
+  timeline。
+
+用户在前端页面里的浏览路径是：
+
+```text
+全部 loops -> 某个 loop 的测试记录 -> 某一次 run 的详细时间线
+```
+
+现有 `.meguri/scenarios/*.yaml` loop 文件和 `.meguri/runs/<run_id>/` 报告继续可读，
+用于兼容。新 loop 应创建在 `.meguri/loops/<loop_id>/_loop.yaml`，新 run 记录默认写入
+loop-local 时间戳目录。
+
 ## Evidence 文件协议
 
 验证脚本负责写结构化 evidence 文件。Meguri 在每个 run step 完成后读取这些文件，
@@ -35,7 +85,7 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 支持两个输入位置：
 
 ```text
-.meguri/runs/<run_id>/evidence/*.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/*.json
 .meguri/evidence/*.json
 ```
 
@@ -51,7 +101,7 @@ Evidence 文件结构：
 ```json
 {
   "version": 1,
-  "run_id": "run_20260613_152717_168e0b82",
+  "run_id": "20260613_152717",
   "loop_id": "agent_multiturn_no_submit",
   "attempts": [
     {
@@ -139,31 +189,34 @@ replay: dict[str, Any] | None
 
 `run_scenario` 执行时，Meguri 应该：
 
-1. 像现在一样创建 run artifact 目录。
+1. 解析 loop id，并创建 loop-local 时间戳 run 目录。
 2. 通过配置的 adapter 执行每个 step。
 3. 像现在一样保存 stdout、stderr 和 result artifacts。
 4. 每个 step 完成后扫描 evidence 输入，并在最终渲染报告前再次扫描。
-5. 把符合条件的项目级 evidence 文件复制到 `.meguri/runs/<run_id>/evidence/`。
+5. 把符合条件的项目级 evidence 文件复制到当前 run 目录的 `evidence/` 文件夹。
 6. 忽略不匹配当前 loop 或当前 run 窗口的项目级 evidence；如果被跳过的文件看起来相关，
    记录 warning。
 7. 把有效 evidence 文件解析进 `RunReport.evidence`。
 8. 对解析错误、schema 问题和缺失 artifact 记录 warning，而不是让本来有效的 run 失败。
 9. 在 run 目录写入 `replay.json`。
-10. 有 evidence 时，Markdown 和 HTML 优先使用 evidence 渲染。
+10. 有 evidence 时，详细 run HTML 优先使用 evidence 渲染。
+11. 重新生成 loop index 页面和 project index 页面。
 
 Meguri 应向脚本暴露 run 目录环境变量：
 
 ```text
 MEGURI_RUN_ID=<run_id>
-MEGURI_ARTIFACT_DIR=<absolute run dir>
-MEGURI_EVIDENCE_DIR=<absolute run dir>/evidence
+MEGURI_LOOP_ID=<loop_id>
+MEGURI_RUN_DIR=<absolute loop-local timestamp dir>
+MEGURI_ARTIFACT_DIR=<absolute loop-local timestamp dir>
+MEGURI_EVIDENCE_DIR=<absolute loop-local timestamp dir>/evidence
 ```
 
 脚本可以直接把 evidence 写入 run-local evidence 目录。
 
 ## HTML 报告设计
 
-报告保留现有 summary header。核心新增视图是 `Attempt Timeline`。
+每个详细 run 报告保留现有 summary header。核心新增视图是 `Attempt Timeline`。
 
 桌面布局：
 
@@ -210,6 +263,22 @@ No structured evidence file found.
 
 如果 evidence 文件无法解析，HTML 显示 evidence parse warning，同时继续渲染现有 step 报告。
 
+Loop index 页面比详细 run 页面更简单，展示一个紧凑的历史记录表：
+
+```text
+Run time            Status   Replay   Duration   Links
+20260613_152717     fail     full     1m 42s     Open / Replay / Retry
+20260613_154308     pass     full     1m 11s     Open / Replay
+```
+
+Project index 页面按 loop 分组：
+
+```text
+Loop                       Runs   Latest status   Latest run
+agent_multiturn_no_submit  12     pass            20260613_154308
+static_syntax_smoke        4      pass            20260613_151902
+```
+
 ## 脱敏
 
 报告采用两层脱敏机制。
@@ -248,7 +317,7 @@ HTML 展示为：
 每次 run 写入：
 
 ```text
-.meguri/runs/<run_id>/replay.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/replay.json
 ```
 
 Replay bundle 结构：
@@ -256,10 +325,10 @@ Replay bundle 结构：
 ```json
 {
   "version": 1,
-  "source_run_id": "run_20260613_152717_168e0b82",
+  "source_run_id": "20260613_152717",
   "loop_id": "agent_multiturn_no_submit",
-  "scenario_path": ".meguri/scenarios/agent_multiturn_no_submit.yaml",
-  "command": ["sh", "-lc", ".venv/bin/python .meguri/scripts/verify.py"],
+  "scenario_path": ".meguri/loops/agent_multiturn_no_submit/_loop.yaml",
+  "command": ["sh", "-lc", ".venv/bin/python .meguri/loops/agent_multiturn_no_submit/_scripts/verify.py"],
   "project_ref": {
     "git_commit": "abc1234",
     "dirty": true
@@ -293,13 +362,13 @@ meguri run agent_multiturn_no_submit
 重放一次已捕获的 loop run：
 
 ```bash
-meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json
+meguri run agent_multiturn_no_submit --replay .meguri/loops/agent_multiturn_no_submit/<YYYYMMDD_HHMMSS>/replay.json
 ```
 
 修复后 retry 时，复制命令保留同一个 replay 输入，并记录它是从哪个 run 重试而来：
 
 ```bash
-meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json --retry-of <run_id>
+meguri run agent_multiturn_no_submit --replay .meguri/loops/agent_multiturn_no_submit/<YYYYMMDD_HHMMSS>/replay.json --retry-of <run_id>
 ```
 
 `--replay` 加载 replay bundle，把路径通过 `MEGURI_REPLAY_FILE` 暴露给 loop，
@@ -347,9 +416,11 @@ none       没有结构化 evidence 或 replay 入口
 
 新增聚焦测试：
 
+- 在 `.meguri/loops/<loop_id>/` 下创建 loop-local 时间戳 run 目录。
 - 能解析包含多个 attempt 的有效 evidence 文件。
 - event 按 time 排序；没有 time 时保留文件顺序。
 - evidence 存在时，HTML 渲染 timeline。
+- 渲染 project index 和 loop index 页面，并能链接到历史 run 报告。
 - evidence 不存在时，回退到 legacy step view。
 - evidence parse warning 不会让报告生成失败。
 - 显式 redacted object 和常见 secret pattern 都会被脱敏。
@@ -359,6 +430,7 @@ none       没有结构化 evidence 或 replay 入口
 ## 已关闭决策
 
 - 时间线粒度是完整事件流，不只是 Meguri step。
+- 每个 loop 都是一个文件夹；每次触发在该 loop 下创建时间戳 run 文件夹。
 - Evidence 从文件收集，不从 stdout 收集。
 - Attempts 分组展示，不做一条全局扁平时间线。
 - 事件详情在桌面端使用右侧固定详情面板。

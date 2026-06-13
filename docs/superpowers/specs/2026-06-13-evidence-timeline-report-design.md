@@ -21,6 +21,8 @@ the generated HTML report. The feature stays local-first and self-contained.
 - Redact sensitive content by default while preserving local artifact access.
 - Provide loop replay: one captured run can be replayed to reproduce the issue or
   retried after a fix.
+- Store runs under their loop so users can browse all historical records for a
+  specific loop.
 - Keep existing Meguri loops and reports working when no structured evidence is
   present.
 
@@ -31,6 +33,59 @@ the generated HTML report. The feature stays local-first and self-contained.
 - Do not replace existing `run.json`, `report.md`, or step/check reporting.
 - Do not build live report updates in this phase.
 
+## File Structure and History Navigation
+
+New loop runs use a loop-first file structure:
+
+```text
+.meguri/
+  index.html
+  loops/
+    <loop_id>/
+      _loop.yaml
+      _scripts/
+      index.html
+      <YYYYMMDD_HHMMSS>/
+        run.json
+        report.md
+        index.html
+        replay.json
+        evidence/
+        artifacts/
+        steps/
+```
+
+Each loop is a folder. Each time the loop is triggered, Meguri creates one
+timestamp folder under that loop. The timestamp folder is the full record for
+that single run. Folder names use local start time in `YYYYMMDD_HHMMSS` format;
+if two runs start in the same second, Meguri appends a short suffix such as
+`20260613_152717_a1b2`.
+
+Underscore-prefixed paths such as `_loop.yaml` and `_scripts/` are loop
+definition files, not historical run records. Timestamp folders are the only
+direct child folders treated as run history.
+
+Static history pages:
+
+- `.meguri/index.html` lists all loops, their run count, latest status, latest
+  run time, and a link to each loop page.
+- `.meguri/loops/<loop_id>/index.html` lists every timestamped run for that loop,
+  newest first, with status, duration, replay status, and links to each run
+  report.
+- `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/index.html` is the detailed attempt
+  timeline for that single run.
+
+This gives users the front-end flow:
+
+```text
+All loops -> one loop's test records -> one run's detailed timeline
+```
+
+Existing `.meguri/scenarios/*.yaml` loop files and `.meguri/runs/<run_id>/`
+reports remain readable for compatibility. New loops should be created in
+`.meguri/loops/<loop_id>/_loop.yaml`, and new run records should default to the
+loop-local timestamp directory.
+
 ## Evidence File Protocol
 
 Verification scripts write structured evidence files. Meguri reads those files
@@ -39,7 +94,7 @@ after a run step completes and before rendering the final report.
 Supported input locations:
 
 ```text
-.meguri/runs/<run_id>/evidence/*.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/*.json
 .meguri/evidence/*.json
 ```
 
@@ -56,7 +111,7 @@ Evidence file shape:
 ```json
 {
   "version": 1,
-  "run_id": "run_20260613_152717_168e0b82",
+  "run_id": "20260613_152717",
   "loop_id": "agent_multiturn_no_submit",
   "attempts": [
     {
@@ -145,32 +200,36 @@ additive fields.
 
 During `run_scenario`, Meguri should:
 
-1. Create the run artifact directory as it does today.
+1. Resolve the loop id and create a loop-local timestamp run directory.
 2. Execute each step through the configured adapter.
 3. Persist stdout, stderr, and result artifacts as it does today.
 4. Scan evidence inputs after each step and again before final report rendering.
-5. Copy project-level evidence files into `.meguri/runs/<run_id>/evidence/`.
+5. Copy project-level evidence files into the current run directory's
+   `evidence/` folder.
 6. Ignore project-level evidence that does not match the current loop or run
    window, and record a warning when skipped files look related.
 7. Parse valid evidence files into `RunReport.evidence`.
 8. Record parse, schema, and missing-artifact problems as warnings rather than
    failing an otherwise valid run.
 9. Write `replay.json` into the run directory.
-10. Render Markdown and HTML using evidence when available.
+10. Render the run detail HTML using evidence when available.
+11. Regenerate the loop index page and project index page.
 
 The environment should expose the run directory to scripts:
 
 ```text
 MEGURI_RUN_ID=<run_id>
-MEGURI_ARTIFACT_DIR=<absolute run dir>
-MEGURI_EVIDENCE_DIR=<absolute run dir>/evidence
+MEGURI_LOOP_ID=<loop_id>
+MEGURI_RUN_DIR=<absolute loop-local timestamp dir>
+MEGURI_ARTIFACT_DIR=<absolute loop-local timestamp dir>
+MEGURI_EVIDENCE_DIR=<absolute loop-local timestamp dir>/evidence
 ```
 
 Scripts can then write evidence directly to the run-local evidence directory.
 
 ## HTML Report Design
 
-The report keeps the existing summary header. The main evidence view is
+Each detailed run report keeps the existing summary header. The main evidence view is
 `Attempt Timeline`.
 
 Desktop layout:
@@ -223,6 +282,23 @@ No structured evidence file found.
 If an evidence file cannot be parsed, the HTML shows an evidence parse warning
 and still renders the existing step report.
 
+The loop index page is intentionally simpler than the run detail page. It should
+show a dense record table for one loop:
+
+```text
+Run time            Status   Replay   Duration   Links
+20260613_152717     fail     full     1m 42s     Open / Replay / Retry
+20260613_154308     pass     full     1m 11s     Open / Replay
+```
+
+The project index page groups by loop:
+
+```text
+Loop                       Runs   Latest status   Latest run
+agent_multiturn_no_submit  12     pass            20260613_154308
+static_syntax_smoke        4      pass            20260613_151902
+```
+
 ## Redaction
 
 The report applies two redaction layers.
@@ -263,7 +339,7 @@ must label raw artifact links clearly.
 Each run writes:
 
 ```text
-.meguri/runs/<run_id>/replay.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/replay.json
 ```
 
 Replay bundle shape:
@@ -271,10 +347,10 @@ Replay bundle shape:
 ```json
 {
   "version": 1,
-  "source_run_id": "run_20260613_152717_168e0b82",
+  "source_run_id": "20260613_152717",
   "loop_id": "agent_multiturn_no_submit",
-  "scenario_path": ".meguri/scenarios/agent_multiturn_no_submit.yaml",
-  "command": ["sh", "-lc", ".venv/bin/python .meguri/scripts/verify.py"],
+  "scenario_path": ".meguri/loops/agent_multiturn_no_submit/_loop.yaml",
+  "command": ["sh", "-lc", ".venv/bin/python .meguri/loops/agent_multiturn_no_submit/_scripts/verify.py"],
   "project_ref": {
     "git_commit": "abc1234",
     "dirty": true
@@ -309,14 +385,14 @@ meguri run agent_multiturn_no_submit
 For replaying a captured loop run:
 
 ```bash
-meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json
+meguri run agent_multiturn_no_submit --replay .meguri/loops/agent_multiturn_no_submit/<YYYYMMDD_HHMMSS>/replay.json
 ```
 
 For retrying after a fix, the copied command keeps the same replay input and
 records the previous run as the retry source:
 
 ```bash
-meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json --retry-of <run_id>
+meguri run agent_multiturn_no_submit --replay .meguri/loops/agent_multiturn_no_submit/<YYYYMMDD_HHMMSS>/replay.json --retry-of <run_id>
 ```
 
 `--replay` loads the replay bundle, exposes it to the loop as
@@ -371,9 +447,11 @@ Validation must not reject old scenarios for lacking evidence.
 
 Add focused tests for:
 
+- Creating loop-local timestamp run directories under `.meguri/loops/<loop_id>/`.
 - Parsing a valid evidence file with multiple attempts.
 - Preserving event order by time and file order fallback.
 - Rendering an HTML timeline when evidence exists.
+- Rendering project and loop index pages that link to historical run reports.
 - Falling back to the legacy step view when evidence is absent.
 - Showing evidence parse warnings without failing report generation.
 - Redacting explicit redacted objects and common secret patterns.
@@ -385,6 +463,8 @@ Add focused tests for:
 ## Open Decisions Closed
 
 - Timeline granularity is complete event flow, not only Meguri steps.
+- Each loop is a folder, and each trigger creates a timestamped run folder under
+  that loop.
 - Evidence is collected from files, not stdout.
 - Attempts are grouped, not rendered as one flat global timeline.
 - Event details use a fixed right-side panel on desktop.
