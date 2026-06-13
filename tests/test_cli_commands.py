@@ -5,6 +5,7 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 from meguri.cli.main import main
@@ -374,6 +375,57 @@ def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path,
     batch_record = json.loads(Path(batch["batch_dir"]).joinpath("batch.json").read_text(encoding="utf-8"))
     assert batch_record["status"] == "pass"
     assert [run["loop"] for run in batch_record["runs"]] == ["first_pass", "second_probe"]
+
+
+def test_run_multiple_loops_blocks_batch_when_interrupted(tmp_path: Path, monkeypatch, capsys) -> None:
+    from meguri.core.models import RunReport, utc_now
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    _write_loop(tmp_path, "first_pass", [sys.executable, "-c", "print('first')"])
+    _write_loop(tmp_path, "second_interrupt", [sys.executable, "-c", "print('second')"])
+
+    def fake_run_scenario(scenario_path, **kwargs):
+        loop_id = scenario_path.parent.name
+        if loop_id == "second_interrupt":
+            raise KeyboardInterrupt()
+        run_dir = tmp_path / ".meguri" / "loops" / loop_id / "20260613_120000"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "index.html").write_text("<html>first</html>", encoding="utf-8")
+        now = utc_now()
+        return RunReport(
+            run_id=run_dir.name,
+            scenario_name=loop_id,
+            status="pass",
+            started_at=now,
+            finished_at=now,
+            project_path=str(tmp_path),
+            artifact_dir=str(run_dir),
+            steps=[],
+            checks=[],
+            html_report_path=str(run_dir / "index.html"),
+            metadata={"loop_id": loop_id},
+            updated_at=now,
+        )
+
+    monkeypatch.setattr("meguri.cli.main.run_scenario", fake_run_scenario)
+
+    with pytest.raises(KeyboardInterrupt):
+        main(["run", "first_pass", "second_interrupt", "--json"])
+
+    [batch_dir] = list((tmp_path / ".meguri" / "batches").iterdir())
+    batch_record = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
+
+    assert batch_record["status"] == "blocked"
+    assert batch_record["completed_loops"] == 1
+    assert batch_record["current_loop"] == "second_interrupt"
+    assert batch_record["remaining_loops"] == ["second_interrupt"]
+    assert batch_record["interrupted"] is True
+    assert batch_record["interruption"]["type"] == "KeyboardInterrupt"
+    assert [run["loop"] for run in batch_record["runs"]] == ["first_pass"]
+    html = (batch_dir / "index.html").read_text(encoding="utf-8")
+    assert "KeyboardInterrupt" in html
 
 
 def test_run_all_user_loops_excludes_named_loop_and_system_smoke(tmp_path: Path, monkeypatch, capsys) -> None:

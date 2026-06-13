@@ -84,8 +84,10 @@ The project index lists loops and multi-loop batch records, the loop index
 lists historical run records, and each run report is self-contained with
 relative links. Multi-loop runs create `.meguri/batches/<batch_id>/batch.json`
 and `index.html` when the batch starts, refresh them after each loop completes,
-and finalize them at the end. The batch report links to every completed loop
-report in execution order, extracts structured metrics such as turn count,
+and finalize them at the end. If a multi-loop run is interrupted, the batch
+record is finalized as blocked with `interrupted` metadata and the remaining
+loop list. The batch report links to every completed loop report in execution
+order, extracts structured metrics such as turn count,
 submitted, closed-status verification, and submit success/failure counts, and
 groups repeated failure reasons across loops when deterministic evidence exposes them.
 `timeline.ndjson` is an append-only event stream written as the loop and each

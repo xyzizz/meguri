@@ -122,17 +122,33 @@ def main(argv: list[str] | None = None) -> int:
             if batch_context
             else None
         )
-        for scenario_path in scenario_paths:
-            run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
-            run_reports.append(run_report)
-            if batch_context and len(run_reports) < len(scenario_paths):
-                batch = _write_batch_report(
+        try:
+            for scenario_path in scenario_paths:
+                run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
+                run_reports.append(run_report)
+                if batch_context and len(run_reports) < len(scenario_paths):
+                    batch = _write_batch_report(
+                        batch_context,
+                        run_reports,
+                        started_at=started_at,
+                        planned_loops=scenario_names,
+                        status="running",
+                    )
+        except BaseException as exc:
+            if batch_context:
+                _write_batch_report(
                     batch_context,
                     run_reports,
                     started_at=started_at,
                     planned_loops=scenario_names,
-                    status="running",
+                    status="blocked",
+                    finished_at=utc_now(),
+                    interruption={
+                        "type": type(exc).__name__,
+                        "message": str(exc),
+                    },
                 )
+            raise
         if batch_context:
             batch = _write_batch_report(
                 batch_context,
@@ -327,6 +343,7 @@ def _write_batch_report(
     planned_loops: list[str],
     status: str,
     finished_at: str | None = None,
+    interruption: dict | None = None,
 ) -> dict:
     pack = batch_context["pack"]
     batch_id = batch_context["batch_id"]
@@ -345,11 +362,14 @@ def _write_batch_report(
         "planned_loops": planned_loops,
         "completed_loops": completed,
         "total_loops": len(planned_loops),
-        "current_loop": remaining_loops[0] if status == "running" and remaining_loops else "",
+        "current_loop": remaining_loops[0] if remaining_loops and (status == "running" or interruption) else "",
         "remaining_loops": remaining_loops,
         "failure_groups": failure_groups(runs),
         "runs": runs,
     }
+    if interruption:
+        record["interrupted"] = True
+        record["interruption"] = interruption
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")

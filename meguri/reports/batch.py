@@ -58,6 +58,15 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
     ) if group_rows else ""
     source = f"Source: {html.escape(str(record.get('source')))}<br>" if record.get("source") else ""
     current = f"<br>Current: {html.escape(str(record.get('current_loop') or '-'))}" if "current_loop" in record else ""
+    interruption = record.get("interruption") if isinstance(record.get("interruption"), dict) else None
+    interruption_html = ""
+    if interruption:
+        interruption_html = (
+            "<p class=\"notice\">Interrupted: "
+            f"{html.escape(str(interruption.get('type') or 'unknown'))}"
+            f"{': ' + html.escape(str(interruption.get('message'))) if interruption.get('message') else ''}"
+            "</p>"
+        )
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -67,12 +76,14 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         "main{max-width:980px;margin:0 auto}"
         ".status{font-weight:700;text-transform:uppercase}"
         ".meta{color:#5d6778}"
+        ".notice{background:#fff4df;border-left:3px solid #b06a00;padding:10px 12px}"
         "table{border-collapse:collapse;width:100%;margin-top:18px}"
         "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
         "a{color:#8a3b12;text-underline-offset:3px}"
         "</style></head><body><main>"
         f"<h1>Meguri Batch {html.escape(str(record['batch_id']))}</h1>"
         f"<p>Status: <span class=\"status\">{html.escape(str(record['status']))}</span></p>"
+        f"{interruption_html}"
         f"<p class=\"meta\">{source}Progress: {html.escape(str(record.get('completed_loops', 0)))}"
         f" / {html.escape(str(record.get('total_loops', len(record.get('runs') or []))))} loops"
         f"{current}"

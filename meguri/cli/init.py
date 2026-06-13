@@ -250,7 +250,9 @@ Workflow:
    remaining user-added loops, use `meguri run --all --exclude <loop>` after
    confirming the exclusion list. Batch `batch.json` and `index.html` are
    created when the batch starts and refreshed after each loop completes; use
-   them as the live progress surface.
+   them as the live progress surface. If the batch is interrupted, read the
+   blocked batch record's `interrupted` metadata and `remaining_loops` before
+   deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
@@ -350,7 +352,9 @@ Workflow:
    remaining user-added loops, use `meguri run --all --exclude <loop>` after
    confirming the exclusion list. Batch `batch.json` and `index.html` are
    created when the batch starts and refreshed after each loop completes; use
-   them as the live progress surface.
+   them as the live progress surface. If the batch is interrupted, read the
+   blocked batch record's `interrupted` metadata and `remaining_loops` before
+   deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
