@@ -1,5 +1,7 @@
 # Meguri
 
+Languages: English | [简体中文](README.zh-CN.md)
+
 Agent-facing verification harness for Codex and Claude Code.
 
 Meguri is a local-first CLI plus project-local workflow files. It gives the
