@@ -62,6 +62,9 @@ Meguri writes run records inside the target project:
 ```text
 .meguri/
   index.html
+  batches/<batch_id>/
+    batch.json
+    index.html
   loops/<loop_id>/
     _loop.yaml
     index.html
@@ -77,17 +80,19 @@ Meguri writes run records inside the target project:
       steps/<step_id>/result.json
 ```
 
-The project index lists loops, the loop index lists historical run records, and
-each run report is self-contained with relative links. `timeline.ndjson` is an
-append-only event stream written as the loop and each step progress. `run.json`,
-`report.md`, and `index.html` are written when a loop starts, refreshed when
-each step starts or completes, and shell step stdout/stderr artifacts are
-updated while the command is still running. Long runs can be inspected before
-the final step finishes. `run.json` and command JSON output keep stdout/stderr
-excerpts plus byte counts; full streams stay in the step artifacts. If a step's
-structured stdout declares `evidence_json` or `evidence_markdown` files under
-the run directory, Meguri links them as step artifacts. Replay metadata also
-captures the pre-run git branch,
+The project index lists loops and multi-loop batch records, the loop index
+lists historical run records, and each run report is self-contained with
+relative links. Multi-loop runs write `.meguri/batches/<batch_id>/batch.json`
+and `index.html`, linking to every loop report in execution order.
+`timeline.ndjson` is an append-only event stream written as the loop and each
+step progress. `run.json`, `report.md`, and `index.html` are written when a loop
+starts, refreshed when each step starts or completes, and shell step
+stdout/stderr artifacts are updated while the command is still running. Long
+runs can be inspected before the final step finishes. `run.json` and command
+JSON output keep stdout/stderr excerpts plus byte counts; full streams stay in
+the step artifacts. If a step's structured stdout declares `evidence_json` or
+`evidence_markdown` files under the run directory, Meguri links them as step
+artifacts. Replay metadata also captures the pre-run git branch,
 commit, dirty flag, and dirty file list so a report can be audited against the
 exact project state that produced it. Legacy
 `.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their

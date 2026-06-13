@@ -167,7 +167,8 @@ check, to evidence, to safe repair, to rerun, and finally pass, blocked, or
 needs-confirmation. New loops live under `.meguri/loops/<loop_id>/_loop.yaml`,
 and each run writes history under `.meguri/loops/<loop_id>/<run_id>/`. Legacy
 `.meguri/scenarios/*.yaml` files remain runnable, but new records are written
-into the loop history structure.
+into the loop history structure. Multi-loop sequential runs write aggregate
+records under `.meguri/batches/<batch_id>/`.
 
 ## AI terminal entrypoints
 
@@ -242,7 +243,9 @@ Workflow:
    of starting loops manually or concurrently.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes.
+   linked artifacts before proposing fixes. For multi-loop runs, inspect
+   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, then
+   drill into each linked loop report.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -331,7 +334,9 @@ Workflow:
    of starting loops manually or concurrently.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes.
+   linked artifacts before proposing fixes. For multi-loop runs, inspect
+   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, then
+   drill into each linked loop report.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """

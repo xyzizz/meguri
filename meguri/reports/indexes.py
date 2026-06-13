@@ -21,12 +21,30 @@ def render_project_index(pack_root: Path) -> str:
             f"<td>{html.escape(str(latest.get('run_id') or '-'))}</td>"
             "</tr>"
         )
-    return _page(
-        "Meguri Loops",
+    batch_rows = []
+    for record in _batch_records(pack_root):
+        batch_id = str(record.get("batch_id") or "")
+        batch_rows.append(
+            "<tr>"
+            f"<td>{html.escape(batch_id)}</td>"
+            f"<td>{html.escape(str(record.get('status') or '-'))}</td>"
+            f"<td>{len(record.get('runs') or [])}</td>"
+            f"<td><a href=\"batches/{html.escape(batch_id)}/index.html\">Open</a></td>"
+            "</tr>"
+        )
+    loops_html = (
+        "<h2>Loops</h2>"
         "<table><thead><tr><th>Loop</th><th>Runs</th><th>Latest status</th><th>Latest run</th></tr></thead><tbody>"
         + "".join(rows)
-        + "</tbody></table>",
+        + "</tbody></table>"
     )
+    batches_html = (
+        "<h2>Batch Runs</h2>"
+        "<table><thead><tr><th>Batch</th><th>Status</th><th>Runs</th><th>Links</th></tr></thead><tbody>"
+        + "".join(batch_rows)
+        + "</tbody></table>"
+    )
+    return _page("Meguri Loops", loops_html + batches_html)
 
 
 def render_loop_index(loop_dir: Path) -> str:
@@ -68,6 +86,26 @@ def _run_records(loop_dir: Path) -> list[dict[str, Any]]:
             continue
         try:
             raw = json.loads(run_json.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue
+        if isinstance(raw, dict):
+            records.append(raw)
+    return records
+
+
+def _batch_records(pack_root: Path) -> list[dict[str, Any]]:
+    batches_dir = pack_root / "batches"
+    batch_dirs = sorted(
+        [path for path in batches_dir.iterdir() if path.is_dir()],
+        reverse=True,
+    ) if batches_dir.is_dir() else []
+    records = []
+    for child in batch_dirs:
+        batch_json = child / "batch.json"
+        if not batch_json.is_file():
+            continue
+        try:
+            raw = json.loads(batch_json.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
             continue
         if isinstance(raw, dict):

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
+import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from meguri.cli.add import handle_add
@@ -11,7 +14,9 @@ from meguri.cli.inspect import handle_inspect
 from meguri.cli.loops import handle_delete, handle_loops
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
-from meguri.project.pack import resolve_scenario
+from meguri.core.models import utc_now
+from meguri.project.pack import find_project_pack, resolve_scenario
+from meguri.reports.indexes import render_project_index
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
 
@@ -98,16 +103,15 @@ def main(argv: list[str] | None = None) -> int:
             print(f"error: {exc}", file=sys.stderr)
             return 1
         run_reports = []
+        started_at = utc_now()
         for scenario_path in scenario_paths:
             run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
             run_reports.append(run_report)
+        batch = _write_batch_report(scenario_paths[0], run_reports, started_at=started_at) if len(run_reports) > 1 else None
         if args.json and len(run_reports) == 1:
             print(report_to_json(run_reports[0]))
         elif args.json:
-            print(json.dumps({
-                "status": _batch_status(run_reports),
-                "runs": [_run_summary(report) for report in run_reports],
-            }, ensure_ascii=False, indent=2, default=str))
+            print(json.dumps(batch, ensure_ascii=False, indent=2, default=str))
         else:
             for run_report in run_reports:
                 if len(run_reports) > 1:
@@ -117,11 +121,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"artifact_dir={run_report.artifact_dir}")
                 print(f"html_report={run_report.html_report_path}")
             if len(run_reports) > 1:
-                print(f"batch_status={_batch_status(run_reports)}")
+                print(f"batch_status={batch['status']}")
+                print(f"batch_report={batch['html_report_path']}")
         if args.open:
-            target_report = run_reports[-1]
-            if not open_path(Path(target_report.html_report_path)):
-                print(f"could not open report automatically: {target_report.html_report_path}", file=sys.stderr)
+            target_path = Path(batch["html_report_path"]) if batch else Path(run_reports[-1].html_report_path)
+            if not open_path(target_path):
+                print(f"could not open report automatically: {target_path}", file=sys.stderr)
         return 0 if _batch_status(run_reports) == "pass" else 1
     if args.cmd == "report":
         return handle_report(args)
@@ -150,6 +155,61 @@ def _run_summary(report) -> dict[str, str]:
         "artifact_dir": report.artifact_dir,
         "html_report_path": report.html_report_path,
     }
+
+
+def _write_batch_report(first_scenario_path: Path, run_reports, *, started_at: str) -> dict:
+    pack = find_project_pack(first_scenario_path.parent)
+    batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    batch_dir = pack.pack_root / "batches" / batch_id
+    batch_dir.mkdir(parents=True, exist_ok=True)
+    record = {
+        "batch_id": batch_id,
+        "status": _batch_status(run_reports),
+        "started_at": started_at,
+        "finished_at": utc_now(),
+        "batch_dir": str(batch_dir),
+        "html_report_path": str(batch_dir / "index.html"),
+        "runs": [_run_summary(report) for report in run_reports],
+    }
+    batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    batch_dir.joinpath("index.html").write_text(_render_batch_html(record, batch_dir), encoding="utf-8")
+    pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
+    return record
+
+
+def _render_batch_html(record: dict, batch_dir: Path) -> str:
+    rows = []
+    for index, run in enumerate(record["runs"], start=1):
+        report_path = Path(run["html_report_path"])
+        href = os.path.relpath(report_path, batch_dir)
+        rows.append(
+            "<tr>"
+            f"<td>{index}</td>"
+            f"<td>{html.escape(run['loop'])}</td>"
+            f"<td>{html.escape(run['status'])}</td>"
+            f"<td>{html.escape(run['run_id'])}</td>"
+            f"<td><a href=\"{html.escape(href)}\">Open report</a></td>"
+            "</tr>"
+        )
+    return (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>Meguri Batch {html.escape(record['batch_id'])}</title>"
+        "<style>"
+        "body{font:14px/1.5 system-ui,sans-serif;margin:32px;color:#1d2430}"
+        "main{max-width:980px;margin:0 auto}"
+        ".status{font-weight:700;text-transform:uppercase}"
+        "table{border-collapse:collapse;width:100%;margin-top:18px}"
+        "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
+        "a{color:#8a3b12;text-underline-offset:3px}"
+        "</style></head><body><main>"
+        f"<h1>Meguri Batch {html.escape(record['batch_id'])}</h1>"
+        f"<p>Status: <span class=\"status\">{html.escape(record['status'])}</span></p>"
+        f"<p>Started: {html.escape(record['started_at'])}<br>Finished: {html.escape(record['finished_at'])}</p>"
+        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Report</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table></main></body></html>"
+    )
 
 
 def _loop_name(report) -> str:

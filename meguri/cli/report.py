@@ -33,6 +33,7 @@ def handle_report(args: Any) -> int:
 
 def latest_report(pack: ProjectPack) -> Path:
     candidates = _loop_report_dirs(pack)
+    candidates.extend(_batch_report_dirs(pack))
     if pack.runs_dir.is_dir():
         candidates.extend([path for path in pack.runs_dir.iterdir() if (path / "index.html").is_file()])
     if not candidates:
@@ -49,6 +50,9 @@ def report_for_run(pack: ProjectPack, run_id: str) -> Path:
         raise FileNotFoundError(f"report not found: {path}")
 
     matches = [path / "index.html" for path in _loop_report_dirs(pack) if path.name == run_id]
+    batch = pack.pack_root / "batches" / run_id / "index.html"
+    if batch.is_file():
+        matches.append(batch)
     legacy = pack.runs_dir / run_id / "index.html"
     if legacy.is_file():
         matches.append(legacy)
@@ -70,18 +74,37 @@ def _loop_report_dirs(pack: ProjectPack) -> list[Path]:
     return candidates
 
 
+def _batch_report_dirs(pack: ProjectPack) -> list[Path]:
+    batches_dir = pack.pack_root / "batches"
+    if not batches_dir.is_dir():
+        return []
+    return [
+        batch_dir
+        for batch_dir in sorted(path for path in batches_dir.iterdir() if path.is_dir())
+        if (batch_dir / "index.html").is_file()
+    ]
+
+
 def _report_sort_key(path: Path) -> tuple[float, str]:
-    recorded = _recorded_run_time(path / "run.json")
+    recorded = _recorded_report_time(path)
     if recorded is not None:
         return (recorded, path.name)
     return (path.stat().st_mtime, path.name)
 
 
-def _recorded_run_time(run_json: Path) -> float | None:
-    if not run_json.is_file():
+def _recorded_report_time(report_dir: Path) -> float | None:
+    for name in ("run.json", "batch.json"):
+        recorded = _recorded_json_time(report_dir / name)
+        if recorded is not None:
+            return recorded
+    return None
+
+
+def _recorded_json_time(path: Path) -> float | None:
+    if not path.is_file():
         return None
     try:
-        raw = json.loads(run_json.read_text(encoding="utf-8"))
+        raw = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return None
     if not isinstance(raw, dict):

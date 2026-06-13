@@ -63,6 +63,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "meguri run <loop1> <loop2>" in codex_skill
+    assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
@@ -270,9 +271,23 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert batch["status"] == "fail"
     assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass"]
     assert [run["status"] for run in batch["runs"]] == ["fail", "pass"]
+    batch_dir = Path(batch["batch_dir"])
+    assert batch_dir.parent == tmp_path / ".meguri" / "batches"
+    assert batch["html_report_path"] == str(batch_dir / "index.html")
+    assert (batch_dir / "batch.json").is_file()
+    assert (batch_dir / "index.html").is_file()
+    batch_record = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
+    assert batch_record["status"] == "fail"
+    assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass"]
+    html = (batch_dir / "index.html").read_text(encoding="utf-8")
+    assert "first_fail" in html
+    assert "second_pass" in html
     assert marker_path.read_text(encoding="utf-8") == "ran"
     assert Path(batch["runs"][0]["html_report_path"]).is_file()
     assert Path(batch["runs"][1]["html_report_path"]).is_file()
+
+    assert main(["report", "--last"]) == 0
+    assert capsys.readouterr().out.strip() == batch["html_report_path"]
 
 
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
