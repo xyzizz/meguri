@@ -64,11 +64,13 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "meguri run <loop1> <loop2>" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
+    assert "live progress surface" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
     assert "evidence crash-safe" in claude_skill
+    assert "live progress surface" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
@@ -315,6 +317,48 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
 
     assert main(["report", "--last"]) == 0
     assert capsys.readouterr().out.strip() == batch["html_report_path"]
+
+
+def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    marker_path = tmp_path / "batch_snapshot_seen.txt"
+    _write_loop(
+        tmp_path,
+        "first_pass",
+        [sys.executable, "-c", "print('first passed')"],
+    )
+    _write_loop(
+        tmp_path,
+        "second_probe",
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, pathlib; "
+                f"root = pathlib.Path(r'{tmp_path}') / '.meguri' / 'batches'; "
+                "records = sorted(root.glob('*/batch.json')); "
+                "assert records, 'batch record missing while second loop is running'; "
+                "data = json.loads(records[-1].read_text(encoding='utf-8')); "
+                "assert data['status'] == 'running', data; "
+                "assert data['completed_loops'] == 1, data; "
+                "assert data['planned_loops'] == ['first_pass', 'second_probe'], data; "
+                "assert [run['loop'] for run in data['runs']] == ['first_pass'], data; "
+                f"pathlib.Path(r'{marker_path}').write_text(data['runs'][0]['status'], encoding='utf-8')"
+            ),
+        ],
+    )
+
+    assert main(["run", "first_pass", "second_probe", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["status"] == "pass"
+    assert batch["completed_loops"] == 2
+    assert marker_path.read_text(encoding="utf-8") == "pass"
+    batch_record = json.loads(Path(batch["batch_dir"]).joinpath("batch.json").read_text(encoding="utf-8"))
+    assert batch_record["status"] == "pass"
+    assert [run["loop"] for run in batch_record["runs"]] == ["first_pass", "second_probe"]
 
 
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:

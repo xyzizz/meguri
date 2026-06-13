@@ -105,10 +105,38 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         run_reports = []
         started_at = utc_now()
+        batch_context = _create_batch_context(scenario_paths[0]) if len(scenario_paths) > 1 else None
+        batch = (
+            _write_batch_report(
+                batch_context,
+                run_reports,
+                started_at=started_at,
+                planned_loops=scenario_names,
+                status="running",
+            )
+            if batch_context
+            else None
+        )
         for scenario_path in scenario_paths:
             run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
             run_reports.append(run_report)
-        batch = _write_batch_report(scenario_paths[0], run_reports, started_at=started_at) if len(run_reports) > 1 else None
+            if batch_context and len(run_reports) < len(scenario_paths):
+                batch = _write_batch_report(
+                    batch_context,
+                    run_reports,
+                    started_at=started_at,
+                    planned_loops=scenario_names,
+                    status="running",
+                )
+        if batch_context:
+            batch = _write_batch_report(
+                batch_context,
+                run_reports,
+                started_at=started_at,
+                planned_loops=scenario_names,
+                status=_batch_status(run_reports),
+                finished_at=utc_now(),
+            )
         if args.json and len(run_reports) == 1:
             print(report_to_json(run_reports[0]))
         elif args.json:
@@ -266,19 +294,42 @@ def _failure_groups(runs: list[dict]) -> list[dict]:
     return sorted(groups, key=lambda group: (-int(group["count"]), str(group["reason"])))
 
 
-def _write_batch_report(first_scenario_path: Path, run_reports, *, started_at: str) -> dict:
+def _create_batch_context(first_scenario_path: Path) -> dict:
     pack = find_project_pack(first_scenario_path.parent)
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
+    return {"pack": pack, "batch_id": batch_id, "batch_dir": batch_dir}
+
+
+def _write_batch_report(
+    batch_context: dict,
+    run_reports,
+    *,
+    started_at: str,
+    planned_loops: list[str],
+    status: str,
+    finished_at: str | None = None,
+) -> dict:
+    pack = batch_context["pack"]
+    batch_id = batch_context["batch_id"]
+    batch_dir = batch_context["batch_dir"]
     runs = [_run_summary(report) for report in run_reports]
+    completed = len(runs)
+    remaining_loops = planned_loops[completed:]
     record = {
         "batch_id": batch_id,
-        "status": _batch_status(run_reports),
+        "status": status,
         "started_at": started_at,
-        "finished_at": utc_now(),
+        "updated_at": utc_now(),
+        "finished_at": finished_at or "",
         "batch_dir": str(batch_dir),
         "html_report_path": str(batch_dir / "index.html"),
+        "planned_loops": planned_loops,
+        "completed_loops": completed,
+        "total_loops": len(planned_loops),
+        "current_loop": remaining_loops[0] if status == "running" and remaining_loops else "",
+        "remaining_loops": remaining_loops,
         "failure_groups": _failure_groups(runs),
         "runs": runs,
     }
@@ -326,13 +377,19 @@ def _render_batch_html(record: dict, batch_dir: Path) -> str:
         "body{font:14px/1.5 system-ui,sans-serif;margin:32px;color:#1d2430}"
         "main{max-width:980px;margin:0 auto}"
         ".status{font-weight:700;text-transform:uppercase}"
+        ".meta{color:#5d6778}"
         "table{border-collapse:collapse;width:100%;margin-top:18px}"
         "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
         "a{color:#8a3b12;text-underline-offset:3px}"
         "</style></head><body><main>"
         f"<h1>Meguri Batch {html.escape(record['batch_id'])}</h1>"
         f"<p>Status: <span class=\"status\">{html.escape(record['status'])}</span></p>"
-        f"<p>Started: {html.escape(record['started_at'])}<br>Finished: {html.escape(record['finished_at'])}</p>"
+        f"<p class=\"meta\">Progress: {html.escape(str(record.get('completed_loops', 0)))}"
+        f" / {html.escape(str(record.get('total_loops', len(record.get('runs') or []))))} loops"
+        f"<br>Current: {html.escape(str(record.get('current_loop') or '-'))}"
+        f"<br>Started: {html.escape(record['started_at'])}"
+        f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
+        f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
         + groups_html +
         "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
