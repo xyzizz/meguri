@@ -71,6 +71,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
     assert "batch `retry_command`" in codex_skill
+    assert "preserves `--allow-execute`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
@@ -85,6 +86,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
     assert "batch `retry_command`" in claude_skill
+    assert "preserves `--allow-execute`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
@@ -279,6 +281,33 @@ def test_run_execute_loop_requires_explicit_approval(tmp_path: Path, monkeypatch
 
     assert main(["run", "real_submit", "--allow-execute"]) == 0
     assert marker_path.read_text(encoding="utf-8") == "ran"
+
+
+def test_batch_retry_command_preserves_execute_approval(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    for loop_name in ("first_execute_fail", "second_execute_fail"):
+        _write_loop(
+            tmp_path,
+            loop_name,
+            [
+                sys.executable,
+                "-c",
+                "import json, sys; print(json.dumps({'errors': ['target data invalid']})); sys.exit(5)",
+            ],
+        )
+        loop_path = tmp_path / ".meguri" / "loops" / loop_name / "_loop.yaml"
+        raw = yaml.safe_load(loop_path.read_text(encoding="utf-8"))
+        raw["mode"] = "execute"
+        loop_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+    assert main(["run", "first_execute_fail", "second_execute_fail", "--allow-execute", "--json"]) == 1
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["retry_command"] == "meguri run first_execute_fail second_execute_fail --allow-execute"
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "meguri run first_execute_fail second_execute_fail --allow-execute" in html
 
 
 def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, monkeypatch, capsys) -> None:

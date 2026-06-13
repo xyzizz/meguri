@@ -9,7 +9,12 @@ from typing import Any
 from meguri.reports.metrics import format_metrics
 
 
-def batch_retry_command(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> str:
+def batch_retry_command(
+    runs: list[dict[str, Any]],
+    remaining_loops: list[str] | None = None,
+    *,
+    allow_execute: bool = False,
+) -> str:
     targets = []
     for run in runs:
         status = str(run.get("status") or "")
@@ -20,7 +25,10 @@ def batch_retry_command(runs: list[dict[str, Any]], remaining_loops: list[str] |
     targets = _dedupe(targets)
     if not targets:
         return ""
-    return shlex.join(["meguri", "run", *targets])
+    command = ["meguri", "run", *targets]
+    if allow_execute:
+        command.append("--allow-execute")
+    return shlex.join(command)
 
 
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:

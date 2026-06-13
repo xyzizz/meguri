@@ -119,7 +119,11 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         run_reports = []
         started_at = utc_now()
-        batch_context = _create_batch_context(scenario_paths[0]) if len(scenario_paths) > 1 else None
+        batch_context = (
+            _create_batch_context(scenario_paths[0], allow_execute=args.allow_execute)
+            if len(scenario_paths) > 1
+            else None
+        )
         batch = (
             _write_batch_report(
                 batch_context,
@@ -345,12 +349,12 @@ def _dedupe_reasons(values: list[str], *, limit: int = 5) -> list[str]:
     return reasons
 
 
-def _create_batch_context(first_scenario_path: Path) -> dict:
+def _create_batch_context(first_scenario_path: Path, *, allow_execute: bool = False) -> dict:
     pack = find_project_pack(first_scenario_path.parent)
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
-    return {"pack": pack, "batch_id": batch_id, "batch_dir": batch_dir}
+    return {"pack": pack, "batch_id": batch_id, "batch_dir": batch_dir, "allow_execute": allow_execute}
 
 
 def _write_batch_report(
@@ -382,7 +386,11 @@ def _write_batch_report(
         "total_loops": len(planned_loops),
         "current_loop": remaining_loops[0] if remaining_loops and (status == "running" or interruption) else "",
         "remaining_loops": remaining_loops,
-        "retry_command": batch_retry_command(runs, remaining_loops),
+        "retry_command": batch_retry_command(
+            runs,
+            remaining_loops,
+            allow_execute=bool(batch_context.get("allow_execute")),
+        ),
         "failure_groups": failure_groups(runs),
         "runs": runs,
     }

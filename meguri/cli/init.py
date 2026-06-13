@@ -177,7 +177,8 @@ blocked, appends a `run_interrupted` timeline event, and leaves the report
 readable. Each run report includes a project-root Replay command that uses the
 run-local `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
 Batch reports include a batch `retry_command` that reruns failed, blocked, or
-unfinished loops from the project root after repair.
+unfinished loops from the project root after repair. When a batch was started
+with execute approval, the batch `retry_command` preserves `--allow-execute`.
 
 ## AI terminal entrypoints
 
@@ -271,8 +272,10 @@ Workflow:
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for
    a written summary. After making a repair, use the batch `retry_command` for
-   grouped failures, or the run report's project-root Replay command for a
-   single loop, instead of rebuilding the command from memory.
+   grouped failures; it preserves `--allow-execute` when the original batch was
+   explicitly approved for execute mode. Use the run report's project-root
+   Replay command for a single loop instead of rebuilding the command from
+   memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -379,8 +382,10 @@ Workflow:
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for
    a written summary. After making a repair, use the batch `retry_command` for
-   grouped failures, or the run report's project-root Replay command for a
-   single loop, instead of rebuilding the command from memory.
+   grouped failures; it preserves `--allow-execute` when the original batch was
+   explicitly approved for execute mode. Use the run report's project-root
+   Replay command for a single loop instead of rebuilding the command from
+   memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
