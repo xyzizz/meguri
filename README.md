@@ -119,10 +119,11 @@ starts and refreshed when each step starts, when shell stdout/stderr advances,
 and when each step completes. Shell step stdout/stderr artifacts are also
 updated while the command is still running. Long runs can be inspected before
 the final step finishes. In normal text mode,
-`meguri run` prints `live_report=...`, `live_artifact_dir=...`, and the current
-step as soon as a running snapshot exists; `--json` remains clean final JSON
-only. `run.json.updated_at` changes on every snapshot refresh so a viewer can
-poll progress safely.
+`meguri run` prints `live_report=...`, `live_artifact_dir=...`,
+`live_updated_at=...`, the current step, and live stdout/stderr artifact paths
+plus character counts as soon as running snapshots exist or output advances;
+`--json` remains clean final JSON only. `run.json.updated_at` changes on every
+snapshot refresh so a viewer can poll progress safely.
 If a run is interrupted, Meguri preserves the last active step as blocked,
 appends a `run_interrupted` timeline event, and leaves the report readable.
 `run.json` and command

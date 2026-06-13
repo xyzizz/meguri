@@ -307,10 +307,15 @@ def _run_summary(report) -> dict:
 
 
 def _running_step_id(report) -> str:
+    step = _running_step(report)
+    return str(step.step_id) if step else ""
+
+
+def _running_step(report):
     for step in reversed(report.steps):
         if step.status == "running":
-            return step.step_id
-    return ""
+            return step
+    return None
 
 
 def _batch_snapshot_writer(
@@ -366,25 +371,65 @@ def _run_snapshot_writer(
 
 
 def _live_snapshot_printer():
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str, int, int]] = set()
 
     def print_live_snapshot(report) -> None:
         if report.status != "running":
             return
-        current_step = _running_step_id(report)
+        step = _running_step(report)
+        current_step = str(step.step_id) if step else ""
         if report.steps and not current_step:
             return
-        key = (str(report.run_id), current_step)
+        stdout_chars = _live_stream_chars(step, "stdout")
+        stderr_chars = _live_stream_chars(step, "stderr")
+        key = (str(report.run_id), current_step, str(report.updated_at or ""), stdout_chars, stderr_chars)
         if key in seen:
             return
         seen.add(key)
         print(f"live_loop={_loop_name(report)}", flush=True)
         print(f"live_run_id={report.run_id}", flush=True)
         print(f"live_step={current_step or '-'}", flush=True)
+        if report.updated_at:
+            print(f"live_updated_at={report.updated_at}", flush=True)
         print(f"live_artifact_dir={report.artifact_dir}", flush=True)
         print(f"live_report={report.html_report_path}", flush=True)
+        _print_live_stream(step, "stdout", stdout_chars)
+        _print_live_stream(step, "stderr", stderr_chars)
 
     return print_live_snapshot
+
+
+def _live_stream_chars(step, kind: str) -> int:
+    if step is None:
+        return -1
+    data = getattr(step, "data", {}) or {}
+    value = data.get(f"live_{kind}_chars")
+    if isinstance(value, int):
+        return value
+    text = getattr(step, kind, "")
+    return len(text) if isinstance(text, str) else -1
+
+
+def _print_live_stream(step, kind: str, chars: int) -> None:
+    artifact = _live_stream_artifact(step, kind)
+    if artifact is None and chars < 0:
+        return
+    if artifact is not None:
+        name = getattr(artifact, "name", "") or getattr(artifact, "path", "")
+        path = getattr(artifact, "path", "") or name
+        print(f"live_{kind}={name}", flush=True)
+        print(f"live_{kind}_path={path}", flush=True)
+    if chars >= 0:
+        print(f"live_{kind}_chars={chars}", flush=True)
+
+
+def _live_stream_artifact(step, kind: str):
+    if step is None:
+        return None
+    for artifact in getattr(step, "artifacts", []) or []:
+        if getattr(artifact, "kind", "") == kind:
+            return artifact
+    return None
 
 
 def _failure_reasons(report) -> list[str]:
