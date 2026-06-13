@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
+import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -299,6 +301,23 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     metrics = extract_run_metrics_from_steps(raw.get("steps") or [])
     if metrics:
         summary["metrics"] = metrics
+    evidence_files = _evidence_files_from_raw(raw)
+    if evidence_files:
+        summary["evidence_files"] = evidence_files
+        summary["evidence_count"] = len(evidence_files)
+    if isinstance(raw.get("evidence_warnings"), list):
+        warnings = [str(item) for item in raw["evidence_warnings"] if item]
+        if warnings:
+            summary["evidence_warnings"] = warnings
+    replay_status = _replay_status_from_raw(raw)
+    if replay_status:
+        summary["replay_status"] = replay_status
+    replay_missing = _replay_missing_from_raw(raw)
+    if replay_missing:
+        summary["replay_missing"] = replay_missing
+    replay_command = _replay_command_from_raw(raw, report_dir=report_dir, loop=loop)
+    if replay_command:
+        summary["replay_command"] = replay_command
     return summary
 
 
@@ -310,6 +329,49 @@ def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:
 def _mode_from_raw(raw: dict[str, Any]) -> str:
     metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
     return str(raw.get("mode") or metadata.get("mode") or "")
+
+
+def _evidence_files_from_raw(raw: dict[str, Any]) -> list[str]:
+    replay = raw.get("replay") if isinstance(raw.get("replay"), dict) else {}
+    inputs = replay.get("inputs") if isinstance(replay.get("inputs"), list) else []
+    files = []
+    for item in inputs:
+        if not isinstance(item, dict):
+            continue
+        if item.get("source") == "evidence" and item.get("path"):
+            files.append(str(item["path"]))
+    return files
+
+
+def _replay_status_from_raw(raw: dict[str, Any]) -> str:
+    replay = raw.get("replay") if isinstance(raw.get("replay"), dict) else {}
+    details = replay.get("replay") if isinstance(replay.get("replay"), dict) else {}
+    return str(details.get("status") or "")
+
+
+def _replay_missing_from_raw(raw: dict[str, Any]) -> list[str]:
+    replay = raw.get("replay") if isinstance(raw.get("replay"), dict) else {}
+    details = replay.get("replay") if isinstance(replay.get("replay"), dict) else {}
+    missing = details.get("missing")
+    if not isinstance(missing, list):
+        return []
+    return [str(item) for item in missing if item]
+
+
+def _replay_command_from_raw(raw: dict[str, Any], *, report_dir: Path, loop: str) -> str:
+    replay = raw.get("replay") if isinstance(raw.get("replay"), dict) else {}
+    if not replay:
+        return ""
+    replay_path = report_dir / "replay.json"
+    project_path = Path(str(raw.get("project_path"))) if raw.get("project_path") else None
+    replay_arg = replay_path.as_posix()
+    if project_path is not None:
+        try:
+            replay_arg = Path(os.path.relpath(replay_path, project_path)).as_posix()
+        except (OSError, ValueError):
+            pass
+    source_run_id = str(replay.get("source_run_id") or raw.get("run_id") or report_dir.name)
+    return shlex.join(["meguri", "run", loop, "--replay", replay_arg, "--retry-of", source_run_id])
 
 
 def _failure_reasons_from_raw(raw: dict[str, Any]) -> list[str]:

@@ -70,6 +70,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in codex_skill
     assert "meguri report <run_id> --json" in codex_skill
     assert "meguri report --last --json" in codex_skill
+    assert "`evidence_files`" in codex_skill
+    assert "`replay_command`" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
     assert "meguri report --runs <run_id-or-path> ..." in codex_skill
@@ -92,6 +94,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in claude_skill
     assert "meguri report <run_id> --json" in claude_skill
     assert "meguri report --last --json" in claude_skill
+    assert "`evidence_files`" in claude_skill
+    assert "`replay_command`" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
     assert "meguri report --runs <run_id-or-path> ..." in claude_skill
@@ -837,8 +841,19 @@ def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, 
             "status": "fail",
             "mode": "execute",
             "finished_at": "2026-06-13T12:00:00+00:00",
+            "project_path": str(tmp_path),
             "artifact_dir": str(run_dir),
             "metadata": {"loop_id": "single_loop"},
+            "evidence_warnings": ["schema_warning: rendered as note"],
+            "replay": {
+                "source_run_id": run_dir.name,
+                "loop_id": "single_loop",
+                "inputs": [
+                    {"source": "evidence", "path": "evidence/session/evidence.json"},
+                    {"source": "config", "path": "ignored.yaml"},
+                ],
+                "replay": {"status": "full", "missing": []},
+            },
             "steps": [
                 {
                     "step_id": "run",
@@ -865,6 +880,15 @@ def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, 
     assert record["status"] == "fail"
     assert record["mode"] == "execute"
     assert record["failure_reasons"] == ["archived campaign"]
+    assert record["evidence_files"] == ["evidence/session/evidence.json"]
+    assert record["evidence_count"] == 1
+    assert record["evidence_warnings"] == ["schema_warning: rendered as note"]
+    assert record["replay_status"] == "full"
+    assert record["replay_command"] == (
+        "meguri run single_loop --replay "
+        ".meguri/runs/run_20260613_120000_single/replay.json "
+        "--retry-of run_20260613_120000_single"
+    )
     assert record["metrics"] == {
         "closed_status_verified": True,
         "submit_failed_count": 1,
