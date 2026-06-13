@@ -45,6 +45,7 @@ def evaluate_step_checks(step: StepResult, checks: list[dict[str, Any]]) -> list
     results: list[CheckResult] = []
     cached_stdout_json: Any = None
     stdout_json_loaded = False
+    stdout_json_error: ValueError | None = None
     for raw in checks:
         check_id = str(raw.get("id") or raw.get("type") or "check")
         check_type = str(raw.get("type") or "")
@@ -59,8 +60,18 @@ def evaluate_step_checks(step: StepResult, checks: list[dict[str, Any]]) -> list
                 }))
             elif check_type == "stdout_json_path":
                 if not stdout_json_loaded:
-                    cached_stdout_json = extract_last_json(step.stdout)
                     stdout_json_loaded = True
+                    try:
+                        cached_stdout_json = extract_last_json(step.stdout)
+                    except ValueError as exc:
+                        stdout_json_error = exc
+                if stdout_json_error is not None:
+                    results.append(CheckResult(
+                        check_id,
+                        "blocked",
+                        f"stdout did not contain JSON ({stdout_json_error}); inspect stdout/stderr artifacts",
+                    ))
+                    continue
                 actual = get_json_path(cached_stdout_json, str(raw["path"]))
                 expected = raw.get("equals")
                 ok = actual == expected

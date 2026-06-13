@@ -37,3 +37,24 @@ def test_evaluate_step_checks() -> None:
     ])
 
     assert [r.status for r in results] == ["pass", "pass"]
+
+
+def test_stdout_json_checks_block_when_failed_step_has_no_json() -> None:
+    step = StepResult(
+        step_id="s1",
+        status="fail",
+        started_at="t0",
+        finished_at="t1",
+        exit_code=1,
+        stdout="",
+        stderr="Traceback: parser exploded",
+    )
+
+    results = evaluate_step_checks(step, [
+        {"id": "exit", "type": "exit_code", "equals": 0},
+        {"id": "passed", "type": "stdout_json_path", "path": "$.passed", "equals": True},
+        {"id": "turn_count", "type": "stdout_json_path", "path": "$.turn_count", "equals": 7},
+    ])
+
+    assert [r.status for r in results] == ["fail", "blocked", "blocked"]
+    assert all("stdout did not contain JSON" in r.message for r in results[1:])
