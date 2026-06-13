@@ -398,6 +398,7 @@ def _write_run_snapshot(
     retry_of: str | None,
     runs_dir: Path | None,
 ) -> RunReport:
+    updated_at = utc_now()
     evidence = collect_evidence(
         run_evidence_dir=evidence_dir,
         project_evidence_dir=_project_evidence_dir(scenario_path),
@@ -416,12 +417,13 @@ def _write_run_snapshot(
         replay_source=str(replay_file) if replay_file else None,
         retry_of=retry_of,
     )
+    finished_at = updated_at if status != "running" else ""
     report = RunReport(
         run_id=run_id,
         scenario_name=scenario.name,
         status=status,
         started_at=started,
-        finished_at=utc_now(),
+        finished_at=finished_at,
         project_path=str(scenario.project_path),
         artifact_dir=str(artifact_dir),
         steps=list(steps),
@@ -432,6 +434,7 @@ def _write_run_snapshot(
         evidence_warnings=evidence.warnings,
         replay=replay,
         legacy_artifact_dir=str(runs_dir) if runs_dir else "",
+        updated_at=updated_at,
     )
     store.write_json("replay.json", replay)
     store.write_json("run.json", report.to_dict(output_limit=RUN_RECORD_OUTPUT_LIMIT))

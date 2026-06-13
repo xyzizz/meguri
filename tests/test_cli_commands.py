@@ -67,6 +67,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
+    assert "meguri report --recent <N> --json" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
@@ -76,6 +77,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "live progress surface" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
+    assert "meguri report --recent <N> --json" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
@@ -580,6 +582,36 @@ def test_report_recent_extracts_structured_run_metrics(tmp_path: Path, monkeypat
     assert "turns=7" in html
     assert "submit=1/2" in html
     assert "closed=true" in html
+
+
+def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_json"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>json</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "json_loop",
+            "status": "pass",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "json_loop"},
+            "steps": [],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    record = json.loads(capsys.readouterr().out)
+
+    assert record["source"] == "recent_runs"
+    assert record["status"] == "pass"
+    assert record["planned_loops"] == ["json_loop"]
+    assert record["runs"][0]["run_id"] == "run_20260613_120000_json"
+    assert Path(record["html_report_path"]).is_file()
 
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -92,7 +92,9 @@ groups repeated failure reasons across loops when deterministic evidence exposes
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
-runs can be inspected before the final step finishes. `run.json` and command
+runs can be inspected before the final step finishes. `run.json.updated_at`
+changes on every snapshot refresh so a viewer can poll progress safely.
+`run.json` and command
 JSON output keep stdout/stderr excerpts plus byte counts; full streams stay in
 the step artifacts. If a step's structured stdout declares `evidence_json` or
 `evidence_markdown` files under the run directory, Meguri links them as step
@@ -141,6 +143,7 @@ Use Meguri to delete the checkout loop.
 Use Meguri to validate and run the smoke loop.
 Use Meguri to run all loops except checkout.
 Use Meguri to summarize the latest 7 run reports.
+Use Meguri to summarize the latest 7 run reports as JSON.
 Use Meguri to open the latest report.
 ```
 

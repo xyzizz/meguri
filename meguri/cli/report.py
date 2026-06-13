@@ -25,14 +25,20 @@ def handle_report(args: Any) -> int:
 
     try:
         if args.recent is not None:
-            html_path = recent_batch_report(pack, args.recent)
+            batch_record = recent_batch_report(pack, args.recent)
+            html_path = Path(batch_record["html_report_path"])
         else:
+            if getattr(args, "json", False):
+                raise FileNotFoundError("--json is only supported with --recent")
             html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
-    print(html_path)
+    if getattr(args, "json", False):
+        print(json.dumps(batch_record, ensure_ascii=False, indent=2, default=str))
+    else:
+        print(html_path)
     if args.open:
         if not open_path(html_path):
             print(f"could not open report automatically: {html_path}", file=sys.stderr)
@@ -49,7 +55,7 @@ def latest_report(pack: ProjectPack) -> Path:
     return max(candidates, key=_report_sort_key) / "index.html"
 
 
-def recent_batch_report(pack: ProjectPack, limit: int) -> Path:
+def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
     if limit <= 0:
         raise FileNotFoundError("--recent must be greater than 0")
     candidates = _loop_report_dirs(pack)
@@ -83,7 +89,7 @@ def recent_batch_report(pack: ProjectPack, limit: int) -> Path:
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
-    return batch_dir / "index.html"
+    return record
 
 
 def report_for_run(pack: ProjectPack, run_id: str) -> Path:

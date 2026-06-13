@@ -185,7 +185,7 @@ def render_html_report(report: RunReport) -> str:
     <header>
       <div>
         <h1>{html.escape(loop_name)}</h1>
-        <p>{html.escape(report.run_id)} · {html.escape(_duration_text(report.started_at, report.finished_at))}</p>
+        <p>{html.escape(report.run_id)} · {html.escape(_duration_text(report.started_at, report.finished_at or report.updated_at))}</p>
       </div>
       <div class="status {status_class}">{html.escape(report.status)}</div>
     </header>
@@ -194,7 +194,8 @@ def render_html_report(report: RunReport) -> str:
       {_metric("Loop", loop_name)}
       {_metric("Artifacts", report.artifact_dir)}
       {_metric("Started", report.started_at)}
-      {_metric("Finished", report.finished_at)}
+      {_metric("Updated", report.updated_at or report.finished_at)}
+      {_metric("Finished", report.finished_at or "-")}
     </section>
     <section>
       {main_view}

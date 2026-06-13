@@ -73,6 +73,7 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("run_id", nargs="?")
     report.add_argument("--last", action="store_true", help="Select the newest run report.")
     report.add_argument("--recent", type=int, help="Create a batch report from the newest N standalone run reports.")
+    report.add_argument("--json", action="store_true", help="Print clean JSON when creating a recent-run batch report.")
     report.add_argument("--open", action="store_true", help="Open the report.")
 
     args = parser.parse_args(argv)

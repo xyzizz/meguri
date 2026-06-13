@@ -249,6 +249,47 @@ steps:
     assert marker_path.read_text(encoding="utf-8") == "first"
 
 
+def test_runner_run_record_has_updated_at_while_steps_progress(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    marker_path = tmp_path / "seen_running_record.json"
+    scenario_path.write_text(
+        f"""
+name: incremental_updated_at
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: first
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('first done')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+  - id: second
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib; run_dir=pathlib.Path(os.environ['MEGURI_RUN_DIR']); data=json.loads((run_dir / 'run.json').read_text()); assert data['status'] == 'running'; assert data.get('updated_at'); assert not data.get('finished_at'); assert [step['step_id'] for step in data['steps']] == ['first', 'second']; pathlib.Path(r'{marker_path}').write_text(json.dumps({{'updated_at': data['updated_at'], 'finished_at': data.get('finished_at'), 'step_statuses': [step['status'] for step in data['steps']]}}), encoding='utf-8')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    assert report.status == "pass"
+    running_record = json.loads(marker_path.read_text(encoding="utf-8"))
+    assert running_record["updated_at"]
+    assert not running_record["finished_at"]
+    assert running_record["step_statuses"] == ["pass", "running"]
+
+
 def test_runner_appends_timeline_events_as_each_step_progresses(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     scenario_path.write_text(

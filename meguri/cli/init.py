@@ -169,6 +169,10 @@ and each run writes history under `.meguri/loops/<loop_id>/<run_id>/`. Legacy
 `.meguri/scenarios/*.yaml` files remain runnable, but new records are written
 into the loop history structure. Multi-loop sequential runs write aggregate
 records under `.meguri/batches/<batch_id>/`.
+During a run, `timeline.ndjson` is appended as each step advances, and
+`run.json`, `report.md`, and `index.html` are refreshed when the loop starts
+and whenever a step starts or finishes. `run.json.updated_at` changes on every
+snapshot refresh.
 
 ## AI terminal entrypoints
 
@@ -250,9 +254,11 @@ Workflow:
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    per-loop `metrics`, `failure_groups`, and per-loop summaries to prioritize
-   shared repairs, then drill into each linked loop report. If earlier runs were started separately,
-   use `meguri report --recent <N>` to group the latest standalone reports into
-   a recoverable batch report before summarizing.
+   shared repairs, then drill into each linked loop report. If earlier runs
+   were started separately, use `meguri report --recent <N>` to group the latest
+   standalone reports into a recoverable batch report before summarizing. Use
+   `meguri report --recent <N> --json` when you need clean structured data for
+   a written summary.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -348,9 +354,11 @@ Workflow:
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    per-loop `metrics`, `failure_groups`, and per-loop summaries to prioritize
-   shared repairs, then drill into each linked loop report. If earlier runs were started separately,
-   use `meguri report --recent <N>` to group the latest standalone reports into
-   a recoverable batch report before summarizing.
+   shared repairs, then drill into each linked loop report. If earlier runs
+   were started separately, use `meguri report --recent <N>` to group the latest
+   standalone reports into a recoverable batch report before summarizing. Use
+   `meguri report --recent <N> --json` when you need clean structured data for
+   a written summary.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
