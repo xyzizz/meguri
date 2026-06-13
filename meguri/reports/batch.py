@@ -5,6 +5,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from meguri.reports.metrics import format_metrics
+
 
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[str]] = {}
@@ -34,6 +36,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
             f"<td>{html.escape(str(run['loop']))}</td>"
             f"<td>{html.escape(str(run['status']))}</td>"
             f"<td>{html.escape(str(run['run_id']))}</td>"
+            f"<td>{html.escape(format_metrics(run.get('metrics') or {}))}</td>"
             f"<td>{html.escape(str(run['summary']))}</td>"
             f"<td><a href=\"{html.escape(href)}\">Open report</a></td>"
             "</tr>"
@@ -77,7 +80,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
         + groups_html +
-        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
+        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"
     )

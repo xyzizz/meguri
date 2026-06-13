@@ -85,8 +85,9 @@ lists historical run records, and each run report is self-contained with
 relative links. Multi-loop runs create `.meguri/batches/<batch_id>/batch.json`
 and `index.html` when the batch starts, refresh them after each loop completes,
 and finalize them at the end. The batch report links to every completed loop
-report in execution order and groups repeated failure reasons across loops when
-deterministic evidence exposes them.
+report in execution order, extracts structured metrics such as turn count,
+submitted, closed-status verification, and submit success/failure counts, and
+groups repeated failure reasons across loops when deterministic evidence exposes them.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step

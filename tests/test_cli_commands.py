@@ -67,6 +67,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
+    assert "per-loop `metrics`" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
@@ -75,6 +76,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "live progress surface" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
+    assert "per-loop `metrics`" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
@@ -271,7 +273,12 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
         [
             sys.executable,
             "-c",
-            f"from pathlib import Path; Path(r'{marker_path}').write_text('ran', encoding='utf-8'); print('second passed')",
+            (
+                "import json; "
+                f"from pathlib import Path; Path(r'{marker_path}').write_text('ran', encoding='utf-8'); "
+                "print(json.dumps({'turn_count': 7, 'submitted': True, 'closed_status_verified': True, "
+                "'submit_results': [{'ok': True}, {'ok': True}]}))"
+            ),
         ],
     )
     _write_loop(
@@ -297,6 +304,8 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert [run["status"] for run in batch["runs"]] == ["fail", "pass", "fail"]
     assert batch["runs"][0]["summary"] == "video_id is not valid; archived campaign"
     assert batch["runs"][0]["failure_reasons"] == ["video_id is not valid", "archived campaign"]
+    assert batch["runs"][1]["metrics"]["turn_count"] == 7
+    assert batch["runs"][1]["metrics"]["submit_success_count"] == 2
     assert batch["failure_groups"][0] == {
         "reason": "video_id is not valid",
         "count": 2,
@@ -519,6 +528,58 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
         "loops": ["mid_loop", "new_loop"],
     }]
     assert "old_loop" not in html_path.read_text(encoding="utf-8")
+
+
+def test_report_recent_extracts_structured_run_metrics(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_metrics"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>metrics</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "metrics_loop",
+            "status": "fail",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "metrics_loop"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "turn_count": 7,
+                        "submitted": True,
+                        "closed_status_verified": True,
+                        "submit_results": [
+                            {"ok": True, "id": "adset_1"},
+                            {"ok": False, "error": "video_id is not valid"},
+                        ],
+                    }),
+                    "checks": [],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1"]) == 0
+    html_path = Path(capsys.readouterr().out.strip())
+    batch = json.loads(html_path.with_name("batch.json").read_text(encoding="utf-8"))
+
+    assert batch["runs"][0]["metrics"] == {
+        "closed_status_verified": True,
+        "submit_failed_count": 1,
+        "submit_success_count": 1,
+        "submitted": True,
+        "turn_count": 7,
+    }
+    html = html_path.read_text(encoding="utf-8")
+    assert "turns=7" in html
+    assert "submit=1/2" in html
+    assert "closed=true" in html
 
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:

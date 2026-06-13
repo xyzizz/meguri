@@ -249,8 +249,8 @@ Workflow:
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   `failure_groups` and per-loop summaries to prioritize shared repairs, then
-   drill into each linked loop report. If earlier runs were started separately,
+   per-loop `metrics`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs, then drill into each linked loop report. If earlier runs were started separately,
    use `meguri report --recent <N>` to group the latest standalone reports into
    a recoverable batch report before summarizing.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
@@ -347,8 +347,8 @@ Workflow:
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   `failure_groups` and per-loop summaries to prioritize shared repairs, then
-   drill into each linked loop report. If earlier runs were started separately,
+   per-loop `metrics`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs, then drill into each linked loop report. If earlier runs were started separately,
    use `meguri report --recent <N>` to group the latest standalone reports into
    a recoverable batch report before summarizing.
 12. Stop and ask before enabling submit, deploy, payment, production writes,

@@ -17,6 +17,7 @@ from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
 from meguri.reports.batch import failure_groups, render_batch_html
 from meguri.reports.indexes import render_project_index
+from meguri.reports.metrics import extract_run_metrics_from_steps
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
 
@@ -206,7 +207,7 @@ def _batch_status(run_reports) -> str:
 
 def _run_summary(report) -> dict:
     failure_reasons = _failure_reasons(report)
-    return {
+    summary = {
         "loop": _loop_name(report),
         "run_id": report.run_id,
         "status": report.status,
@@ -215,6 +216,10 @@ def _run_summary(report) -> dict:
         "summary": "; ".join(failure_reasons) if failure_reasons else report.status,
         "failure_reasons": failure_reasons,
     }
+    metrics = extract_run_metrics_from_steps(report.steps)
+    if metrics:
+        summary["metrics"] = metrics
+    return summary
 
 
 def _failure_reasons(report) -> list[str]:

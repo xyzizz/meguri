@@ -13,6 +13,7 @@ from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import ProjectPack, find_project_pack
 from meguri.reports.batch import failure_groups, render_batch_html
 from meguri.reports.indexes import render_project_index
+from meguri.reports.metrics import extract_run_metrics_from_steps
 
 
 def handle_report(args: Any) -> int:
@@ -212,7 +213,7 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     loop = _loop_name_from_raw(raw, report_dir)
     status = str(raw.get("status") or "blocked")
     failure_reasons = _failure_reasons_from_raw(raw)
-    return {
+    summary = {
         "loop": loop,
         "run_id": str(raw.get("run_id") or report_dir.name),
         "status": status,
@@ -221,6 +222,10 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
         "summary": "; ".join(failure_reasons) if failure_reasons else status,
         "failure_reasons": failure_reasons,
     }
+    metrics = extract_run_metrics_from_steps(raw.get("steps") or [])
+    if metrics:
+        summary["metrics"] = metrics
+    return summary
 
 
 def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:
