@@ -13,6 +13,8 @@ LEGACY_PACK_DIR_NAMES = (".ai-harness",)
 PACK_DIR_NAMES = (PACK_DIR_NAME, *LEGACY_PACK_DIR_NAMES)
 SCENARIOS_DIR_NAME = "scenarios"
 RUNS_DIR_NAME = "runs"
+LOOPS_DIR_NAME = "loops"
+LOOP_FILE_NAME = "_loop.yaml"
 PROJECT_FILE_NAME = "project.yaml"
 
 
@@ -35,6 +37,19 @@ class ProjectPack:
                 return path
             return (self.project_root / path).resolve()
         return self.pack_root / RUNS_DIR_NAME
+
+    @property
+    def loops_dir(self) -> Path:
+        return self.pack_root / LOOPS_DIR_NAME
+
+    def loop_dir(self, loop_id: str) -> Path:
+        return self.loops_dir / slugify(loop_id)
+
+    def loop_definition_path(self, loop_id: str) -> Path:
+        return self.loop_dir(loop_id) / LOOP_FILE_NAME
+
+    def loop_run_dir(self, loop_id: str, run_id: str) -> Path:
+        return self.loop_dir(loop_id) / run_id
 
 
 def slugify(value: str, *, fallback: str = "loop") -> str:
@@ -85,6 +100,9 @@ def resolve_scenario(value: str | Path, *, cwd: Path | None = None) -> Path:
         raise FileNotFoundError(f"loop file not found: {value}")
 
     pack = find_project_pack(cwd)
+    loop_candidate = pack.loop_definition_path(raw.name)
+    if loop_candidate.exists():
+        return loop_candidate.resolve()
     for suffix in (".yaml", ".yml"):
         candidate = pack.scenarios_dir / f"{raw.name}{suffix}"
         if candidate.exists():
