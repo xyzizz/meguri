@@ -9,13 +9,18 @@ pre-submit workflow node up to, but not including, final confirmation submit.
 
 ## Quick Start
 
-Install the CLI, then initialize a target project:
+In a Codex terminal, install Meguri and initialize the current target project:
 
 ```bash
-pipx install git+https://github.com/<org>/meguri.git
 cd /path/to/target-project
-meguri init --install-skills
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 meguri run smoke --open
+```
+
+If you only want to install the CLI:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
 ```
 
 `init --install-skills` creates:
