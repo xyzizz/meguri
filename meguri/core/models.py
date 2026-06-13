@@ -87,6 +87,10 @@ class RunReport:
     checks: list[CheckResult]
     html_report_path: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
+    evidence: list[Any] = field(default_factory=list)
+    evidence_warnings: list[str] = field(default_factory=list)
+    replay: dict[str, Any] | None = None
+    legacy_artifact_dir: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

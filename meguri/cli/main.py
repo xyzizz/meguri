@@ -11,7 +11,7 @@ from meguri.cli.inspect import handle_inspect
 from meguri.cli.loops import handle_delete, handle_loops
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
-from meguri.project.pack import default_runs_dir_for_scenario, resolve_scenario
+from meguri.project.pack import resolve_scenario
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
 
@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     run = sub.add_parser("run", help="Run a loop.")
     run.add_argument("scenario", nargs="?", default="smoke")
     run.add_argument("--runs-dir")
+    run.add_argument("--replay")
+    run.add_argument("--retry-of")
     run.add_argument("--json", action="store_true")
     run.add_argument("--open", action="store_true", help="Open the generated HTML report.")
 
@@ -89,11 +91,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "run":
         try:
             scenario_path = resolve_scenario(args.scenario)
-            runs_dir = Path(args.runs_dir).expanduser().resolve() if args.runs_dir else default_runs_dir_for_scenario(scenario_path)
+            runs_dir = Path(args.runs_dir).expanduser().resolve() if args.runs_dir else None
+            replay_file = Path(args.replay).expanduser().resolve() if args.replay else None
         except Exception as exc:  # noqa: BLE001
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        run_report = run_scenario(scenario_path, runs_dir=runs_dir)
+        run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
         if args.json:
             print(report_to_json(run_report))
         else:

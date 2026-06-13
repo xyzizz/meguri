@@ -47,6 +47,7 @@ class ShellAdapter:
             exit_code=proc.returncode,
             stdout=proc.stdout,
             stderr=proc.stderr,
+            data={"command": [str(part) for part in command]},
         )
 
     def collect_artifacts(self, ctx: RunContext) -> list[Any]:
@@ -54,4 +55,3 @@ class ShellAdapter:
 
     def cleanup(self, ctx: RunContext) -> None:
         _ = ctx
-

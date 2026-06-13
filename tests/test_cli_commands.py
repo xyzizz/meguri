@@ -177,7 +177,8 @@ def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch,
     assert report["status"] == "pass"
     html_path = Path(report["html_report_path"])
     assert html_path.is_file()
-    assert html_path.parent.parent == tmp_path / ".meguri" / "runs"
+    assert html_path.parent.parent == tmp_path / ".meguri" / "loops" / "smoke"
+    assert (html_path.parent / "replay.json").is_file()
     html = html_path.read_text(encoding="utf-8")
     assert "smoke" in html
     assert "passed" in html
