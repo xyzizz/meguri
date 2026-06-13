@@ -15,6 +15,16 @@ def batch_retry_command(
     *,
     allow_execute: bool = False,
 ) -> str:
+    targets = batch_retry_loops(runs, remaining_loops)
+    if not targets:
+        return ""
+    command = ["meguri", "run", *targets]
+    if allow_execute:
+        command.append("--allow-execute")
+    return shlex.join(command)
+
+
+def batch_retry_loops(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> list[str]:
     targets = []
     for run in runs:
         status = str(run.get("status") or "")
@@ -22,13 +32,7 @@ def batch_retry_command(
         if loop and status in {"fail", "blocked"}:
             targets.append(loop)
     targets.extend(str(loop) for loop in (remaining_loops or []) if loop)
-    targets = _dedupe(targets)
-    if not targets:
-        return ""
-    command = ["meguri", "run", *targets]
-    if allow_execute:
-        command.append("--allow-execute")
-    return shlex.join(command)
+    return _dedupe(targets)
 
 
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:

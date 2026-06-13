@@ -15,7 +15,7 @@ from meguri.cli.validate import handle_validate
 from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
-from meguri.reports.batch import batch_retry_command, failure_groups, render_batch_html
+from meguri.reports.batch import batch_retry_command, batch_retry_loops, failure_groups, render_batch_html
 from meguri.reports.indexes import render_project_index
 from meguri.reports.metrics import extract_run_metrics_from_steps
 from meguri.scenarios.loader import load_scenario
@@ -373,6 +373,7 @@ def _write_batch_report(
     runs = [_run_summary(report) for report in run_reports]
     completed = len(runs)
     remaining_loops = planned_loops[completed:]
+    retry_loops = batch_retry_loops(runs, remaining_loops)
     record = {
         "batch_id": batch_id,
         "status": status,
@@ -386,6 +387,7 @@ def _write_batch_report(
         "total_loops": len(planned_loops),
         "current_loop": remaining_loops[0] if remaining_loops and (status == "running" or interruption) else "",
         "remaining_loops": remaining_loops,
+        "retry_loops": retry_loops,
         "retry_command": batch_retry_command(
             runs,
             remaining_loops,

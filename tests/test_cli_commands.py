@@ -71,6 +71,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
     assert "batch `retry_command`" in codex_skill
+    assert "batch `retry_loops`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" in codex_skill
@@ -86,6 +87,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
     assert "batch `retry_command`" in claude_skill
+    assert "batch `retry_loops`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" in claude_skill
@@ -305,6 +307,7 @@ def test_batch_retry_command_preserves_execute_approval(tmp_path: Path, monkeypa
     assert main(["run", "first_execute_fail", "second_execute_fail", "--allow-execute", "--json"]) == 1
     batch = json.loads(capsys.readouterr().out)
 
+    assert batch["retry_loops"] == ["first_execute_fail", "second_execute_fail"]
     assert batch["retry_command"] == "meguri run first_execute_fail second_execute_fail --allow-execute"
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
     assert "meguri run first_execute_fail second_execute_fail --allow-execute" in html
@@ -381,6 +384,7 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     batch_record = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
     assert batch_record["status"] == "fail"
     assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass", "third_fail"]
+    assert batch_record["retry_loops"] == ["first_fail", "third_fail"]
     assert batch_record["retry_command"] == "meguri run first_fail third_fail"
     html = (batch_dir / "index.html").read_text(encoding="utf-8")
     assert "first_fail" in html
@@ -638,6 +642,7 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     assert batch["source"] == "recent_runs"
     assert batch["planned_loops"] == ["mid_loop", "new_loop"]
     assert [run["loop"] for run in batch["runs"]] == ["mid_loop", "new_loop"]
+    assert batch["retry_loops"] == ["mid_loop", "new_loop"]
     assert batch["retry_command"] == "meguri run mid_loop new_loop"
     assert batch["failure_groups"] == [{
         "reason": "video_id is not valid",

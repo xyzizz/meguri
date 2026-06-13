@@ -11,7 +11,7 @@ from typing import Any
 from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import ProjectPack, find_project_pack
-from meguri.reports.batch import batch_retry_command, failure_groups, render_batch_html
+from meguri.reports.batch import batch_retry_command, batch_retry_loops, failure_groups, render_batch_html
 from meguri.reports.indexes import render_project_index
 from meguri.reports.metrics import extract_run_metrics_from_steps
 
@@ -69,6 +69,7 @@ def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
+    retry_loops = batch_retry_loops(runs)
     record = {
         "batch_id": batch_id,
         "source": "recent_runs",
@@ -83,6 +84,7 @@ def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
         "total_loops": len(runs),
         "current_loop": "",
         "remaining_loops": [],
+        "retry_loops": retry_loops,
         "retry_command": batch_retry_command(runs),
         "failure_groups": failure_groups(runs),
         "runs": runs,
