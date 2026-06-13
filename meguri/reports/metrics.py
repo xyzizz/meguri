@@ -116,17 +116,22 @@ def _submit_counts(value: dict[str, Any]) -> tuple[int, int] | None:
 
 
 def _created_resources(value: Any) -> list[dict[str, str]]:
-    if not isinstance(value, dict):
+    if not isinstance(value, (dict, list)):
         return []
     resources: list[dict[str, str]] = []
-    for key in ("submit_results", "tool_results", "results", "items"):
-        items = value.get(key)
-        if not isinstance(items, list):
-            continue
-        for item in items:
-            resource = _created_resource_from_item(item, source=key)
-            if resource:
-                resources.append(resource)
+    if isinstance(value, dict):
+        for key in ("submit_results", "tool_results", "results", "items"):
+            items = value.get(key)
+            if isinstance(items, list):
+                for item in items:
+                    resource = _created_resource_from_item(item, source=key)
+                    if resource:
+                        resources.append(resource)
+        for child in value.values():
+            resources.extend(_created_resources(child))
+    else:
+        for child in value:
+            resources.extend(_created_resources(child))
     return resources
 
 
@@ -185,18 +190,42 @@ def _resource_type(item: dict[str, Any]) -> str:
     for key in ("campaign_id", "adset_id", "ad_id", "creative_id"):
         if item.get(key):
             return key.removesuffix("_id")
+    for key in ("name", "tool", "function", "action"):
+        value = item.get(key)
+        if not isinstance(value, str):
+            continue
+        lowered = value.lower()
+        if "copy_facebook_campaign" in lowered:
+            return "campaign"
+        if "copy_facebook_adset" in lowered:
+            return "adset"
+        if "copy_facebook_ad_" in lowered or "copy_facebook_ad_to" in lowered:
+            return "ad"
+        for resource_type in ("campaign", "adset", "creative", "ad"):
+            if resource_type in lowered:
+                return resource_type
     return "resource"
 
 
 def _resource_id(item: dict[str, Any]) -> str:
     for key in ("id", "resource_id", "campaign_id", "adset_id", "ad_id", "creative_id"):
         value = item.get(key)
-        if isinstance(value, (str, int)) and str(value):
-            return str(value)
+        resource_id = _normalise_resource_id(value)
+        if resource_id:
+            return resource_id
     result = item.get("result")
     if isinstance(result, dict):
         return _resource_id(result)
     return ""
+
+
+def _normalise_resource_id(value: Any) -> str:
+    if not isinstance(value, (str, int)):
+        return ""
+    text = str(value).strip()
+    if not text or text.lower() in {"-", "n/a", "na", "none", "null", "unknown"}:
+        return ""
+    return text
 
 
 def _first_nonempty(values: list[Any]) -> str:
