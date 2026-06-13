@@ -160,12 +160,13 @@ def main(argv: list[str] | None = None) -> int:
                     runs_dir=runs_dir,
                     replay_file=replay_file,
                     retry_of=args.retry_of,
-                    on_snapshot=_batch_snapshot_writer(
+                    on_snapshot=_run_snapshot_writer(
                         batch_context,
                         run_reports,
                         started_at=started_at,
                         planned_loops=scenario_names,
-                    ) if batch_context else None,
+                        emit_live=not args.json,
+                    ),
                 )
                 run_reports.append(run_report)
                 if batch_context and len(run_reports) < len(scenario_paths):
@@ -329,6 +330,55 @@ def _batch_snapshot_writer(
         )
 
     return write_current_snapshot
+
+
+def _run_snapshot_writer(
+    batch_context: dict | None,
+    run_reports,
+    *,
+    started_at: str,
+    planned_loops: list[str],
+    emit_live: bool,
+):
+    batch_writer = _batch_snapshot_writer(
+        batch_context,
+        run_reports,
+        started_at=started_at,
+        planned_loops=planned_loops,
+    )
+    live_writer = _live_snapshot_printer() if emit_live else None
+    if batch_writer is None and live_writer is None:
+        return None
+
+    def write_snapshot(report) -> None:
+        if batch_writer is not None:
+            batch_writer(report)
+        if live_writer is not None:
+            live_writer(report)
+
+    return write_snapshot
+
+
+def _live_snapshot_printer():
+    seen: set[tuple[str, str]] = set()
+
+    def print_live_snapshot(report) -> None:
+        if report.status != "running":
+            return
+        current_step = _running_step_id(report)
+        if report.steps and not current_step:
+            return
+        key = (str(report.run_id), current_step)
+        if key in seen:
+            return
+        seen.add(key)
+        print(f"live_loop={_loop_name(report)}", flush=True)
+        print(f"live_run_id={report.run_id}", flush=True)
+        print(f"live_step={current_step or '-'}", flush=True)
+        print(f"live_artifact_dir={report.artifact_dir}", flush=True)
+        print(f"live_report={report.html_report_path}", flush=True)
+
+    return print_live_snapshot
 
 
 def _failure_reasons(report) -> list[str]:

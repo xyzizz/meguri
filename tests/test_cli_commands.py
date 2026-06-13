@@ -64,6 +64,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "meguri run <loop1> <loop2>" in codex_skill
+    assert "live_report=..." in codex_skill
     assert "meguri run --all --exclude <loop>" in codex_skill
     assert "meguri run <loop> --allow-execute" in codex_skill
     assert "meguri report --running --json" in codex_skill
@@ -99,6 +100,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "Meguri inspect workflow" in claude_skill
     assert "evidence crash-safe" in claude_skill
     assert "meguri run --all --exclude <loop>" in claude_skill
+    assert "live_report=..." in claude_skill
     assert "meguri run <loop> --allow-execute" in claude_skill
     assert "meguri report --running --json" in claude_skill
     assert "live progress surface" in claude_skill
@@ -294,6 +296,65 @@ def test_run_json_output_compacts_large_stdout(tmp_path: Path, monkeypatch, caps
     assert len(step["stdout"]) < 9000
     assert step["stdout_truncated"] is True
     assert step["stdout_chars"] > 20000
+
+
+def test_run_prints_live_report_path_before_final_output(tmp_path: Path, monkeypatch, capsys) -> None:
+    from meguri.core.models import RunReport, utc_now
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    _write_loop(tmp_path, "long_running", [sys.executable, "-c", "print('done')"])
+
+    def fake_run_scenario(scenario_path, **kwargs):
+        on_snapshot = kwargs["on_snapshot"]
+        assert on_snapshot is not None
+        loop_id = scenario_path.parent.name
+        run_dir = tmp_path / ".meguri" / "loops" / loop_id / "20260613_121314"
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text("<html>live</html>", encoding="utf-8")
+        now = utc_now()
+        on_snapshot(RunReport(
+            run_id=run_dir.name,
+            scenario_name=loop_id,
+            status="running",
+            started_at=now,
+            finished_at="",
+            project_path=str(tmp_path),
+            artifact_dir=str(run_dir),
+            steps=[],
+            checks=[],
+            html_report_path=str(run_dir / "index.html"),
+            metadata={"loop_id": loop_id},
+            updated_at=now,
+            mode="dry_run",
+        ))
+        return RunReport(
+            run_id=run_dir.name,
+            scenario_name=loop_id,
+            status="pass",
+            started_at=now,
+            finished_at=now,
+            project_path=str(tmp_path),
+            artifact_dir=str(run_dir),
+            steps=[],
+            checks=[],
+            html_report_path=str(run_dir / "index.html"),
+            metadata={"loop_id": loop_id},
+            updated_at=now,
+            mode="dry_run",
+        )
+
+    monkeypatch.setattr("meguri.cli.main.run_scenario", fake_run_scenario)
+
+    assert main(["run", "long_running"]) == 0
+    output = capsys.readouterr().out
+
+    assert "live_loop=long_running" in output
+    assert "live_run_id=20260613_121314" in output
+    assert "live_step=-" in output
+    assert f"live_report={tmp_path / '.meguri' / 'loops' / 'long_running' / '20260613_121314' / 'index.html'}" in output
+    assert output.index("live_report=") < output.index("\nrun_id=20260613_121314")
 
 
 def test_run_execute_loop_requires_explicit_approval(tmp_path: Path, monkeypatch, capsys) -> None:

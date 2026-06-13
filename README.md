@@ -115,8 +115,11 @@ targets, the retry command preserves `--allow-execute`.
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
-runs can be inspected before the final step finishes. `run.json.updated_at`
-changes on every snapshot refresh so a viewer can poll progress safely.
+runs can be inspected before the final step finishes. In normal text mode,
+`meguri run` prints `live_report=...`, `live_artifact_dir=...`, and the current
+step as soon as a running snapshot exists; `--json` remains clean final JSON
+only. `run.json.updated_at` changes on every snapshot refresh so a viewer can
+poll progress safely.
 If a run is interrupted, Meguri preserves the last active step as blocked,
 appends a `run_interrupted` timeline event, and leaves the report readable.
 `run.json` and command
