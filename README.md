@@ -134,6 +134,9 @@ for clarification and writes nothing.
   mode.
 - Never treat an LLM self-evaluation as a passing check. Passing evidence should
   come from commands, structured output, logs, artifacts, screenshots, or files.
+- When writing helper or verifier scripts, emit structured evidence into
+  `MEGURI_EVIDENCE_DIR` even on exceptions, including partial input/output,
+  errors, traceback, and artifact links.
 - Ask before enabling submit, deploy, payment, production writes, external sends,
   or data migrations.
 - After changes, validate the Meguri pack and run the relevant safe loop.

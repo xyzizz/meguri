@@ -33,11 +33,16 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     assert "Meguri inspect workflow" in codex_skill
     assert "loop design" in codex_skill
+    assert "evidence crash-safe" in codex_skill
+    assert ".meguri/loops/<loop_id>/<run_id>/run.json" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
+    assert "MEGURI_EVIDENCE_DIR" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
+    assert "evidence crash-safe" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
+    assert "MEGURI_EVIDENCE_DIR" in claude_command
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:
@@ -79,6 +84,8 @@ def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, cap
     assert "Use the active AI session" in prompt
     assert "understanding, loop design" in prompt
     assert ".meguri/project-inspect.json" in prompt
+    assert "MEGURI_EVIDENCE_DIR" in prompt
+    assert "Evidence must survive" in prompt
     assert "You are the current Codex / Claude Code agent" in output
     assert not (tmp_path / ".meguri" / "project-inspect.json").exists()
     assert not (tmp_path / ".meguri" / "project-brief.md").exists()

@@ -114,6 +114,7 @@ $meguri inspect
 - 让 Codex / Claude Code 读取现有文档、测试、脚本和配置，再编写项目专属的 loop 或辅助测试。
 - 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。
 - 不要把 LLM 的自我评价当作通过标准。通过证据应来自命令、结构化输出、日志、产物、截图或文件。
+- 编写 helper/verifier 脚本时，即使异常也要向 `MEGURI_EVIDENCE_DIR` 写结构化 evidence，包含部分输入/输出、错误、traceback 和 artifact 链接。
 - 在启用 submit、deploy、payment、production writes、external sends 或 data migrations 前，必须先询问。
 - 修改后，在安全的情况下校验 Meguri pack，并运行对应的安全 loop。
 

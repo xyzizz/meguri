@@ -51,9 +51,14 @@ Your task:
 2. Infer the current test surface and verification gaps from evidence in the repo.
 3. Do not treat your own opinion as a pass/fail signal. Meguri loops must use
    deterministic commands, logs, structured output, artifacts, screenshots, or files.
-4. Do not perform submit, deploy, payment, production write, external send, or data
+4. When a recommended loop needs helper/verifier code, specify that the helper
+   must write structured JSON evidence to `MEGURI_EVIDENCE_DIR` in a `finally`
+   path. Evidence must survive target app crashes, parser/schema failures, and
+   model response errors by including partial input/output, errors, traceback,
+   and artifact paths.
+5. Do not perform submit, deploy, payment, production write, external send, or data
    migration actions. If a workflow requires them, mark it as blocked or ask.
-5. During inspect, write only under `.meguri/`. Do not edit source code, tests, or
+6. During inspect, write only under `.meguri/`. Do not edit source code, tests, or
    loops yet unless the user explicitly asked for implementation beyond inspect.
 
 Write these files:
@@ -104,6 +109,9 @@ Write these files:
   ],
   "questions": ["concrete question for the user when required"],
   "risk_notes": ["string"],
+  "evidence_contract": [
+    "helper scripts must write crash-safe structured evidence to MEGURI_EVIDENCE_DIR"
+  ],
   "next_actions": ["string"]
 }}
 ```
@@ -111,7 +119,7 @@ Write these files:
 `.meguri/project-brief.md`
 - A concise, audit-friendly brief for a human and future agents.
 - Include detected project shape, evidence read, recommended loops, missing
-  information, risk boundaries, and the next Meguri actions.
+  information, risk boundaries, evidence contract, and the next Meguri actions.
 
 After writing the files:
 1. If `questions` is non-empty, stop and ask the user those questions.

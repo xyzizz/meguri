@@ -190,7 +190,10 @@ Add new loops with:
 Use Meguri to add a dry-run loop for <describe the goal>.
 ```
 
-Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing check.
+Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing
+check. If you write helper or verifier scripts, write structured JSON evidence
+to `MEGURI_EVIDENCE_DIR` in a `finally` path so failures still include partial
+input/output, errors, traceback, and artifact paths.
 """
 
 
@@ -224,14 +227,19 @@ Workflow:
    fields are clear.
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
-7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-8. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
+7. When writing verifier/helper scripts, make evidence crash-safe: write
+   structured JSON evidence to `MEGURI_EVIDENCE_DIR` in a `finally` path, and
+   include partial input/output, errors, traceback, and artifact paths even when
+   the target app or model response crashes.
+8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
-9. After edits, run `meguri validate` and then `meguri run <loop> --open`
+10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-10. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
-   stderr, and linked artifacts before proposing fixes.
-11. Stop and ask before enabling submit, deploy, payment, production writes,
+11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/run.json`,
+   `report.md`, `index.html`, stdout, stderr, evidence, and linked artifacts
+   before proposing fixes.
+12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -255,7 +263,9 @@ If the request asks to add/design a loop, first inspect existing docs,
 manifests, tests, scripts, CI, and entrypoints. Ask concrete questions when the
 goal, execution entry, pass criteria, credentials, data setup, or forbidden side
 effects are unclear. Then write deterministic loops and any needed test/helper
-code.
+code. Verifier/helper scripts must write structured evidence to
+`MEGURI_EVIDENCE_DIR` even on exceptions, including partial transcript, errors,
+traceback, and artifact paths; do not rely only on stdout.
 
 If the request asks to list or delete loops, list only user-added loops by
 default and delete only a named user-added loop unless the user explicitly asks
@@ -304,14 +314,19 @@ Workflow:
    fields are clear.
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
-7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-8. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
+7. When writing verifier/helper scripts, make evidence crash-safe: write
+   structured JSON evidence to `MEGURI_EVIDENCE_DIR` in a `finally` path, and
+   include partial input/output, errors, traceback, and artifact paths even when
+   the target app or model response crashes.
+8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
-9. After edits, run `meguri validate` and then `meguri run <loop> --open`
+10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-10. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
-   stderr, and linked artifacts before proposing fixes.
-11. Stop and ask before enabling submit, deploy, payment, production writes,
+11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/run.json`,
+   `report.md`, `index.html`, stdout, stderr, evidence, and linked artifacts
+   before proposing fixes.
+12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -333,6 +348,7 @@ workflow, follow the printed specification, and write
 
 For add, loops, delete, run, validate, or report requests, follow the
 project-local Meguri pack, prefer deterministic evidence, keep loops in
-`dry_run` unless explicitly approved, and ask before submit, deploy, payment,
+`dry_run` unless explicitly approved, make helper scripts write crash-safe
+evidence to `MEGURI_EVIDENCE_DIR`, and ask before submit, deploy, payment,
 production writes, external sends, or data migrations.
 """
