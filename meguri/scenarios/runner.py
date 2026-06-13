@@ -17,6 +17,9 @@ from meguri.reports.indexes import write_indexes
 from meguri.scenarios.loader import load_scenario
 
 
+RUN_RECORD_OUTPUT_LIMIT = 8_000
+
+
 def run_scenario(
     scenario_path: Path,
     *,
@@ -328,7 +331,7 @@ def _write_run_snapshot(
         legacy_artifact_dir=str(runs_dir) if runs_dir else "",
     )
     store.write_json("replay.json", replay)
-    store.write_json("run.json", report.to_dict())
+    store.write_json("run.json", report.to_dict(output_limit=RUN_RECORD_OUTPUT_LIMIT))
     store.write_text("report.md", render_markdown_report(report), kind="markdown")
     store.write_text("index.html", render_html_report(report), kind="html")
     _write_history_indexes(artifact_dir)
@@ -370,7 +373,7 @@ def render_markdown_report(report: RunReport) -> str:
 
 
 def report_to_json(report: RunReport) -> str:
-    return json.dumps(report.to_dict(), ensure_ascii=False, indent=2, default=str)
+    return json.dumps(report.to_dict(output_limit=RUN_RECORD_OUTPUT_LIMIT), ensure_ascii=False, indent=2, default=str)
 
 
 def _loop_name(report: RunReport) -> str:

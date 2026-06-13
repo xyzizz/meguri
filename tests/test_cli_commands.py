@@ -192,6 +192,26 @@ def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch,
     assert "passed" in html
 
 
+def test_run_json_output_compacts_large_stdout(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    loop_path = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
+    raw = yaml.safe_load(loop_path.read_text(encoding="utf-8"))
+    raw["steps"][0]["command"] = [sys.executable, "-c", "print('A' * 20000)"]
+    raw["steps"][0]["checks"] = [{"id": "exit", "type": "exit_code", "equals": 0}]
+    loop_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+    assert main(["run", "smoke", "--json"]) == 0
+    output = capsys.readouterr().out
+    report = json.loads(output)
+
+    step = report["steps"][0]
+    assert len(step["stdout"]) < 9000
+    assert step["stdout_truncated"] is True
+    assert step["stdout_chars"] > 20000
+
+
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0

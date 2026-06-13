@@ -80,9 +80,11 @@ The project index lists loops, the loop index lists historical run records, and
 each run report is self-contained with relative links. Run records are written
 when a loop starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
-runs can be inspected before the final step finishes. Replay metadata also
-captures the pre-run git branch, commit, dirty flag, and dirty file list so a
-report can be audited against the exact project state that produced it. Legacy
+runs can be inspected before the final step finishes. `run.json` and command
+JSON output keep stdout/stderr excerpts plus byte counts; full streams stay in
+the step artifacts. Replay metadata also captures the pre-run git branch,
+commit, dirty flag, and dirty file list so a report can be audited against the
+exact project state that produced it. Legacy
 `.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their
 new records are written under `.meguri/loops/<loop_id>/`. Existing
 `.meguri/runs/<run_id>/` reports remain readable.

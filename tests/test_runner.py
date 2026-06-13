@@ -282,6 +282,40 @@ steps:
     assert "live hello" in stdout_path.read_text(encoding="utf-8")
 
 
+def test_runner_keeps_full_output_in_artifacts_and_compacts_run_json(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    scenario_path.write_text(
+        f"""
+name: large_output
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: emit_large
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('A' * 20000)"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+    artifact_dir = Path(report.artifact_dir)
+    run_record = json.loads((artifact_dir / "run.json").read_text(encoding="utf-8"))
+
+    artifact_stdout = (artifact_dir / "steps" / "emit_large" / "stdout.txt").read_text(encoding="utf-8")
+    recorded_step = run_record["steps"][0]
+    assert len(artifact_stdout) > 20000
+    assert len(recorded_step["stdout"]) < 9000
+    assert recorded_step["stdout_truncated"] is True
+    assert recorded_step["stdout_chars"] == len(artifact_stdout)
+
+
 def test_runner_closes_report_when_adapter_step_raises(tmp_path: Path, monkeypatch) -> None:
     class ExplodingAdapter:
         name = "exploding"

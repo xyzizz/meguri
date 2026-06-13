@@ -92,8 +92,34 @@ class RunReport:
     replay: dict[str, Any] | None = None
     legacy_artifact_dir: str = ""
 
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+    def to_dict(self, *, output_limit: int | None = None) -> dict[str, Any]:
+        raw = asdict(self)
+        if output_limit is None:
+            return raw
+        for step in raw.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            for name in ("stdout", "stderr"):
+                value = step.get(name)
+                if not isinstance(value, str):
+                    continue
+                step[f"{name}_chars"] = len(value)
+                if len(value) > output_limit:
+                    step[name] = _compact_text(value, output_limit)
+                    step[f"{name}_truncated"] = True
+                else:
+                    step[f"{name}_truncated"] = False
+        return raw
+
+
+def _compact_text(value: str, limit: int) -> str:
+    if limit < 80:
+        return value[:limit]
+    marker = f"\n... meguri truncated {len(value) - limit} chars; see stdout/stderr artifact for full output ...\n"
+    remaining = max(0, limit - len(marker))
+    head = remaining // 2
+    tail = remaining - head
+    return f"{value[:head]}{marker}{value[-tail:] if tail else ''}"
 
 
 def new_run_id(prefix: str = "run") -> str:
