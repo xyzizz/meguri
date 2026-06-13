@@ -11,6 +11,7 @@ def render_markdown_report(report: RunReport) -> str:
         f"- run_id: `{report.run_id}`",
         f"- loop: `{loop_name}`",
         f"- status: `{report.status}`",
+        f"- mode: `{report.mode or '-'}`",
         f"- project: `{report.project_path}`",
         f"- artifacts: `{report.artifact_dir}`",
         "",

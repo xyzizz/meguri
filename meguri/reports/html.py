@@ -29,6 +29,7 @@ def render_html_report(report: RunReport) -> str:
         "loop": loop_name,
         "scenario_file_name": report.scenario_name,
         "status": report.status,
+        "mode": report.mode,
         "started_at": report.started_at,
         "finished_at": report.finished_at,
         "project_path": report.project_path,
@@ -200,6 +201,7 @@ def render_html_report(report: RunReport) -> str:
     <section class="summary" aria-label="Run summary">
       {_metric("Project", report.project_path)}
       {_metric("Loop", loop_name)}
+      {_metric("Mode", report.mode or "-")}
       {_metric("Artifacts", report.artifact_dir)}
       {_metric("Started", report.started_at)}
       {_metric("Updated", report.updated_at or report.finished_at)}

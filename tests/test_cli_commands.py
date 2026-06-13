@@ -1475,12 +1475,11 @@ def test_report_refresh_rewrites_single_run_html_from_run_json(tmp_path: Path, m
             "run_id": run_dir.name,
             "scenario_name": "reference_campaign_new_campaign",
             "status": "fail",
-            "mode": "execute",
             "started_at": "2026-06-13T11:59:00+00:00",
             "finished_at": "2026-06-13T12:00:00+00:00",
             "project_path": str(tmp_path),
             "artifact_dir": str(run_dir),
-            "metadata": {"loop_id": "reference_campaign_new_campaign"},
+            "metadata": {"loop_id": "reference_campaign_new_campaign", "mode": "execute"},
             "steps": [
                 {
                     "step_id": "run",
@@ -1532,12 +1531,14 @@ def test_report_refresh_rewrites_single_run_html_from_run_json(tmp_path: Path, m
     refreshed = html_path.read_text(encoding="utf-8")
     assert "stale" not in refreshed
     assert "Failure Reasons" in refreshed
+    assert "<span>Mode</span><strong>execute</strong>" in refreshed
     assert "please remove conflicting locations" in refreshed
     assert "Created Resources" in refreshed
     assert "120250081240970683" in refreshed
     refreshed_markdown = markdown_path.read_text(encoding="utf-8")
     assert "stale" not in refreshed_markdown
     assert "# Meguri Loop Run: reference_campaign_new_campaign" in refreshed_markdown
+    assert "- mode: `execute`" in refreshed_markdown
     assert "| `submit` | `fail` | submit: submitted failed item count=1, expected 0 |" in refreshed_markdown
 
 

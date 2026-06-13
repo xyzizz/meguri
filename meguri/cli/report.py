@@ -478,7 +478,7 @@ def _run_report_from_raw(raw: dict[str, Any], report_dir: Path) -> RunReport:
         replay=raw.get("replay") if isinstance(raw.get("replay"), dict) else None,
         legacy_artifact_dir=str(raw.get("legacy_artifact_dir") or ""),
         updated_at=str(raw.get("updated_at") or ""),
-        mode=str(raw.get("mode") or ""),
+        mode=_mode_from_raw(raw),
     )
 
 
