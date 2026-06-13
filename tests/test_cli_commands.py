@@ -20,9 +20,11 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert (tmp_path / ".meguri" / "README.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
+    assert (tmp_path / ".claude" / "commands" / "meguri.md").is_file()
     assert (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").is_file()
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
+    claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     assert "Meguri inspect workflow" in codex_skill
     assert "test-flow design" in codex_skill
@@ -30,6 +32,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "Use this active Codex session" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
+    assert "Meguri verification workflow" in claude_command
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:

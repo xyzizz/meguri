@@ -85,6 +85,7 @@ def _write_skills(project_root: Path, *, force: bool, skipped: list[Path]) -> li
     files = {
         project_root / ".agents" / "skills" / "meguri" / "SKILL.md": _codex_skill(),
         project_root / ".claude" / "skills" / "meguri" / "SKILL.md": _claude_skill(),
+        project_root / ".claude" / "commands" / "meguri.md": _claude_command(),
         Path.home() / ".codex" / "prompts" / "meguri.md": _codex_slash_prompt(),
     }
     created: list[Path] = []
@@ -145,10 +146,9 @@ This directory contains the Meguri project pack for `{project_name}`.
 
 ## AI terminal entrypoints
 
-- Claude Code: `/meguri inspect`
-- Codex skill: `/skills`, then choose `meguri`
-- Codex skill mention: `$meguri inspect`
-- Codex prompt after restart: `/prompts:meguri inspect`
+- Claude Code: type `/`, search `meguri`, choose `/meguri`
+- Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
+- Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
 
 ## Common AI requests
 
@@ -276,4 +276,26 @@ Workflow:
    stderr, and linked artifacts before proposing fixes.
 10. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
+"""
+
+
+def _claude_command() -> str:
+    return """---
+description: Meguri verification workflow for the current project
+argument-hint: inspect|add|run|validate|report [args]
+---
+
+Use the Meguri project workflow in this Claude Code session.
+
+Requested Meguri workflow:
+$ARGUMENTS
+
+If the request is empty or starts with `inspect`, start the Meguri inspect
+workflow, follow the printed specification, and write
+`.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
+
+For add, run, validate, or report requests, follow the project-local Meguri pack,
+prefer deterministic evidence, keep scenarios in `dry_run` unless explicitly
+approved, and ask before submit, deploy, payment, production writes, external
+sends, or data migrations.
 """

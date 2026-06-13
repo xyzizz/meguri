@@ -29,10 +29,9 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 完成首次设置后，在 AI 终端里使用 Meguri：
 
 ```text
-Claude Code: /meguri inspect
-Codex: /skills，然后选择 meguri
-Codex: $meguri inspect
-Codex prompt 重启后: /prompts:meguri inspect
+Claude Code: 输入 `/`，搜索 `meguri`，选择 `/meguri`
+Codex: 重启/新开会话后输入 `/`，搜索 `meguri`，选择 `prompts:meguri`
+Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
 ```
 
 如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话。
@@ -48,6 +47,7 @@ Codex prompt 重启后: /prompts:meguri inspect
   README.md
 .agents/skills/meguri/SKILL.md
 .claude/skills/meguri/SKILL.md
+.claude/commands/meguri.md
 ~/.codex/prompts/meguri.md
 ```
 

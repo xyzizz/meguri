@@ -136,10 +136,9 @@ cat <<EOF
 Meguri is ready.
 
 Use Meguri from the AI terminal:
-  Claude Code: /meguri inspect
-  Codex: /skills, then choose meguri
-  Codex: \$meguri inspect
-  Codex prompt after restart: /prompts:meguri inspect
+  Claude Code: type /, search meguri, choose /meguri
+  Codex: restart/open a new session, type /, search meguri, choose prompts:meguri
+  Codex alternatives: /skills -> meguri, or \$meguri inspect
 
 If a newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in this project.

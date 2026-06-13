@@ -38,6 +38,8 @@ def handle_validate(args: Any) -> int:
                 warnings.append("Codex skill is not installed in .agents/skills/meguri/SKILL.md")
             if not (pack.project_root / ".claude" / "skills" / "meguri" / "SKILL.md").is_file():
                 warnings.append("Claude skill is not installed in .claude/skills/meguri/SKILL.md")
+            if not (pack.project_root / ".claude" / "commands" / "meguri.md").is_file():
+                warnings.append("Claude slash command is not installed in .claude/commands/meguri.md")
 
     for warning in warnings:
         print(f"warning: {warning}")

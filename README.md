@@ -37,10 +37,9 @@ A fuller copyable install prompt lives in
 After setup, use Meguri from the AI terminal:
 
 ```text
-Claude Code: /meguri inspect
-Codex: /skills, then choose meguri
-Codex: $meguri inspect
-Codex prompt after restart: /prompts:meguri inspect
+Claude Code: type `/`, search `meguri`, choose `/meguri`
+Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
+Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
 ```
 
 If the newly installed entrypoint does not appear, restart Codex / Claude Code
@@ -57,6 +56,7 @@ The installer creates the project workflow files:
   README.md
 .agents/skills/meguri/SKILL.md
 .claude/skills/meguri/SKILL.md
+.claude/commands/meguri.md
 ~/.codex/prompts/meguri.md
 ```
 
