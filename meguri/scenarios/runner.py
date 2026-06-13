@@ -83,6 +83,9 @@ def run_scenario(
         runs_dir=runs_dir,
     )
     setup_ok = False
+    current_step: dict | None = None
+    interrupted_exc: BaseException | None = None
+    interrupted_traceback = ""
     try:
         try:
             adapter.setup(ctx)
@@ -114,6 +117,7 @@ def run_scenario(
             )
         if setup_ok:
             for step in scenario.steps:
+                current_step = step
                 running = _running_step_result(step, artifact_dir)
                 steps.append(running)
                 _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_started", step=running)
@@ -175,6 +179,11 @@ def run_scenario(
                 )
                 if step.get("stop_on_fail", True) and not result.ok:
                     break
+                current_step = None
+    except BaseException as exc:
+        interrupted_exc = exc
+        interrupted_traceback = traceback.format_exc()
+        raise
     finally:
         try:
             adapter.cleanup(ctx)
@@ -185,6 +194,27 @@ def run_scenario(
             all_checks.extend(result.checks)
             steps.append(result)
             _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_finished", step=result)
+        if interrupted_exc is not None:
+            _write_interrupted_snapshot(
+                store=store,
+                scenario=scenario,
+                scenario_path=scenario_path,
+                artifact_dir=artifact_dir,
+                evidence_dir=evidence_dir,
+                loop_id=loop_id,
+                run_id=run_id,
+                started=started,
+                started_dt=started_dt,
+                steps=steps,
+                all_checks=all_checks,
+                project_ref=project_ref,
+                replay_file=replay_file,
+                retry_of=retry_of,
+                runs_dir=runs_dir,
+                exc=interrupted_exc,
+                traceback_text=interrupted_traceback,
+                current_step=current_step,
+            )
     return _write_final_snapshot(
         store=store,
         scenario=scenario,
@@ -308,7 +338,7 @@ def _blocked_check(step_id: str, message: str) -> CheckResult:
 
 def _exception_step_result(
     step_id: str,
-    exc: Exception,
+    exc: BaseException,
     traceback_text: str,
     message: str,
     *,
@@ -329,6 +359,69 @@ def _exception_step_result(
         finished_at=now,
         stderr=f"{message}: {type(exc).__name__}: {exc}\n\n{traceback_text}",
         data=data,
+    )
+
+
+def _write_interrupted_snapshot(
+    *,
+    store: ArtifactStore,
+    scenario,
+    scenario_path: Path,
+    artifact_dir: Path,
+    evidence_dir: Path,
+    loop_id: str,
+    run_id: str,
+    started: str,
+    started_dt: datetime,
+    steps: list,
+    all_checks: list,
+    project_ref: dict,
+    replay_file: Path | None,
+    retry_of: str | None,
+    runs_dir: Path | None,
+    exc: BaseException,
+    traceback_text: str,
+    current_step: dict | None,
+) -> None:
+    step_id = str(current_step.get("id")) if current_step else "run_interrupted"
+    result = _exception_step_result(step_id, exc, traceback_text, "run interrupted", step=current_step)
+    _persist_step_result(store, result)
+    result.checks = [_blocked_check(result.step_id, "run interrupted; inspect stderr artifact")]
+    all_checks.extend(result.checks)
+    if steps and steps[-1].status == "running":
+        steps[-1] = result
+    else:
+        steps.append(result)
+    _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_finished", step=result)
+    _append_timeline_event(
+        artifact_dir,
+        run_id=run_id,
+        loop_id=loop_id,
+        event="run_interrupted",
+        status="blocked",
+        details={
+            "exception_type": type(exc).__name__,
+            "exception_message": str(exc),
+            "step_id": result.step_id,
+        },
+    )
+    _write_run_snapshot(
+        store=store,
+        scenario=scenario,
+        scenario_path=scenario_path,
+        artifact_dir=artifact_dir,
+        evidence_dir=evidence_dir,
+        loop_id=loop_id,
+        run_id=run_id,
+        started=started,
+        started_dt=started_dt,
+        steps=steps,
+        all_checks=all_checks,
+        status="blocked",
+        project_ref=project_ref,
+        replay_file=replay_file,
+        retry_of=retry_of,
+        runs_dir=runs_dir,
     )
 
 

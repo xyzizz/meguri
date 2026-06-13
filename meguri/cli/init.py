@@ -172,7 +172,9 @@ records under `.meguri/batches/<batch_id>/`.
 During a run, `timeline.ndjson` is appended as each step advances, and
 `run.json`, `report.md`, and `index.html` are refreshed when the loop starts
 and whenever a step starts or finishes. `run.json.updated_at` changes on every
-snapshot refresh.
+snapshot refresh. If a run is interrupted, Meguri records the active step as
+blocked, appends a `run_interrupted` timeline event, and leaves the report
+readable.
 
 ## AI terminal entrypoints
 

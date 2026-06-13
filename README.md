@@ -94,6 +94,8 @@ starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
 runs can be inspected before the final step finishes. `run.json.updated_at`
 changes on every snapshot refresh so a viewer can poll progress safely.
+If a run is interrupted, Meguri preserves the last active step as blocked,
+appends a `run_interrupted` timeline event, and leaves the report readable.
 `run.json` and command
 JSON output keep stdout/stderr excerpts plus byte counts; full streams stay in
 the step artifacts. If a step's structured stdout declares `evidence_json` or

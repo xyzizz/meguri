@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import run_scenario
 
@@ -477,6 +479,49 @@ steps:
     assert "RuntimeError: boom from adapter" in stderr
     assert result["status"] == "blocked"
     assert result["data"]["exception_type"] == "RuntimeError"
+
+
+def test_runner_writes_interrupted_snapshot_before_reraising(tmp_path: Path, monkeypatch) -> None:
+    class InterruptingAdapter:
+        name = "interrupting"
+
+        def setup(self, ctx) -> None:
+            pass
+
+        def run_step(self, step, ctx):
+            raise KeyboardInterrupt()
+
+        def cleanup(self, ctx) -> None:
+            pass
+
+    scenario_path = tmp_path / "scenario.yaml"
+    scenario_path.write_text(
+        """
+name: interrupting_loop
+adapter: interrupting
+project_path: "."
+mode: dry_run
+steps:
+  - id: interrupt
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("meguri.scenarios.runner.get_adapter", lambda name: InterruptingAdapter())
+
+    with pytest.raises(KeyboardInterrupt):
+        run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    [run_dir] = list((tmp_path / "runs").iterdir())
+    run_record = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
+    timeline = [json.loads(line) for line in (run_dir / "timeline.ndjson").read_text(encoding="utf-8").splitlines()]
+
+    assert run_record["status"] == "blocked"
+    assert run_record["finished_at"]
+    assert run_record["updated_at"] == run_record["finished_at"]
+    assert run_record["steps"][0]["step_id"] == "interrupt"
+    assert run_record["steps"][0]["status"] == "blocked"
+    assert run_record["steps"][0]["data"]["exception_type"] == "KeyboardInterrupt"
+    assert ("run_interrupted", "blocked") in [(event["event"], event["status"]) for event in timeline]
 
 
 def _git(cwd: Path, *args: str) -> None:
