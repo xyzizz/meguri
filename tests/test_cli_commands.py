@@ -16,13 +16,14 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert main(["init", "--install-skills"]) == 0
 
     assert (tmp_path / ".meguri" / "project.yaml").is_file()
+    assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()
     assert (tmp_path / ".meguri" / "scenarios" / "smoke.yaml").is_file()
     assert (tmp_path / ".meguri" / "README.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "commands" / "meguri.md").is_file()
     assert (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").is_file()
-    smoke = yaml.safe_load((tmp_path / ".meguri" / "scenarios" / "smoke.yaml").read_text(encoding="utf-8"))
+    smoke = yaml.safe_load((tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").read_text(encoding="utf-8"))
     assert smoke["metadata"]["kind"] == "loop"
     assert smoke["metadata"]["loop_id"] == "smoke"
     assert smoke["metadata"]["source"] == "system"
@@ -105,7 +106,7 @@ def test_add_writes_valid_scenario_when_required_fields_are_supplied(tmp_path: P
         "command exits with ok",
     ]) == 0
 
-    scenario_path = tmp_path / ".meguri" / "scenarios" / "login_flow.yaml"
+    scenario_path = tmp_path / ".meguri" / "loops" / "login_flow" / "_loop.yaml"
     raw = yaml.safe_load(scenario_path.read_text(encoding="utf-8"))
     assert raw["name"] == "login_flow"
     assert raw["adapter"] == "shell"
@@ -147,7 +148,7 @@ def test_loops_lists_user_added_loops_and_delete_removes_named_loop(tmp_path: Pa
     assert main(["delete", "checkout"]) == 0
     output = capsys.readouterr().out
     assert "deleted loop checkout" in output
-    assert not (tmp_path / ".meguri" / "scenarios" / "checkout.yaml").exists()
+    assert not (tmp_path / ".meguri" / "loops" / "checkout").exists()
 
     assert main(["loops"]) == 0
     assert "loops=0" in capsys.readouterr().out
@@ -161,7 +162,7 @@ def test_delete_refuses_system_loop_without_force(tmp_path: Path, monkeypatch, c
     assert main(["delete", "smoke"]) == 1
     output = capsys.readouterr().out
     assert "Refusing to delete system loop" in output
-    assert (tmp_path / ".meguri" / "scenarios" / "smoke.yaml").exists()
+    assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").exists()
 
 
 def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch, capsys) -> None:

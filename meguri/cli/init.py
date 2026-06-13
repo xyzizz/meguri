@@ -31,6 +31,41 @@ def handle_init(args: Any) -> int:
 
 def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: list[Path]) -> list[Path]:
     smoke_command, smoke_checks = _detect_smoke(project_root)
+    smoke_base = {
+        "name": f"{_safe_name(project_root.name)}_smoke",
+        "adapter": "shell",
+        "mode": "dry_run",
+        "metadata": {
+            "kind": "loop",
+            "loop_id": "smoke",
+            "source": "system",
+            "objective": "Verify the project can run a safe smoke command under Meguri.",
+            "completion_chain": [
+                "verify",
+                "collect_evidence",
+                "repair_when_safe",
+                "rerun",
+                "pass_block_or_ask",
+            ],
+            "forbidden_side_effects": [
+                "submit",
+                "deploy",
+                "payment",
+                "production write",
+                "external send",
+            ],
+        },
+        "steps": [
+            {
+                "id": "smoke",
+                "command": smoke_command,
+                "timeout_seconds": 300,
+                "checks": smoke_checks,
+            }
+        ],
+    }
+    loop_smoke = {"project_path": "../../..", **smoke_base}
+    legacy_smoke = {"project_path": "../..", **smoke_base}
     files = {
         pack_root / "project.yaml": yaml.safe_dump(
             {
@@ -43,41 +78,14 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
             sort_keys=False,
             allow_unicode=True,
         ),
+        pack_root / "loops" / "smoke" / "_loop.yaml": yaml.safe_dump(
+            loop_smoke,
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+        pack_root / "loops" / "smoke" / "_scripts" / ".gitkeep": "",
         pack_root / "scenarios" / "smoke.yaml": yaml.safe_dump(
-            {
-                "name": f"{_safe_name(project_root.name)}_smoke",
-                "adapter": "shell",
-                "project_path": "../..",
-                "mode": "dry_run",
-                "metadata": {
-                    "kind": "loop",
-                    "loop_id": "smoke",
-                    "source": "system",
-                    "objective": "Verify the project can run a safe smoke command under Meguri.",
-                    "completion_chain": [
-                        "verify",
-                        "collect_evidence",
-                        "repair_when_safe",
-                        "rerun",
-                        "pass_block_or_ask",
-                    ],
-                    "forbidden_side_effects": [
-                        "submit",
-                        "deploy",
-                        "payment",
-                        "production write",
-                        "external send",
-                    ],
-                },
-                "steps": [
-                    {
-                        "id": "smoke",
-                        "command": smoke_command,
-                        "timeout_seconds": 300,
-                        "checks": smoke_checks,
-                    }
-                ],
-            },
+            legacy_smoke,
             sort_keys=False,
             allow_unicode=True,
         ),

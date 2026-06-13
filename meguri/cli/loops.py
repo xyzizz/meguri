@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from meguri.project.pack import find_project_pack, slugify
+from meguri.project.pack import ProjectPack, find_project_pack, slugify
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ def handle_loops(args: Any) -> int:
         print("Cannot list loops yet: no .meguri/ pack found.")
         return 2
 
-    entries = _read_loops(pack.scenarios_dir)
+    entries = _read_loops(pack)
     visible = entries if args.all else [entry for entry in entries if entry.source == "user"]
 
     if args.json:
@@ -64,8 +65,8 @@ def handle_delete(args: Any) -> int:
 
     target = slugify(args.name, fallback=args.name)
     matches = [
-        entry for entry in _read_loops(pack.scenarios_dir)
-        if entry.loop_id == target or entry.name == target or entry.path.stem == target
+        entry for entry in _read_loops(pack)
+        if entry.loop_id == target or entry.name == target or entry.path.stem == target or entry.path.parent.name == target
     ]
     if not matches:
         print(f"Loop not found: {args.name}")
@@ -86,29 +87,54 @@ def handle_delete(args: Any) -> int:
         print(f"would delete loop {entry.loop_id}: {entry.path.relative_to(pack.project_root)}")
         return 0
 
-    entry.path.unlink()
+    if entry.path.name == "_loop.yaml":
+        shutil.rmtree(entry.path.parent)
+    else:
+        entry.path.unlink()
     print(f"deleted loop {entry.loop_id}: {entry.path.relative_to(pack.project_root)}")
     return 0
 
 
-def _read_loops(scenarios_dir: Path) -> list[LoopEntry]:
+def _read_loops(pack: ProjectPack) -> list[LoopEntry]:
+    entries = _read_loop_folders(pack.loops_dir)
+    existing = {entry.loop_id for entry in entries}
+    entries.extend(_read_legacy_scenarios(pack.scenarios_dir, existing_ids=existing))
+    return entries
+
+
+def _read_loop_folders(loops_dir: Path) -> list[LoopEntry]:
+    entries: list[LoopEntry] = []
+    for path in sorted(loops_dir.glob("*/_loop.yaml")):
+        entry = _loop_entry_from_path(path)
+        if entry is not None:
+            entries.append(entry)
+    return entries
+
+
+def _read_legacy_scenarios(scenarios_dir: Path, *, existing_ids: set[str]) -> list[LoopEntry]:
     entries: list[LoopEntry] = []
     for path in sorted(scenarios_dir.glob("*.y*ml")):
-        raw = _read_yaml(path)
-        if not isinstance(raw, dict):
-            continue
-        metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
-        loop_id = str(metadata.get("loop_id") or raw.get("name") or path.stem)
-        source = str(metadata.get("source") or _infer_source(loop_id, metadata))
-        entries.append(LoopEntry(
-            loop_id=loop_id,
-            name=str(raw.get("name") or path.stem),
-            mode=str(raw.get("mode") or "dry_run"),
-            source=source,
-            path=path,
-            user_goal=str(metadata.get("user_goal") or metadata.get("objective") or ""),
-        ))
+        entry = _loop_entry_from_path(path)
+        if entry is not None and entry.loop_id not in existing_ids:
+            entries.append(entry)
     return entries
+
+
+def _loop_entry_from_path(path: Path) -> LoopEntry | None:
+    raw = _read_yaml(path)
+    if not isinstance(raw, dict):
+        return None
+    metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+    loop_id = str(metadata.get("loop_id") or raw.get("name") or path.stem)
+    source = str(metadata.get("source") or _infer_source(loop_id, metadata))
+    return LoopEntry(
+        loop_id=loop_id,
+        name=str(raw.get("name") or path.stem),
+        mode=str(raw.get("mode") or "dry_run"),
+        source=source,
+        path=path,
+        user_goal=str(metadata.get("user_goal") or metadata.get("objective") or ""),
+    )
 
 
 def _read_yaml(path: Path) -> Any:

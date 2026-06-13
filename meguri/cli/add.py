@@ -34,7 +34,8 @@ def handle_add(args: Any) -> int:
 
     loop_id = slugify(args.name or args.description, fallback="loop")
     scenario_id = loop_id
-    scenario_path = pack.scenarios_dir / f"{scenario_id}.yaml"
+    loop_dir = pack.loop_dir(loop_id)
+    scenario_path = loop_dir / "_loop.yaml"
     if scenario_path.exists() and not args.force:
         print(f"Loop already exists: {scenario_path}")
         print("Pass --force to overwrite it.")
@@ -48,7 +49,7 @@ def handle_add(args: Any) -> int:
     data = {
         "name": scenario_id,
         "adapter": "shell",
-        "project_path": "../..",
+        "project_path": "../../..",
         "mode": args.mode,
         "metadata": {
             "kind": "loop",
@@ -85,6 +86,8 @@ def handle_add(args: Any) -> int:
         ],
     }
     scenario_path.parent.mkdir(parents=True, exist_ok=True)
+    (loop_dir / "_scripts").mkdir(parents=True, exist_ok=True)
+    (loop_dir / "_scripts" / ".gitkeep").touch()
     scenario_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
     print(f"created loop {scenario_path.relative_to(pack.project_root)}")
     return 0
