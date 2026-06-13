@@ -116,14 +116,15 @@ targets, the retry command preserves `--allow-execute`.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts and refreshed when each step starts, when shell stdout/stderr advances,
-and when each step completes. Shell step stdout/stderr artifacts are also
-updated while the command is still running. Long runs can be inspected before
-the final step finishes. In normal text mode,
+on silent-step heartbeats, and when each step completes. Shell step
+stdout/stderr artifacts are also updated while the command is still running.
+Long runs can be inspected before the final step finishes. In normal text mode,
 `meguri run` prints `live_report=...`, `live_artifact_dir=...`,
 `live_updated_at=...`, the current step, and live stdout/stderr artifact paths
-plus character counts as soon as running snapshots exist or output advances;
-`--json` remains clean final JSON only. `run.json.updated_at` changes on every
-snapshot refresh so a viewer can poll progress safely.
+plus character counts as soon as running snapshots exist, output advances, or a
+silent heartbeat refreshes the run; `--json` remains clean final JSON only.
+`run.json.updated_at` changes on every snapshot refresh so a viewer can poll
+progress safely.
 If a run is interrupted, Meguri preserves the last active step as blocked,
 appends a `run_interrupted` timeline event, and leaves the report readable.
 `run.json` and command

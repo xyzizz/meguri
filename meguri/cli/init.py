@@ -171,16 +171,18 @@ into the loop history structure. Multi-loop sequential runs write aggregate
 records under `.meguri/batches/<batch_id>/`.
 During a run, `timeline.ndjson` is appended as each step advances, and
 `run.json`, `report.md`, and `index.html` are refreshed when the loop starts,
-when a step starts, when shell stdout/stderr advances, and when a step
-finishes. `run.json.updated_at` changes on every snapshot refresh. If a run is
-interrupted, Meguri records the active step as blocked, appends a
+when a step starts, when shell stdout/stderr advances, on silent-step
+heartbeats, and when a step finishes. `run.json.updated_at` changes on every
+snapshot refresh. If a run is interrupted, Meguri records the active step as
+blocked, appends a
 `run_interrupted` timeline event, and leaves the report readable. Each run
 report includes a project-root Replay command that uses the run-local
 `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
 In normal text mode, `meguri run` prints `live_report=...`,
 `live_artifact_dir=...`, `live_updated_at=...`, the current step, and live
 stdout/stderr artifact paths plus character counts as soon as running snapshots
-exist or output advances; `--json` stays clean final JSON only.
+exist, output advances, or silent heartbeats refresh the run; `--json` stays
+clean final JSON only.
 Batch reports include `status_counts` for the pass/fail/blocked distribution,
 `failed_loops` for failed or blocked loops, plus batch `retry_loops` and batch
 `retry_command` that reruns failed, blocked, or unfinished loops from the
@@ -281,13 +283,14 @@ Workflow:
    created when the batch starts, refreshed whenever the current loop writes a
    running snapshot, and refreshed again after each loop completes; use them as
    the live progress surface. Shell stdout/stderr output also refreshes the
-   current run's HTML/stdout excerpts while the command is still running. In
+   current run's HTML/stdout excerpts while the command is still running, and
+   silent-step heartbeats refresh `updated_at` even when stdout is quiet. In
    normal text mode, `meguri run` also prints `live_report=...`,
    `live_artifact_dir=...`, `live_updated_at=...`, `live_step=...`,
    `live_stdout_path=...`, `live_stderr_path=...`, and live character counts
-   as soon as a running snapshot exists or output advances; `--json` stays
-   clean final JSON only. Read batch `current_run` for the live report path and
-   current step. While long loops are still running, use
+   as soon as a running snapshot exists, output advances, or a silent heartbeat
+   refreshes the run; `--json` stays clean final JSON only. Read batch
+   `current_run` for the live report path and current step. While long loops are still running, use
    `meguri report --running --json` to find active run/batch report paths and
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and
@@ -419,13 +422,14 @@ Workflow:
    created when the batch starts, refreshed whenever the current loop writes a
    running snapshot, and refreshed again after each loop completes; use them as
    the live progress surface. Shell stdout/stderr output also refreshes the
-   current run's HTML/stdout excerpts while the command is still running. In
+   current run's HTML/stdout excerpts while the command is still running, and
+   silent-step heartbeats refresh `updated_at` even when stdout is quiet. In
    normal text mode, `meguri run` also prints `live_report=...`,
    `live_artifact_dir=...`, `live_updated_at=...`, `live_step=...`,
    `live_stdout_path=...`, `live_stderr_path=...`, and live character counts
-   as soon as a running snapshot exists or output advances; `--json` stays
-   clean final JSON only. Read batch `current_run` for the live report path and
-   current step. While long loops are still running, use
+   as soon as a running snapshot exists, output advances, or a silent heartbeat
+   refreshes the run; `--json` stays clean final JSON only. Read batch
+   `current_run` for the live report path and current step. While long loops are still running, use
    `meguri report --running --json` to find active run/batch report paths and
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and

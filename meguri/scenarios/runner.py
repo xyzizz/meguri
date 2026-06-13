@@ -22,6 +22,7 @@ from meguri.scenarios.loader import load_scenario
 
 
 RUN_RECORD_OUTPUT_LIMIT = 8_000
+LIVE_HEARTBEAT_INTERVAL_SECONDS = 30.0
 
 
 def run_scenario(
@@ -168,6 +169,13 @@ def run_scenario(
                 )
                 previous_live_snapshot = ctx.metadata.get("_meguri_live_output_snapshot")
                 ctx.metadata["_meguri_live_output_snapshot"] = live_snapshot
+                heartbeat_stop = threading.Event()
+                heartbeat_thread = _start_live_heartbeat(
+                    live_snapshot,
+                    running,
+                    interval=LIVE_HEARTBEAT_INTERVAL_SECONDS,
+                    stop=heartbeat_stop,
+                )
                 try:
                     result = adapter.run_step(step, ctx)
                 except Exception as exc:  # noqa: BLE001 - keep the run auditable.
@@ -179,6 +187,9 @@ def run_scenario(
                         step=step,
                     )
                 finally:
+                    heartbeat_stop.set()
+                    if heartbeat_thread is not None:
+                        heartbeat_thread.join(timeout=1)
                     if previous_live_snapshot is None:
                         ctx.metadata.pop("_meguri_live_output_snapshot", None)
                     else:
@@ -694,6 +705,34 @@ def _make_live_output_snapshotter(
             )
 
     return write_live_snapshot
+
+
+def _start_live_heartbeat(
+    snapshot: Callable[[str, Path, Path], None],
+    running: StepResult,
+    *,
+    interval: float,
+    stop: threading.Event,
+) -> threading.Thread | None:
+    stdout_path = _artifact_path_for(running, "stdout")
+    stderr_path = _artifact_path_for(running, "stderr")
+    if stdout_path is None or stderr_path is None or interval <= 0:
+        return None
+
+    def pulse() -> None:
+        while not stop.wait(interval):
+            snapshot(running.step_id, stdout_path, stderr_path)
+
+    thread = threading.Thread(target=pulse, daemon=True)
+    thread.start()
+    return thread
+
+
+def _artifact_path_for(step: StepResult, kind: str) -> Path | None:
+    for artifact in step.artifacts:
+        if artifact.kind == kind and artifact.path:
+            return Path(artifact.path)
+    return None
 
 
 def _read_live_text(path: Path) -> str:

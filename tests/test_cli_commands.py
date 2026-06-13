@@ -67,6 +67,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live_report=..." in codex_skill
     assert "live_stdout_path=..." in codex_skill
     assert "live character counts" in codex_skill
+    assert "silent-step heartbeats" in codex_skill
     assert "meguri run --all --exclude <loop>" in codex_skill
     assert "meguri run <loop> --allow-execute" in codex_skill
     assert "meguri report --running --json" in codex_skill
@@ -107,6 +108,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live_report=..." in claude_skill
     assert "live_stdout_path=..." in claude_skill
     assert "live character counts" in claude_skill
+    assert "silent-step heartbeats" in claude_skill
     assert "meguri run <loop> --allow-execute" in claude_skill
     assert "meguri report --running --json" in claude_skill
     assert "live progress surface" in claude_skill

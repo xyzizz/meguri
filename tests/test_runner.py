@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from meguri.scenarios.loader import load_scenario
+from meguri.scenarios import runner
 from meguri.scenarios.runner import run_scenario
 
 
@@ -411,6 +412,36 @@ steps:
     assert marker_path.read_text(encoding="utf-8") == "seen"
     html = Path(report.html_report_path).read_text(encoding="utf-8")
     assert output_token in html
+
+
+def test_runner_refreshes_run_record_while_step_is_silent(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(runner, "LIVE_HEARTBEAT_INTERVAL_SECONDS", 0.05, raising=False)
+    scenario_path = tmp_path / "scenario.yaml"
+    marker_path = tmp_path / "saw_silent_heartbeat.txt"
+    scenario_path.write_text(
+        f"""
+name: silent_heartbeat
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: silent
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib, sys, time; run_dir=pathlib.Path(os.environ['MEGURI_RUN_DIR']); run_json=run_dir / 'run.json'; initial=json.loads(run_json.read_text())['updated_at']; deadline=time.time()+1.0;\\nwhile time.time() < deadline:\\n    data=json.loads(run_json.read_text());\\n    if data['status'] == 'running' and data['steps'][0]['status'] == 'running' and data.get('updated_at') != initial:\\n        pathlib.Path(r'{marker_path}').write_text(data['updated_at'], encoding='utf-8'); sys.exit(0)\\n    time.sleep(0.02)\\nsys.exit(7)"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    assert report.status == "pass"
+    assert marker_path.read_text(encoding="utf-8")
 
 
 def test_runner_keeps_full_output_in_artifacts_and_compacts_run_json(tmp_path: Path) -> None:
