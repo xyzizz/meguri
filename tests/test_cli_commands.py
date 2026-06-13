@@ -86,6 +86,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`created_resources`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
+    assert "recovered batch includes execute-mode retry targets" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
@@ -115,6 +116,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`created_resources`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
+    assert "recovered batch includes execute-mode retry targets" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
@@ -907,14 +909,14 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     assert batch["status_counts"] == {"fail": 2}
     assert batch["failed_loops"] == ["mid_loop", "new_loop"]
     assert batch["retry_loops"] == ["mid_loop", "new_loop"]
-    assert batch["retry_command"] == "meguri run mid_loop new_loop"
+    assert batch["retry_command"] == "meguri run mid_loop new_loop --allow-execute"
     assert batch["failure_groups"] == [{
         "reason": "video_id is not valid",
         "count": 2,
         "loops": ["mid_loop", "new_loop"],
     }]
     html = html_path.read_text(encoding="utf-8")
-    assert "meguri run mid_loop new_loop" in html
+    assert "meguri run mid_loop new_loop --allow-execute" in html
     assert "old_loop" not in html
 
 
@@ -961,7 +963,7 @@ def test_report_runs_creates_batch_from_explicit_run_refs(tmp_path: Path, monkey
     assert batch["status"] == "fail"
     assert batch["status_counts"] == {"fail": 1, "pass": 1}
     assert batch["failed_loops"] == ["mid_loop"]
-    assert batch["retry_command"] == "meguri run mid_loop"
+    assert batch["retry_command"] == "meguri run mid_loop --allow-execute"
     assert "old_loop" not in json.dumps(batch)
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
     assert "mid_loop" in html
@@ -1015,7 +1017,7 @@ def test_report_loops_groups_latest_run_for_each_named_loop(tmp_path: Path, monk
     assert batch["status"] == "fail"
     assert batch["status_counts"] == {"fail": 1, "pass": 1}
     assert batch["failed_loops"] == ["loop_a"]
-    assert batch["retry_command"] == "meguri run loop_a"
+    assert batch["retry_command"] == "meguri run loop_a --allow-execute"
     assert "old reason" not in json.dumps(batch)
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
     assert "loop_a" in html

@@ -302,7 +302,8 @@ Workflow:
    structured data for a written summary. After making a repair, use the batch `retry_loops` list
    to understand exactly which loops will run, then use batch `retry_command`
    for grouped failures; it preserves `--allow-execute` when
-   the original batch was explicitly approved for execute mode. Use the run
+   the original batch was explicitly approved for execute mode or when a
+   recovered batch includes execute-mode retry targets. Use the run
    report's project-root Replay command for a single loop
    instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
@@ -432,7 +433,8 @@ Workflow:
    structured data for a written summary. After making a repair, use the batch `retry_loops` list
    to understand exactly which loops will run, then use batch `retry_command`
    for grouped failures; it preserves `--allow-execute` when
-   the original batch was explicitly approved for execute mode. Use the run
+   the original batch was explicitly approved for execute mode or when a
+   recovered batch includes execute-mode retry targets. Use the run
    report's project-root Replay command for a single loop
    instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,

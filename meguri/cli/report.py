@@ -189,6 +189,7 @@ def _write_selected_batch_report(
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
     retry_loops = batch_retry_loops(runs)
+    allow_execute_retry = _retry_needs_execute_approval(runs, retry_loops)
     created_resources = batch_created_resources(runs)
     attention_flags = batch_attention_flags(runs)
     record = {
@@ -208,7 +209,7 @@ def _write_selected_batch_report(
         "status_counts": batch_status_counts(runs),
         "failed_loops": batch_failed_loops(runs),
         "retry_loops": retry_loops,
-        "retry_command": batch_retry_command(runs),
+        "retry_command": batch_retry_command(runs, allow_execute=allow_execute_retry),
         "failure_groups": failure_groups(runs),
         "attention_flags": attention_flags,
         "attention_count": len(attention_flags),
@@ -225,6 +226,14 @@ def _write_selected_batch_report(
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
     return record
+
+
+def _retry_needs_execute_approval(runs: list[dict[str, Any]], retry_loops: list[str]) -> bool:
+    retry_set = set(retry_loops)
+    return any(
+        str(run.get("loop") or "") in retry_set and str(run.get("mode") or "") == "execute"
+        for run in runs
+    )
 
 
 def _report_dir_for_ref(pack: ProjectPack, ref: str) -> Path:
