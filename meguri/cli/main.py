@@ -249,11 +249,29 @@ def _dedupe_reasons(values: list[str], *, limit: int = 5) -> list[str]:
     return reasons
 
 
+def _failure_groups(runs: list[dict]) -> list[dict]:
+    grouped: dict[str, list[str]] = {}
+    for run in runs:
+        loop = str(run.get("loop") or "")
+        for reason in run.get("failure_reasons") or []:
+            if not isinstance(reason, str) or not reason:
+                continue
+            grouped.setdefault(reason, [])
+            if loop and loop not in grouped[reason]:
+                grouped[reason].append(loop)
+    groups = [
+        {"reason": reason, "count": len(loops), "loops": loops}
+        for reason, loops in grouped.items()
+    ]
+    return sorted(groups, key=lambda group: (-int(group["count"]), str(group["reason"])))
+
+
 def _write_batch_report(first_scenario_path: Path, run_reports, *, started_at: str) -> dict:
     pack = find_project_pack(first_scenario_path.parent)
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
+    runs = [_run_summary(report) for report in run_reports]
     record = {
         "batch_id": batch_id,
         "status": _batch_status(run_reports),
@@ -261,7 +279,8 @@ def _write_batch_report(first_scenario_path: Path, run_reports, *, started_at: s
         "finished_at": utc_now(),
         "batch_dir": str(batch_dir),
         "html_report_path": str(batch_dir / "index.html"),
-        "runs": [_run_summary(report) for report in run_reports],
+        "failure_groups": _failure_groups(runs),
+        "runs": runs,
     }
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     batch_dir.joinpath("index.html").write_text(_render_batch_html(record, batch_dir), encoding="utf-8")
@@ -284,6 +303,21 @@ def _render_batch_html(record: dict, batch_dir: Path) -> str:
             f"<td><a href=\"{html.escape(href)}\">Open report</a></td>"
             "</tr>"
         )
+    group_rows = []
+    for group in record.get("failure_groups") or []:
+        group_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(group['reason']))}</td>"
+            f"<td>{html.escape(str(group['count']))} loops</td>"
+            f"<td>{html.escape(', '.join(str(loop) for loop in group.get('loops') or []))}</td>"
+            "</tr>"
+        )
+    groups_html = (
+        "<h2>Failure Groups</h2>"
+        "<table><thead><tr><th>Reason</th><th>Count</th><th>Loops</th></tr></thead><tbody>"
+        + "".join(group_rows)
+        + "</tbody></table>"
+    ) if group_rows else ""
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -299,6 +333,7 @@ def _render_batch_html(record: dict, batch_dir: Path) -> str:
         f"<h1>Meguri Batch {html.escape(record['batch_id'])}</h1>"
         f"<p>Status: <span class=\"status\">{html.escape(record['status'])}</span></p>"
         f"<p>Started: {html.escape(record['started_at'])}<br>Finished: {html.escape(record['finished_at'])}</p>"
+        + groups_html +
         "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"

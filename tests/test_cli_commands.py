@@ -268,16 +268,34 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
             f"from pathlib import Path; Path(r'{marker_path}').write_text('ran', encoding='utf-8'); print('second passed')",
         ],
     )
+    _write_loop(
+        tmp_path,
+        "third_fail",
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, sys; "
+                "print(json.dumps({'passed': False, 'errors': ['video_id is not valid']})); "
+                "sys.exit(4)"
+            ),
+        ],
+    )
 
-    assert main(["run", "first_fail", "second_pass", "--json"]) == 1
+    assert main(["run", "first_fail", "second_pass", "third_fail", "--json"]) == 1
     output = capsys.readouterr().out
     batch = json.loads(output)
 
     assert batch["status"] == "fail"
-    assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass"]
-    assert [run["status"] for run in batch["runs"]] == ["fail", "pass"]
+    assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass", "third_fail"]
+    assert [run["status"] for run in batch["runs"]] == ["fail", "pass", "fail"]
     assert batch["runs"][0]["summary"] == "video_id is not valid; archived campaign"
     assert batch["runs"][0]["failure_reasons"] == ["video_id is not valid", "archived campaign"]
+    assert batch["failure_groups"][0] == {
+        "reason": "video_id is not valid",
+        "count": 2,
+        "loops": ["first_fail", "third_fail"],
+    }
     batch_dir = Path(batch["batch_dir"])
     assert batch_dir.parent == tmp_path / ".meguri" / "batches"
     assert batch["html_report_path"] == str(batch_dir / "index.html")
@@ -285,10 +303,11 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert (batch_dir / "index.html").is_file()
     batch_record = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
     assert batch_record["status"] == "fail"
-    assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass"]
+    assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass", "third_fail"]
     html = (batch_dir / "index.html").read_text(encoding="utf-8")
     assert "first_fail" in html
     assert "video_id is not valid" in html
+    assert "2 loops" in html
     assert "second_pass" in html
     assert marker_path.read_text(encoding="utf-8") == "ran"
     assert Path(batch["runs"][0]["html_report_path"]).is_file()
