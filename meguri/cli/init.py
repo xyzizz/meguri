@@ -179,9 +179,11 @@ run-local `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
 Batch reports include `status_counts` for the pass/fail/blocked distribution,
 `failed_loops` for failed or blocked loops, plus batch `retry_loops` and batch
 `retry_command` that reruns failed, blocked, or unfinished loops from the
-project root after repair. When a batch was started with execute approval, the
-batch `retry_command` preserves `--allow-execute`. Batch run summaries include
-per-loop `mode` so execute risk remains visible during review. While a loop is
+project root after repair, including `running` reports recovered from separate
+runs. When a batch was started with execute approval or a recovered batch has
+execute-mode retry targets, the batch `retry_command` preserves
+`--allow-execute`. Batch run summaries include per-loop `mode` so execute risk
+remains visible during review. While a loop is
 still running, the batch record exposes `current_run` with the live report path
 and current step. Batch `attention_flags` surface incomplete agent chains such
 as short runs, missing final submit, or crash tracebacks. When structured
@@ -300,10 +302,11 @@ Workflow:
    `meguri report --recent <N> --json`, or
    `meguri report --runs <run_id-or-path> ... --json` when you need clean
    structured data for a written summary. After making a repair, use the batch `retry_loops` list
-   to understand exactly which loops will run, then use batch `retry_command`
-   for grouped failures; it preserves `--allow-execute` when
-   the original batch was explicitly approved for execute mode or when a
-   recovered batch includes execute-mode retry targets. Use the run
+   to understand exactly which loops will run, including failed, blocked, and
+   recovered running reports, then use batch `retry_command` for grouped
+   failures; it preserves `--allow-execute` when the original batch was
+   explicitly approved for execute mode or when a recovered batch includes
+   execute-mode retry targets. Use the run
    report's project-root Replay command for a single loop
    instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
@@ -431,10 +434,11 @@ Workflow:
    `meguri report --recent <N> --json`, or
    `meguri report --runs <run_id-or-path> ... --json` when you need clean
    structured data for a written summary. After making a repair, use the batch `retry_loops` list
-   to understand exactly which loops will run, then use batch `retry_command`
-   for grouped failures; it preserves `--allow-execute` when
-   the original batch was explicitly approved for execute mode or when a
-   recovered batch includes execute-mode retry targets. Use the run
+   to understand exactly which loops will run, including failed, blocked, and
+   recovered running reports, then use batch `retry_command` for grouped
+   failures; it preserves `--allow-execute` when the original batch was
+   explicitly approved for execute mode or when a recovered batch includes
+   execute-mode retry targets. Use the run
    report's project-root Replay command for a single loop
    instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,

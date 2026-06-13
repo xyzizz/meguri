@@ -29,7 +29,7 @@ def batch_retry_loops(runs: list[dict[str, Any]], remaining_loops: list[str] | N
     for run in runs:
         status = str(run.get("status") or "")
         loop = str(run.get("loop") or "")
-        if loop and status in {"fail", "blocked"}:
+        if loop and status in {"fail", "blocked", "running"}:
             targets.append(loop)
     targets.extend(str(loop) for loop in (remaining_loops or []) if loop)
     return _dedupe(targets)

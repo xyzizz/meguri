@@ -104,9 +104,10 @@ run, type, id, and source so partial side effects can be audited before retry or
 cleanup. Batch reports also include `status_counts` for the overall
 pass/fail/blocked distribution, `failed_loops` for failed or blocked loops,
 `retry_loops` plus a project-root retry command for failed, blocked, or
-unfinished loops. If the original batch was explicitly approved for execute
-mode, or if a recovered batch includes execute-mode retry targets, the retry
-command preserves `--allow-execute`.
+unfinished loops, including `running` reports recovered from prior separate
+runs. If the original batch was explicitly approved for execute mode, or if a
+recovered batch includes execute-mode retry targets, the retry command preserves
+`--allow-execute`.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step

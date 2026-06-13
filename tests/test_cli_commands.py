@@ -82,11 +82,13 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
     assert "batch `retry_loops`" in codex_skill
+    assert "recovered running reports" in codex_skill
     assert "`attention_flags`" in codex_skill
     assert "`created_resources`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
-    assert "recovered batch includes execute-mode retry targets" in codex_skill
+    assert "recovered batch includes" in codex_skill
+    assert "execute-mode retry targets" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
@@ -112,11 +114,13 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
     assert "batch `retry_loops`" in claude_skill
+    assert "recovered running reports" in claude_skill
     assert "`attention_flags`" in claude_skill
     assert "`created_resources`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
-    assert "recovered batch includes execute-mode retry targets" in claude_skill
+    assert "recovered batch includes" in claude_skill
+    assert "execute-mode retry targets" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
@@ -918,6 +922,50 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     html = html_path.read_text(encoding="utf-8")
     assert "meguri run mid_loop new_loop --allow-execute" in html
     assert "old_loop" not in html
+
+
+def test_report_recent_retries_running_standalone_runs(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    runs_root = tmp_path / ".meguri" / "runs"
+    for run_id, loop, status, timestamp, message in [
+        ("run_20260613_110000_fail", "failed_loop", "fail", "2026-06-13T11:00:00+00:00", "archived campaign"),
+        ("run_20260613_120000_running", "running_loop", "running", "2026-06-13T12:00:00+00:00", ""),
+    ]:
+        run_dir = runs_root / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": status,
+                "mode": "execute",
+                "started_at": "2026-06-13T10:59:00+00:00",
+                "updated_at": timestamp,
+                "finished_at": timestamp if status != "running" else "",
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": status,
+                        "checks": [{"id": "exit", "status": "fail", "message": message}] if message else [],
+                    }
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+    assert main(["report", "--recent", "2", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["status"] == "fail"
+    assert batch["status_counts"] == {"fail": 1, "running": 1}
+    assert batch["failed_loops"] == ["failed_loop"]
+    assert batch["retry_loops"] == ["failed_loop", "running_loop"]
+    assert batch["retry_command"] == "meguri run failed_loop running_loop --allow-execute"
 
 
 def test_report_runs_creates_batch_from_explicit_run_refs(tmp_path: Path, monkeypatch, capsys) -> None:
