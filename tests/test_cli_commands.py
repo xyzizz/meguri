@@ -1415,7 +1415,9 @@ def test_report_refresh_rewrites_single_run_html_from_run_json(tmp_path: Path, m
     run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_refresh"
     run_dir.mkdir(parents=True)
     html_path = run_dir / "index.html"
+    markdown_path = run_dir / "report.md"
     html_path.write_text("<html>stale</html>", encoding="utf-8")
+    markdown_path.write_text("# stale", encoding="utf-8")
     run_dir.joinpath("run.json").write_text(
         json.dumps({
             "run_id": run_dir.name,
@@ -1481,6 +1483,10 @@ def test_report_refresh_rewrites_single_run_html_from_run_json(tmp_path: Path, m
     assert "please remove conflicting locations" in refreshed
     assert "Created Resources" in refreshed
     assert "120250081240970683" in refreshed
+    refreshed_markdown = markdown_path.read_text(encoding="utf-8")
+    assert "stale" not in refreshed_markdown
+    assert "# Meguri Loop Run: reference_campaign_new_campaign" in refreshed_markdown
+    assert "| `submit` | `fail` | submit: submitted failed item count=1, expected 0 |" in refreshed_markdown
 
 
 def test_report_last_json_selects_newest_single_run(tmp_path: Path, monkeypatch, capsys) -> None:

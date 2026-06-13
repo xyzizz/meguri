@@ -281,9 +281,9 @@ Workflow:
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
    structured run summary, metrics, failure reasons, `evidence_files`,
    `evidence_warnings`, `replay_status`, and `replay_command` before drilling
-   into raw artifacts. If an older single-run `index.html` predates the current
-   Meguri renderer, use `meguri report <run_id> --refresh` to rebuild it from
-   `run.json` before opening it. For multi-loop runs, inspect
+   into raw artifacts. If an older single-run `index.html` or `report.md`
+   predates the current Meguri renderer, use `meguri report <run_id> --refresh`
+   to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `attention_flags`, `created_resources`, `failure_groups`, and per-loop
@@ -411,9 +411,9 @@ Workflow:
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
    structured run summary, metrics, failure reasons, `evidence_files`,
    `evidence_warnings`, `replay_status`, and `replay_command` before drilling
-   into raw artifacts. If an older single-run `index.html` predates the current
-   Meguri renderer, use `meguri report <run_id> --refresh` to rebuild it from
-   `run.json` before opening it. For multi-loop runs, inspect
+   into raw artifacts. If an older single-run `index.html` or `report.md`
+   predates the current Meguri renderer, use `meguri report <run_id> --refresh`
+   to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `attention_flags`, `created_resources`, `failure_groups`, and per-loop

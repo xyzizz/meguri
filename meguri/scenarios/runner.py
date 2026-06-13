@@ -15,6 +15,7 @@ from meguri.evaluators.deterministic import evaluate_step_checks, extract_last_j
 from meguri.project.pack import find_project_pack
 from meguri.reports.html import render_html_report
 from meguri.reports.indexes import write_indexes
+from meguri.reports.markdown import render_markdown_report
 from meguri.scenarios.loader import load_scenario
 
 
@@ -551,40 +552,6 @@ def _write_run_snapshot(
     if on_snapshot:
         on_snapshot(report)
     return report
-
-
-def render_markdown_report(report: RunReport) -> str:
-    loop_name = _loop_name(report)
-    lines = [
-        f"# Meguri Loop Run: {loop_name}",
-        "",
-        f"- run_id: `{report.run_id}`",
-        f"- loop: `{loop_name}`",
-        f"- status: `{report.status}`",
-        f"- project: `{report.project_path}`",
-        f"- artifacts: `{report.artifact_dir}`",
-        "",
-        "## Steps",
-        "",
-    ]
-    for step in report.steps:
-        lines.extend([
-            f"### {step.step_id}",
-            "",
-            f"- status: `{step.status}`",
-            f"- exit_code: `{step.exit_code}`",
-            f"- started_at: `{step.started_at}`",
-            f"- finished_at: `{step.finished_at}`",
-            "",
-            "| Check | Status | Message |",
-            "| --- | --- | --- |",
-        ])
-        for check in step.checks:
-            lines.append(f"| `{check.id}` | `{check.status}` | {check.message} |")
-        if not step.checks:
-            lines.append("| - | - | no checks |")
-        lines.append("")
-    return "\n".join(lines)
 
 
 def report_to_json(report: RunReport) -> str:

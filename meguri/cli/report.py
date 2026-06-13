@@ -30,6 +30,7 @@ from meguri.reports.metrics import (
     extract_run_metrics_from_steps,
 )
 from meguri.reports.html import render_html_report
+from meguri.reports.markdown import render_markdown_report
 
 
 def handle_report(args: Any) -> int:
@@ -289,6 +290,7 @@ def refresh_run_html(report_dir: Path) -> Path:
         raise FileNotFoundError(f"run.json not found or invalid for report: {report_dir}")
     report = _run_report_from_raw(raw, report_dir)
     html_path = report_dir / "index.html"
+    report_dir.joinpath("report.md").write_text(render_markdown_report(report), encoding="utf-8")
     html_path.write_text(render_html_report(report), encoding="utf-8")
     return html_path
 
