@@ -10,7 +10,7 @@ from meguri.core.artifacts import ArtifactStore
 from meguri.core.evidence import collect_evidence
 from meguri.core.models import Artifact, CheckResult, RunContext, RunReport, StepResult, utc_now
 from meguri.core.replay import build_project_ref, build_replay_bundle
-from meguri.evaluators.deterministic import evaluate_step_checks
+from meguri.evaluators.deterministic import evaluate_step_checks, extract_last_json
 from meguri.project.pack import find_project_pack
 from meguri.reports.html import render_html_report
 from meguri.reports.indexes import write_indexes
@@ -202,6 +202,34 @@ def _persist_step_result(store: ArtifactStore, result: StepResult) -> None:
             "data": result.data,
         }),
     ])
+    _promote_declared_evidence_artifacts(store.root, result)
+
+
+def _promote_declared_evidence_artifacts(run_dir: Path, result: StepResult) -> None:
+    try:
+        payload = extract_last_json(result.stdout)
+    except ValueError:
+        return
+    if not isinstance(payload, dict):
+        return
+    existing = {artifact.name for artifact in result.artifacts}
+    for key in ("evidence_json", "evidence_markdown"):
+        value = payload.get(key)
+        if not value:
+            continue
+        path = Path(str(value)).expanduser()
+        if not path.is_absolute():
+            path = run_dir / path
+        try:
+            relative = path.resolve().relative_to(run_dir.resolve())
+        except ValueError:
+            continue
+        name = relative.as_posix()
+        if name in existing or not path.is_file():
+            continue
+        kind = "markdown" if key.endswith("markdown") or path.suffix.lower() == ".md" else "json"
+        result.artifacts.append(Artifact(name=name, path=str(path), kind=kind, metadata={"source": key}))
+        existing.add(name)
 
 
 def _blocked_check(step_id: str, message: str) -> CheckResult:

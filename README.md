@@ -82,7 +82,9 @@ when a loop starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
 runs can be inspected before the final step finishes. `run.json` and command
 JSON output keep stdout/stderr excerpts plus byte counts; full streams stay in
-the step artifacts. Replay metadata also captures the pre-run git branch,
+the step artifacts. If a step's structured stdout declares `evidence_json` or
+`evidence_markdown` files under the run directory, Meguri links them as step
+artifacts. Replay metadata also captures the pre-run git branch,
 commit, dirty flag, and dirty file list so a report can be audited against the
 exact project state that produced it. Legacy
 `.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their

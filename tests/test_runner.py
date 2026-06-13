@@ -316,6 +316,39 @@ steps:
     assert recorded_step["stdout_chars"] == len(artifact_stdout)
 
 
+def test_runner_promotes_declared_evidence_paths_to_step_artifacts(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    scenario_path.write_text(
+        f"""
+name: declared_evidence
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: emit_evidence
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib; run_dir=pathlib.Path(os.environ['MEGURI_RUN_DIR']); evidence_dir=pathlib.Path(os.environ['MEGURI_EVIDENCE_DIR']); evidence_dir.mkdir(parents=True, exist_ok=True); json_path=evidence_dir / 'evidence.json'; md_path=evidence_dir / 'evidence.md'; json_path.write_text(json.dumps({{'version': 1, 'loop_id': 'declared_evidence', 'run_id': os.environ['MEGURI_RUN_ID'], 'attempts': []}})); md_path.write_text('# evidence'); print(json.dumps({{'passed': True, 'evidence_json': str(json_path), 'evidence_markdown': str(md_path)}}))"
+    checks:
+      - id: passed
+        type: stdout_json_path
+        path: $.passed
+        equals: true
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+    artifact_names = {artifact.name for artifact in report.steps[0].artifacts}
+
+    assert "evidence/evidence.json" in artifact_names
+    assert "evidence/evidence.md" in artifact_names
+    html = (Path(report.artifact_dir) / "index.html").read_text(encoding="utf-8")
+    assert "evidence/evidence.json" in html
+    assert "evidence/evidence.md" in html
+
+
 def test_runner_closes_report_when_adapter_step_raises(tmp_path: Path, monkeypatch) -> None:
     class ExplodingAdapter:
         name = "exploding"
