@@ -176,11 +176,12 @@ snapshot refresh. If a run is interrupted, Meguri records the active step as
 blocked, appends a `run_interrupted` timeline event, and leaves the report
 readable. Each run report includes a project-root Replay command that uses the
 run-local `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
-Batch reports include batch `retry_loops` and batch `retry_command` that
-reruns failed, blocked, or unfinished loops from the project root after repair.
-When a batch was started with execute approval, the batch `retry_command`
-preserves `--allow-execute`. Batch run summaries include per-loop `mode` so
-execute risk remains visible during review.
+Batch reports include `status_counts` for the pass/fail/blocked distribution,
+`failed_loops` for failed or blocked loops, plus batch `retry_loops` and batch
+`retry_command` that reruns failed, blocked, or unfinished loops from the
+project root after repair. When a batch was started with execute approval, the
+batch `retry_command` preserves `--allow-execute`. Batch run summaries include
+per-loop `mode` so execute risk remains visible during review.
 
 ## AI terminal entrypoints
 
@@ -268,8 +269,9 @@ Workflow:
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   per-loop `mode`, per-loop `metrics`, `failure_groups`, and per-loop summaries
-   to prioritize shared repairs, then drill into each linked loop report. If
+   `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
+   `failure_groups`, and per-loop summaries to prioritize shared repairs, then
+   drill into each linked loop report. If
    earlier runs were started separately, use `meguri report --recent <N>` to group the latest
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for
@@ -379,8 +381,9 @@ Workflow:
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   per-loop `mode`, per-loop `metrics`, `failure_groups`, and per-loop summaries
-   to prioritize shared repairs, then drill into each linked loop report. If
+   `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
+   `failure_groups`, and per-loop summaries to prioritize shared repairs, then
+   drill into each linked loop report. If
    earlier runs were started separately, use `meguri report --recent <N>` to group the latest
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for

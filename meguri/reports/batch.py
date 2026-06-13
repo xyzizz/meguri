@@ -35,6 +35,24 @@ def batch_retry_loops(runs: list[dict[str, Any]], remaining_loops: list[str] | N
     return _dedupe(targets)
 
 
+def batch_status_counts(runs: list[dict[str, Any]]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for run in runs:
+        status = str(run.get("status") or "unknown")
+        counts[status] = counts.get(status, 0) + 1
+    return counts
+
+
+def batch_failed_loops(runs: list[dict[str, Any]]) -> list[str]:
+    targets = []
+    for run in runs:
+        status = str(run.get("status") or "")
+        loop = str(run.get("loop") or "")
+        if loop and status in {"fail", "blocked"}:
+            targets.append(loop)
+    return _dedupe(targets)
+
+
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[str]] = {}
     for run in runs:
@@ -84,6 +102,18 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + "".join(group_rows)
         + "</tbody></table>"
     ) if group_rows else ""
+    counts = record.get("status_counts") if isinstance(record.get("status_counts"), dict) else {}
+    status_summary = ", ".join(f"{key}: {value}" for key, value in counts.items())
+    failed_loops = ", ".join(str(loop) for loop in record.get("failed_loops") or [])
+    summary_html = ""
+    if status_summary or failed_loops:
+        summary_html = (
+            "<section class=\"summary\">"
+            "<h2>Status Summary</h2>"
+            f"<p>{html.escape(status_summary or '-')}</p>"
+            f"<p class=\"meta\">Failed loops: {html.escape(failed_loops or '-')}</p>"
+            "</section>"
+        )
     source = f"Source: {html.escape(str(record.get('source')))}<br>" if record.get("source") else ""
     current = f"<br>Current: {html.escape(str(record.get('current_loop') or '-'))}" if "current_loop" in record else ""
     interruption = record.get("interruption") if isinstance(record.get("interruption"), dict) else None
@@ -111,6 +141,9 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         "body{font:14px/1.5 system-ui,sans-serif;margin:32px;color:#1d2430}"
         "main{max-width:980px;margin:0 auto}"
         ".status{font-weight:700;text-transform:uppercase}"
+        ".summary{border:1px solid #ddd;border-radius:6px;padding:12px;margin:18px 0}"
+        ".summary h2{margin:0 0 8px;font-size:16px}"
+        ".summary p{margin:4px 0}"
         ".meta{color:#5d6778}"
         ".notice{background:#fff4df;border-left:3px solid #b06a00;padding:10px 12px}"
         "pre{background:#f5f6f8;border:1px solid #ddd;border-radius:6px;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}"
@@ -127,9 +160,10 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Started: {html.escape(str(record.get('started_at') or '-'))}"
         f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
-        + retry_html +
-        groups_html +
-        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
+        + summary_html
+        + retry_html
+        + groups_html
+        + "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"
     )

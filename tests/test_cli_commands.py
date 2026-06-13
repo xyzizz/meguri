@@ -70,6 +70,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
+    assert "`status_counts`" in codex_skill
+    assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
     assert "batch `retry_loops`" in codex_skill
     assert "per-loop `mode`" in codex_skill
@@ -87,6 +89,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
+    assert "`status_counts`" in claude_skill
+    assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
     assert "batch `retry_loops`" in claude_skill
     assert "per-loop `mode`" in claude_skill
@@ -373,6 +377,8 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass", "third_fail"]
     assert [run["status"] for run in batch["runs"]] == ["fail", "pass", "fail"]
     assert [run["mode"] for run in batch["runs"]] == ["dry_run", "dry_run", "dry_run"]
+    assert batch["status_counts"] == {"fail": 2, "pass": 1}
+    assert batch["failed_loops"] == ["first_fail", "third_fail"]
     assert batch["runs"][0]["summary"] == "video_id is not valid; archived campaign"
     assert batch["runs"][0]["failure_reasons"] == ["video_id is not valid", "archived campaign"]
     assert batch["runs"][1]["metrics"]["turn_count"] == 7
@@ -390,10 +396,15 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     batch_record = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
     assert batch_record["status"] == "fail"
     assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass", "third_fail"]
+    assert batch_record["status_counts"] == {"fail": 2, "pass": 1}
+    assert batch_record["failed_loops"] == ["first_fail", "third_fail"]
     assert batch_record["retry_loops"] == ["first_fail", "third_fail"]
     assert batch_record["retry_command"] == "meguri run first_fail third_fail"
     html = (batch_dir / "index.html").read_text(encoding="utf-8")
     assert "first_fail" in html
+    assert "Status Summary" in html
+    assert "fail: 2" in html
+    assert "pass: 1" in html
     assert "video_id is not valid" in html
     assert "2 loops" in html
     assert "Retry Failed Loops" in html
@@ -650,6 +661,8 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     assert batch["planned_loops"] == ["mid_loop", "new_loop"]
     assert [run["loop"] for run in batch["runs"]] == ["mid_loop", "new_loop"]
     assert [run["mode"] for run in batch["runs"]] == ["execute", "execute"]
+    assert batch["status_counts"] == {"fail": 2}
+    assert batch["failed_loops"] == ["mid_loop", "new_loop"]
     assert batch["retry_loops"] == ["mid_loop", "new_loop"]
     assert batch["retry_command"] == "meguri run mid_loop new_loop"
     assert batch["failure_groups"] == [{
