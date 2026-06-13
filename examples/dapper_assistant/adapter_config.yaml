@@ -1,0 +1,7 @@
+adapter: dapper_assistant
+project_path: "../../../../dapper_assistant"
+notes:
+  - Uses dapper_assistant/.venv/bin/python by default.
+  - All bundled scenarios stop before final confirmation submit.
+  - Real Graph/DAP side effects require explicit scenario changes and are not enabled here.
+

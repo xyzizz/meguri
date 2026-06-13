@@ -1,0 +1,28 @@
+name: dapper_assistant_pre_submit_smoke
+adapter: dapper_assistant
+project_path: "../../../../dapper_assistant"
+mode: dry_run
+metadata:
+  objective: Fast smoke validation for dapper_assistant adapter; covers copy campaign preview and confirm only.
+budgets:
+  max_attempts: 1
+  max_side_effects: 0
+steps:
+  - id: copy_campaign_preview_confirm_smoke
+    action: dapper_pre_submit
+    suite: copy_campaign_prompt_nodes
+    preflight_llm_proxy: true
+    timeout_seconds: 900
+    stop_on_fail: true
+    checks:
+      - id: smoke_script_exit
+        type: exit_code
+        equals: 0
+      - id: smoke_summary_passed
+        type: stdout_json_path
+        path: $.passed
+        equals: true
+      - id: smoke_no_execute_submit
+        type: stdout_not_contains
+        text: '"execute": true'
+

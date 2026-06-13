@@ -1,0 +1,66 @@
+name: dapper_assistant_pre_submit_all_flows
+adapter: dapper_assistant
+project_path: "../../../../dapper_assistant"
+mode: dry_run
+metadata:
+  objective: Validate copy_ad and batch_edit_ad workflow nodes until confirm panel, without final submit.
+budgets:
+  max_attempts: 1
+  max_side_effects: 0
+steps:
+  - id: natural_copy_nodes
+    action: dapper_pre_submit
+    suite: natural_copy_nodes
+    preflight_llm_proxy: true
+    timeout_seconds: 1800
+    stop_on_fail: true
+    checks:
+      - id: natural_script_exit
+        type: exit_code
+        equals: 0
+      - id: natural_summary_passed
+        type: stdout_json_path
+        path: $.passed
+        equals: true
+      - id: natural_no_submit_commit
+        type: stdout_not_contains
+        text: submit_commit
+      - id: natural_no_direct_copy_write
+        type: stdout_not_contains
+        text: copy_facebook_campaign_to_account
+
+  - id: batch_edit_preview_confirm_nodes
+    action: dapper_pre_submit
+    suite: batch_edit_nodes
+    preflight_llm_proxy: true
+    timeout_seconds: 900
+    stop_on_fail: true
+    checks:
+      - id: batch_script_exit
+        type: exit_code
+        equals: 0
+      - id: batch_summary_ok
+        type: stdout_json_path
+        path: $.ok
+        equals: true
+      - id: batch_no_submit_commit
+        type: stdout_not_contains
+        text: submit_commit
+
+  - id: copy_campaign_preview_confirm_nodes
+    action: dapper_pre_submit
+    suite: copy_campaign_prompt_nodes
+    preflight_llm_proxy: true
+    timeout_seconds: 1800
+    stop_on_fail: true
+    checks:
+      - id: copy_campaign_script_exit
+        type: exit_code
+        equals: 0
+      - id: copy_campaign_summary_passed
+        type: stdout_json_path
+        path: $.passed
+        equals: true
+      - id: copy_campaign_no_execute_submit
+        type: stdout_not_contains
+        text: '"execute": true'

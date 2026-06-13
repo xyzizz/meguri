@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meguri"
+version = "0.1.0"
+description = "Controlled self-iteration harness for AI coding and workflow agents"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+meguri = "meguri.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["meguri*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
