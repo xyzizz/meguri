@@ -12,6 +12,7 @@ from meguri.core.replay import build_replay_bundle
 from meguri.evaluators.deterministic import evaluate_step_checks
 from meguri.project.pack import find_project_pack
 from meguri.reports.html import render_html_report
+from meguri.reports.indexes import write_indexes
 from meguri.scenarios.loader import load_scenario
 
 
@@ -118,6 +119,7 @@ def run_scenario(
     store.write_json("run.json", report.to_dict())
     store.write_text("report.md", render_markdown_report(report), kind="markdown")
     store.write_text("index.html", render_html_report(report), kind="html")
+    _write_history_indexes(artifact_dir)
     return report
 
 
@@ -209,3 +211,12 @@ def _first_command(steps, raw_steps: list[dict]) -> list[str] | None:
         if isinstance(command, list):
             return [str(part) for part in command]
     return None
+
+
+def _write_history_indexes(artifact_dir: Path) -> None:
+    loop_dir = artifact_dir.parent
+    loops_dir = loop_dir.parent
+    pack_root = loops_dir.parent
+    if loops_dir.name != "loops":
+        return
+    write_indexes(pack_root, loop_dir)

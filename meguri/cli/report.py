@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from meguri.project.pack import find_project_pack
+from meguri.project.pack import ProjectPack, find_project_pack
 
 
 def handle_report(args: Any) -> int:
@@ -17,7 +17,7 @@ def handle_report(args: Any) -> int:
         return 1
 
     try:
-        html_path = latest_report(pack.runs_dir) if args.last or not args.run_id else report_for_run(pack.runs_dir, args.run_id)
+        html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -29,20 +29,43 @@ def handle_report(args: Any) -> int:
     return 0
 
 
-def latest_report(runs_dir: Path) -> Path:
-    if not runs_dir.is_dir():
-        raise FileNotFoundError(f"runs directory not found: {runs_dir}")
-    candidates = [path for path in runs_dir.iterdir() if (path / "index.html").is_file()]
+def latest_report(pack: ProjectPack) -> Path:
+    candidates = _loop_report_dirs(pack)
+    if pack.runs_dir.is_dir():
+        candidates.extend([path for path in pack.runs_dir.iterdir() if (path / "index.html").is_file()])
     if not candidates:
-        raise FileNotFoundError(f"no HTML reports found in {runs_dir}")
+        raise FileNotFoundError(f"no HTML reports found in {pack.pack_root}")
     return max(candidates, key=lambda path: path.stat().st_mtime) / "index.html"
 
 
-def report_for_run(runs_dir: Path, run_id: str) -> Path:
-    path = runs_dir / run_id / "index.html"
-    if not path.is_file():
+def report_for_run(pack: ProjectPack, run_id: str) -> Path:
+    if "/" in run_id:
+        loop_id, child_run_id = run_id.split("/", 1)
+        path = pack.loops_dir / loop_id / child_run_id / "index.html"
+        if path.is_file():
+            return path
         raise FileNotFoundError(f"report not found: {path}")
-    return path
+
+    matches = [path / "index.html" for path in _loop_report_dirs(pack) if path.name == run_id]
+    legacy = pack.runs_dir / run_id / "index.html"
+    if legacy.is_file():
+        matches.append(legacy)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise FileNotFoundError(f"run id is ambiguous; use <loop_id>/{run_id}")
+    raise FileNotFoundError(f"report not found for run: {run_id}")
+
+
+def _loop_report_dirs(pack: ProjectPack) -> list[Path]:
+    if not pack.loops_dir.is_dir():
+        return []
+    candidates = []
+    for loop_dir in sorted(path for path in pack.loops_dir.iterdir() if path.is_dir()):
+        for run_dir in sorted(path for path in loop_dir.iterdir() if path.is_dir() and not path.name.startswith("_")):
+            if (run_dir / "index.html").is_file():
+                candidates.append(run_dir)
+    return candidates
 
 
 def open_path(path: Path) -> bool:
