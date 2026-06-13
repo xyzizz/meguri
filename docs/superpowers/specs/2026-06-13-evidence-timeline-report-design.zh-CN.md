@@ -86,8 +86,8 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 支持两个输入位置：
 
 ```text
-.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/*.json
-.meguri/evidence/*.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/**/*.json
+.meguri/evidence/**/*.json
 ```
 
 run-local evidence 目录优先。项目级 `.meguri/evidence/` 允许给那些不容易知道
@@ -220,7 +220,9 @@ MEGURI_ARTIFACT_DIR=<absolute loop-local timestamp dir>
 MEGURI_EVIDENCE_DIR=<absolute loop-local timestamp dir>/evidence
 ```
 
-脚本可以直接把 evidence 写入 run-local evidence 目录。
+脚本可以直接把 evidence 写入 run-local evidence 目录。支持嵌套子目录，
+helper 可以按 adapter、loop、attempt、时间戳或子系统分组 evidence，
+Meguri 仍会收集进报告和 replay。
 
 ## HTML 报告设计
 
@@ -441,7 +443,7 @@ none       没有结构化 evidence 或 replay 入口
 
 - 时间线粒度是完整事件流，不只是 Meguri step。
 - 每个 loop 都是一个文件夹；每次触发在该 loop 下创建时间戳 run 文件夹。
-- Evidence 从文件收集，不从 stdout 收集。
+- Evidence 从文件递归收集，不从 stdout 收集。
 - Shell stdout/stderr 是运行中持续更新的 artifact；结构化 evidence 仍然从文件收集。
 - Attempts 分组展示，不做一条全局扁平时间线。
 - 事件详情在桌面端使用右侧固定详情面板。

@@ -79,11 +79,12 @@ def collect_evidence(
         warnings=warnings,
     )
     bundles: list[EvidenceBundle] = []
-    for path in sorted(run_evidence_dir.glob("*.json")):
+    for path in sorted(run_evidence_dir.rglob("*.json")):
         try:
             bundles.append(parse_evidence_file(path, run_dir=run_dir, warnings=warnings))
         except Exception as exc:  # noqa: BLE001
-            warnings.append(f"{path.name}: evidence parse failed: {type(exc).__name__}: {exc}")
+            name = _display_evidence_path(run_evidence_dir, path)
+            warnings.append(f"{name}: evidence parse failed: {type(exc).__name__}: {exc}")
     return EvidenceCollection(bundles=bundles, warnings=warnings)
 
 
@@ -202,11 +203,12 @@ def _copy_project_evidence(
 ) -> None:
     if not project_evidence_dir.is_dir():
         return
-    for path in sorted(project_evidence_dir.glob("*.json")):
+    for path in sorted(project_evidence_dir.rglob("*.json")):
+        relative_path = path.relative_to(project_evidence_dir)
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
         except Exception as exc:  # noqa: BLE001
-            warnings.append(f"{path.name}: project evidence skipped: {type(exc).__name__}: {exc}")
+            warnings.append(f"{relative_path.as_posix()}: project evidence skipped: {type(exc).__name__}: {exc}")
             continue
         if not isinstance(raw, dict) or str(raw.get("loop_id") or "") != loop_id:
             continue
@@ -216,9 +218,20 @@ def _copy_project_evidence(
             or datetime.fromtimestamp(path.stat().st_mtime, tz=run_started_at.tzinfo) >= run_started_at
         )
         if declares_run or modified_after_start:
-            shutil.copy2(path, run_evidence_dir / path.name)
+            destination = run_evidence_dir / relative_path
+            if path.resolve() == destination.resolve():
+                continue
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, destination)
         else:
-            warnings.append(f"{path.name}: skipped stale project evidence for loop {loop_id}")
+            warnings.append(f"{relative_path.as_posix()}: skipped stale project evidence for loop {loop_id}")
+
+
+def _display_evidence_path(root: Path, path: Path) -> str:
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return path.name
 
 
 def _event_sort_key(event: EvidenceEvent) -> tuple[int, str, int]:

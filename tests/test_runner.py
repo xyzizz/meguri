@@ -136,6 +136,39 @@ steps:
     assert (tmp_path / ".meguri" / "index.html").is_file()
 
 
+def test_runner_replay_includes_nested_evidence_files(tmp_path: Path) -> None:
+    loop_file = tmp_path / ".meguri" / "loops" / "agent_loop" / "_loop.yaml"
+    loop_file.parent.mkdir(parents=True)
+    loop_file.write_text(
+        f"""
+name: agent_loop
+adapter: shell
+project_path: "../../.."
+mode: dry_run
+metadata:
+  loop_id: agent_loop
+steps:
+  - id: emit
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib; path=pathlib.Path(os.environ['MEGURI_EVIDENCE_DIR']) / 'agent_multiturn_no_submit' / 'agent_loop' / '20260613-175923' / 'evidence.json'; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(json.dumps({{'version': 1, 'loop_id': 'agent_loop', 'run_id': os.environ['MEGURI_RUN_ID'], 'attempts': [{{'id': 'attempt_1', 'title': 'Attempt 1', 'status': 'pass', 'events': [{{'id': 'turn_1', 'type': 'user_input', 'title': 'Prompt', 'status': 'pass', 'input': 'hello'}}]}}]}})); print('ok')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(loop_file, runs_dir=None)
+    replay = json.loads((Path(report.artifact_dir) / "replay.json").read_text(encoding="utf-8"))
+
+    evidence_paths = [item["path"] for item in replay["inputs"]]
+    assert "evidence/agent_multiturn_no_submit/agent_loop/20260613-175923/evidence.json" in evidence_paths
+    assert report.replay["replay"]["status"] == "full"
+
+
 def test_runner_refreshes_run_record_after_each_step(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     marker_path = tmp_path / "seen_incremental_record.txt"

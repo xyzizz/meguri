@@ -66,6 +66,60 @@ def test_collect_evidence_warns_on_parse_error_without_raising(tmp_path: Path) -
     assert "broken.json" in result.warnings[0]
 
 
+def test_collect_evidence_recurses_project_evidence_and_preserves_relative_path(tmp_path: Path) -> None:
+    run_evidence_dir = tmp_path / "run" / "evidence"
+    project_evidence_file = (
+        tmp_path
+        / "project-evidence"
+        / "agent_multiturn_no_submit"
+        / "agent_loop"
+        / "20260613-175923"
+        / "evidence.json"
+    )
+    project_evidence_file.parent.mkdir(parents=True)
+    project_evidence_file.write_text(
+        """
+{
+  "version": 1,
+  "run_id": "20260613_152717",
+  "loop_id": "agent_loop",
+  "attempts": [
+    {
+      "id": "attempt_1",
+      "title": "Attempt 1",
+      "status": "pass",
+      "events": [
+        {"id": "turn_1", "type": "model_output", "title": "Model", "status": "pass", "output": "nested evidence"}
+      ]
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+
+    result = collect_evidence(
+        run_evidence_dir=run_evidence_dir,
+        project_evidence_dir=tmp_path / "project-evidence",
+        loop_id="agent_loop",
+        run_id="20260613_152717",
+        run_started_at=None,
+        run_dir=tmp_path / "run",
+    )
+
+    copied = (
+        run_evidence_dir
+        / "agent_multiturn_no_submit"
+        / "agent_loop"
+        / "20260613-175923"
+        / "evidence.json"
+    )
+    assert copied.is_file()
+    assert result.warnings == []
+    assert len(result.bundles) == 1
+    assert result.bundles[0].attempts[0].events[0].output == "nested evidence"
+
+
 def test_redact_value_hides_explicit_redacted_object_and_secret_patterns() -> None:
     assert redact_value({"text": "Bearer sk-live-secret", "redacted": True, "redacted_label": "LLM token"}) == "[redacted: LLM token]"
     assert "secret" not in redact_value("Authorization: Bearer sk-live-secret")

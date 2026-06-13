@@ -95,8 +95,8 @@ after a run step completes and before rendering the final report.
 Supported input locations:
 
 ```text
-.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/*.json
-.meguri/evidence/*.json
+.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/evidence/**/*.json
+.meguri/evidence/**/*.json
 ```
 
 The run-local evidence directory has priority. Project-level evidence is allowed
@@ -237,6 +237,8 @@ MEGURI_EVIDENCE_DIR=<absolute loop-local timestamp dir>/evidence
 ```
 
 Scripts can then write evidence directly to the run-local evidence directory.
+Nested subdirectories are supported so helpers can group evidence by adapter,
+loop, attempt, timestamp, or subsystem without losing report/replay collection.
 
 ## HTML Report Design
 
@@ -479,7 +481,7 @@ Add focused tests for:
 - Timeline granularity is complete event flow, not only Meguri steps.
 - Each loop is a folder, and each trigger creates a timestamped run folder under
   that loop.
-- Evidence is collected from files, not stdout.
+- Evidence is collected recursively from files, not stdout.
 - Shell stdout/stderr are live artifacts; structured evidence remains file-based.
 - Attempts are grouped, not rendered as one flat global timeline.
 - Event details use a fixed right-side panel on desktop.

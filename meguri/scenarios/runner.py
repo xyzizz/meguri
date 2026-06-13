@@ -184,7 +184,7 @@ def _write_run_snapshot(
         loop_id=loop_id,
         scenario_path=scenario_path,
         command=_first_command(steps, scenario.steps),
-        evidence_files=[path.relative_to(artifact_dir) for path in sorted(evidence_dir.glob("*.json"))],
+        evidence_files=[path.relative_to(artifact_dir) for path in sorted(evidence_dir.rglob("*.json"))],
         replay_source=str(replay_file) if replay_file else None,
         retry_of=retry_of,
     )
