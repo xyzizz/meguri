@@ -170,12 +170,13 @@ and each run writes history under `.meguri/loops/<loop_id>/<run_id>/`. Legacy
 into the loop history structure. Multi-loop sequential runs write aggregate
 records under `.meguri/batches/<batch_id>/`.
 During a run, `timeline.ndjson` is appended as each step advances, and
-`run.json`, `report.md`, and `index.html` are refreshed when the loop starts
-and whenever a step starts or finishes. `run.json.updated_at` changes on every
-snapshot refresh. If a run is interrupted, Meguri records the active step as
-blocked, appends a `run_interrupted` timeline event, and leaves the report
-readable. Each run report includes a project-root Replay command that uses the
-run-local `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
+`run.json`, `report.md`, and `index.html` are refreshed when the loop starts,
+when a step starts, when shell stdout/stderr advances, and when a step
+finishes. `run.json.updated_at` changes on every snapshot refresh. If a run is
+interrupted, Meguri records the active step as blocked, appends a
+`run_interrupted` timeline event, and leaves the report readable. Each run
+report includes a project-root Replay command that uses the run-local
+`replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
 In normal text mode, `meguri run` prints `live_report=...`,
 `live_artifact_dir=...`, and the current step as soon as a running snapshot
 exists; `--json` stays clean final JSON only.
@@ -194,7 +195,9 @@ execute evidence reports successful writes, batch records expose
 `created_resources` so partial side effects can be audited before retry or
 cleanup. Batch `repair_hints` group stale or invalid test data, incomplete
 agent chains, unfinished loops, and partial execute-mode side effects into
-evidence-derived next steps before drilling into raw artifacts.
+evidence-derived next steps before drilling into raw artifacts. Batch
+`failed_items` expose failed execute item type, id, name, error, and source so
+prompt or fixture repairs can target the bad object directly.
 
 ## AI terminal entrypoints
 
@@ -276,10 +279,12 @@ Workflow:
    confirming the exclusion list. Batch `batch.json` and `index.html` are
    created when the batch starts, refreshed whenever the current loop writes a
    running snapshot, and refreshed again after each loop completes; use them as
-   the live progress surface. In normal text mode, `meguri run` also prints
-   `live_report=...`, `live_artifact_dir=...`, and `live_step=...` as soon as
-   a running snapshot exists; `--json` stays clean final JSON only. Read batch
-   `current_run` for the live report path and current step. While long loops are still running, use
+   the live progress surface. Shell stdout/stderr output also refreshes the
+   current run's HTML/stdout excerpts while the command is still running. In
+   normal text mode, `meguri run` also prints `live_report=...`,
+   `live_artifact_dir=...`, and `live_step=...` as soon as a running snapshot
+   exists; `--json` stays clean final JSON only. Read batch `current_run` for
+   the live report path and current step. While long loops are still running, use
    `meguri report --running --json` to find active run/batch report paths and
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and
@@ -295,10 +300,10 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `repair_hints`, `failure_groups`,
-   and per-loop summaries to prioritize shared repairs, identify incomplete
-   agent chains, and audit partial execute-mode side effects, then drill into
-   each linked loop report. If
+   `attention_flags`, `created_resources`, `failed_items`, `repair_hints`,
+   `failure_groups`, and per-loop summaries to prioritize shared repairs,
+   identify bad source objects, identify incomplete agent chains, and audit
+   partial execute-mode side effects, then drill into each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use
@@ -410,10 +415,12 @@ Workflow:
    confirming the exclusion list. Batch `batch.json` and `index.html` are
    created when the batch starts, refreshed whenever the current loop writes a
    running snapshot, and refreshed again after each loop completes; use them as
-   the live progress surface. In normal text mode, `meguri run` also prints
-   `live_report=...`, `live_artifact_dir=...`, and `live_step=...` as soon as
-   a running snapshot exists; `--json` stays clean final JSON only. Read batch
-   `current_run` for the live report path and current step. While long loops are still running, use
+   the live progress surface. Shell stdout/stderr output also refreshes the
+   current run's HTML/stdout excerpts while the command is still running. In
+   normal text mode, `meguri run` also prints `live_report=...`,
+   `live_artifact_dir=...`, and `live_step=...` as soon as a running snapshot
+   exists; `--json` stays clean final JSON only. Read batch `current_run` for
+   the live report path and current step. While long loops are still running, use
    `meguri report --running --json` to find active run/batch report paths and
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and
@@ -429,10 +436,10 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `repair_hints`, `failure_groups`,
-   and per-loop summaries to prioritize shared repairs, identify incomplete
-   agent chains, and audit partial execute-mode side effects, then drill into
-   each linked loop report. If
+   `attention_flags`, `created_resources`, `failed_items`, `repair_hints`,
+   `failure_groups`, and per-loop summaries to prioritize shared repairs,
+   identify bad source objects, identify incomplete agent chains, and audit
+   partial execute-mode side effects, then drill into each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use

@@ -40,6 +40,26 @@ def extract_created_resources_from_steps(steps: list[Any]) -> list[dict[str, str
     return resources
 
 
+def extract_failed_items_from_steps(steps: list[Any]) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for step in steps:
+        stdout = _get_value(step, "stdout")
+        if not isinstance(stdout, str) or not stdout:
+            continue
+        try:
+            value = extract_last_json(stdout)
+        except ValueError:
+            continue
+        for item in _failed_items(value):
+            key = (item["type"], item["id"], item["name"], item["error"])
+            if key in seen:
+                continue
+            seen.add(key)
+            items.append(item)
+    return items
+
+
 def extract_attention_flags_from_steps(steps: list[Any]) -> list[dict[str, str]]:
     flags: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -156,6 +176,26 @@ def _created_resources(value: Any) -> list[dict[str, str]]:
     return resources
 
 
+def _failed_items(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, (dict, list)):
+        return []
+    failed: list[dict[str, str]] = []
+    if isinstance(value, dict):
+        for key in ("submit_results", "tool_results", "results", "items", "failed_submit_items"):
+            items = value.get(key)
+            if isinstance(items, list):
+                for item in items:
+                    failed_item = _failed_item_from_item(item, source=key)
+                    if failed_item:
+                        failed.append(failed_item)
+        for child in value.values():
+            failed.extend(_failed_items(child))
+    else:
+        for child in value:
+            failed.extend(_failed_items(child))
+    return failed
+
+
 def _attention_flags(value: Any) -> list[dict[str, str]]:
     if not isinstance(value, dict):
         return []
@@ -222,10 +262,52 @@ def _created_resource_from_item(item: Any, *, source: str) -> dict[str, str] | N
     }
 
 
+def _failed_item_from_item(item: Any, *, source: str) -> dict[str, str] | None:
+    if not isinstance(item, dict) or not _is_failed_item(item):
+        return None
+    error = _failed_item_error(item)
+    return {
+        "type": _resource_type(item),
+        "id": _resource_id(item),
+        "name": _item_name(item),
+        "error": error,
+        "source": source,
+    }
+
+
 def _is_success_item(item: dict[str, Any]) -> bool:
     ok = item.get("ok")
     status = str(item.get("status") or item.get("result") or "").lower()
     return ok is True or status in {"pass", "passed", "success", "succeeded"}
+
+
+def _is_failed_item(item: dict[str, Any]) -> bool:
+    ok = item.get("ok")
+    status = str(item.get("status") or item.get("result") or "").lower()
+    return ok is False or status in {"fail", "failed", "error", "blocked"} or bool(item.get("error"))
+
+
+def _failed_item_error(item: dict[str, Any]) -> str:
+    for key in ("error", "message", "reason"):
+        if isinstance(item.get(key), str) and item[key].strip():
+            return _normalise_failure_reason(item[key])
+    result = item.get("result")
+    if isinstance(result, dict):
+        for key in ("error", "message", "reason"):
+            if isinstance(result.get(key), str) and result[key].strip():
+                return _normalise_failure_reason(result[key])
+    return ""
+
+
+def _item_name(item: dict[str, Any]) -> str:
+    for key in ("name", "tool", "function", "action"):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return " ".join(value.split())
+    result = item.get("result")
+    if isinstance(result, dict):
+        return _item_name(result)
+    return ""
 
 
 def _failed_item_reasons(value: Any) -> list[str]:

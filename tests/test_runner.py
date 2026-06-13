@@ -380,6 +380,39 @@ steps:
     assert "live hello" in stdout_path.read_text(encoding="utf-8")
 
 
+def test_runner_refreshes_html_with_live_stdout_before_step_finishes(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    marker_path = tmp_path / "saw_live_html.txt"
+    output_token = "meguri-live-output-visible"
+    output_codes = ",".join(str(ord(char)) for char in output_token)
+    scenario_path.write_text(
+        f"""
+name: live_html
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: long
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import os, pathlib, sys, time; token=''.join(chr(code) for code in [{output_codes}]); run_dir=pathlib.Path(os.environ['MEGURI_RUN_DIR']); print(token, flush=True); html_path=run_dir / 'index.html'; deadline=time.time()+2;\\nwhile time.time() < deadline:\\n    if html_path.exists() and token in html_path.read_text():\\n        pathlib.Path(r'{marker_path}').write_text('seen'); break\\n    time.sleep(0.02)\\nelse:\\n    sys.exit(7)"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    assert report.status == "pass"
+    assert marker_path.read_text(encoding="utf-8") == "seen"
+    html = Path(report.html_report_path).read_text(encoding="utf-8")
+    assert output_token in html
+
+
 def test_runner_keeps_full_output_in_artifacts_and_compacts_run_json(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     scenario_path.write_text(

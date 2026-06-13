@@ -1,5 +1,6 @@
 import json
 
+from meguri.reports import metrics
 from meguri.reports.metrics import extract_created_resources_from_steps, extract_failure_reasons_from_steps
 
 
@@ -97,4 +98,63 @@ def test_failure_reasons_are_found_inside_nested_agent_items() -> None:
         "please remove conflicting locations",
         "Param video_id is not a valid video_id ID",
         "未知错误",
+    ]
+
+
+def test_failed_items_are_found_inside_nested_agent_items() -> None:
+    stdout = json.dumps(
+        {
+            "submitted": True,
+            "turns": [
+                {
+                    "id": "submit",
+                    "events": [
+                        {
+                            "tool_result": {
+                                "items": [
+                                    {
+                                        "id": "120247360426150090",
+                                        "name": "copy_facebook_ad_to_adset",
+                                        "status": "success",
+                                    },
+                                    {
+                                        "id": "120246917768180090",
+                                        "name": "copy_facebook_ad_to_adset",
+                                        "status": "error",
+                                        "error": "image could not be loaded",
+                                        "resource_type": "ad",
+                                    },
+                                    {
+                                        "ad_id": "120246917768930090",
+                                        "name": "copy_facebook_ad_to_adset",
+                                        "ok": False,
+                                        "result": {"message": "image could not be loaded"},
+                                    },
+                                ],
+                            }
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    assert hasattr(metrics, "extract_failed_items_from_steps")
+    failed_items = metrics.extract_failed_items_from_steps([{"stdout": stdout}])
+
+    assert failed_items == [
+        {
+            "type": "ad",
+            "id": "120246917768180090",
+            "name": "copy_facebook_ad_to_adset",
+            "error": "image could not be loaded",
+            "source": "items",
+        },
+        {
+            "type": "ad",
+            "id": "120246917768930090",
+            "name": "copy_facebook_ad_to_adset",
+            "error": "image could not be loaded",
+            "source": "items",
+        },
     ]

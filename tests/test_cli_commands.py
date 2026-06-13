@@ -70,6 +70,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --running --json" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
+    assert "Shell stdout/stderr output also refreshes" in codex_skill
     assert "meguri report <run_id> --json" in codex_skill
     assert "meguri report <run_id> --refresh" in codex_skill
     assert "meguri report --last --json" in codex_skill
@@ -86,6 +87,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "recovered running reports" in codex_skill
     assert "`attention_flags`" in codex_skill
     assert "`created_resources`" in codex_skill
+    assert "`failed_items`" in codex_skill
     assert "`repair_hints`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
@@ -104,6 +106,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run <loop> --allow-execute" in claude_skill
     assert "meguri report --running --json" in claude_skill
     assert "live progress surface" in claude_skill
+    assert "Shell stdout/stderr output also refreshes" in claude_skill
     assert "meguri report <run_id> --json" in claude_skill
     assert "meguri report <run_id> --refresh" in claude_skill
     assert "meguri report --last --json" in claude_skill
@@ -120,6 +123,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "recovered running reports" in claude_skill
     assert "`attention_flags`" in claude_skill
     assert "`created_resources`" in claude_skill
+    assert "`failed_items`" in claude_skill
     assert "`repair_hints`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
@@ -1500,6 +1504,79 @@ def test_report_recent_surfaces_repair_hints_for_failed_batch(tmp_path: Path, mo
     assert "verify_test_data" in html
     assert "complete_agent_chain" in html
     assert "audit_execute_side_effects" in html
+
+
+def test_report_recent_surfaces_failed_items_for_prompt_repair(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_failed_items"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>failed items</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "ai_source_ad_copy",
+            "status": "fail",
+            "mode": "execute",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "ai_source_ad_copy"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "submitted": True,
+                        "turns": [
+                            {
+                                "id": "submit",
+                                "events": [
+                                    {
+                                        "tool_result": {
+                                            "items": [
+                                                {
+                                                    "id": "120246917768180090",
+                                                    "name": "copy_facebook_ad_to_adset",
+                                                    "status": "error",
+                                                    "error": "image could not be loaded",
+                                                    "resource_type": "ad",
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ],
+                            }
+                        ],
+                    }),
+                    "checks": [{"id": "exit", "status": "fail", "message": "image could not be loaded"}],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["failed_item_count"] == 1
+    assert batch["failed_items"] == [
+        {
+            "loop": "ai_source_ad_copy",
+            "run_id": "run_20260613_120000_failed_items",
+            "type": "ad",
+            "id": "120246917768180090",
+            "name": "copy_facebook_ad_to_adset",
+            "error": "image could not be loaded",
+            "source": "items",
+        }
+    ]
+    assert batch["runs"][0]["failed_item_count"] == 1
+    assert batch["runs"][0]["failed_items"][0]["id"] == "120246917768180090"
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Failed Items" in html
+    assert "120246917768180090" in html
+    assert "image could not be loaded" in html
 
 
 def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:

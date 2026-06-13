@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import threading
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -145,6 +147,27 @@ def run_scenario(
                     runs_dir=runs_dir,
                     on_snapshot=on_snapshot,
                 )
+                live_snapshot = _make_live_output_snapshotter(
+                    store=store,
+                    scenario=scenario,
+                    scenario_path=scenario_path,
+                    artifact_dir=artifact_dir,
+                    evidence_dir=evidence_dir,
+                    loop_id=loop_id,
+                    run_id=run_id,
+                    started=started,
+                    started_dt=started_dt,
+                    steps=steps,
+                    all_checks=all_checks,
+                    running=running,
+                    project_ref=project_ref,
+                    replay_file=replay_file,
+                    retry_of=retry_of,
+                    runs_dir=runs_dir,
+                    on_snapshot=on_snapshot,
+                )
+                previous_live_snapshot = ctx.metadata.get("_meguri_live_output_snapshot")
+                ctx.metadata["_meguri_live_output_snapshot"] = live_snapshot
                 try:
                     result = adapter.run_step(step, ctx)
                 except Exception as exc:  # noqa: BLE001 - keep the run auditable.
@@ -155,6 +178,11 @@ def run_scenario(
                         "adapter step failed",
                         step=step,
                     )
+                finally:
+                    if previous_live_snapshot is None:
+                        ctx.metadata.pop("_meguri_live_output_snapshot", None)
+                    else:
+                        ctx.metadata["_meguri_live_output_snapshot"] = previous_live_snapshot
                 _persist_step_result(store, result)
                 if result.status == "blocked":
                     result.checks = [
@@ -604,6 +632,77 @@ def _running_step_result(step: dict, artifact_dir: Path) -> StepResult:
             ),
         ],
     )
+
+
+def _make_live_output_snapshotter(
+    *,
+    store: ArtifactStore,
+    scenario,
+    scenario_path: Path,
+    artifact_dir: Path,
+    evidence_dir: Path,
+    loop_id: str,
+    run_id: str,
+    started: str,
+    started_dt: datetime,
+    steps: list,
+    all_checks: list,
+    running: StepResult,
+    project_ref: dict,
+    replay_file: Path | None,
+    retry_of: str | None,
+    runs_dir: Path | None,
+    on_snapshot: Callable[[RunReport], None] | None,
+) -> Callable[[str, Path, Path], None]:
+    lock = threading.Lock()
+    last_snapshot = 0.0
+    min_interval = 0.2
+
+    def write_live_snapshot(step_id: str, stdout_path: Path, stderr_path: Path) -> None:
+        nonlocal last_snapshot
+        now = time.monotonic()
+        with lock:
+            if now - last_snapshot < min_interval:
+                return
+            if not steps or steps[-1] is not running or running.status != "running":
+                return
+            if running.step_id != step_id:
+                return
+            running.stdout = _read_live_text(stdout_path)
+            running.stderr = _read_live_text(stderr_path)
+            running.data["live_stdout_chars"] = len(running.stdout)
+            running.data["live_stderr_chars"] = len(running.stderr)
+            last_snapshot = now
+            _write_run_snapshot(
+                store=store,
+                scenario=scenario,
+                scenario_path=scenario_path,
+                artifact_dir=artifact_dir,
+                evidence_dir=evidence_dir,
+                loop_id=loop_id,
+                run_id=run_id,
+                started=started,
+                started_dt=started_dt,
+                steps=steps,
+                all_checks=all_checks,
+                status="running",
+                project_ref=project_ref,
+                replay_file=replay_file,
+                retry_of=retry_of,
+                runs_dir=runs_dir,
+                on_snapshot=on_snapshot,
+            )
+
+    return write_live_snapshot
+
+
+def _read_live_text(path: Path) -> str:
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+    except UnicodeDecodeError:
+        return path.read_text(encoding="utf-8", errors="replace")
 
 
 def _new_loop_run_id() -> str:

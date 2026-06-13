@@ -47,8 +47,10 @@ class ShellAdapter:
             stderr=subprocess.PIPE,
             bufsize=1,
         )
-        stdout_thread = threading.Thread(target=_tee_stream, args=(proc.stdout, stdout_path), daemon=True)
-        stderr_thread = threading.Thread(target=_tee_stream, args=(proc.stderr, stderr_path), daemon=True)
+        live_snapshot = ctx.metadata.get("_meguri_live_output_snapshot")
+        on_chunk = (lambda: live_snapshot(step_id, stdout_path, stderr_path)) if callable(live_snapshot) else None
+        stdout_thread = threading.Thread(target=_tee_stream, args=(proc.stdout, stdout_path, on_chunk), daemon=True)
+        stderr_thread = threading.Thread(target=_tee_stream, args=(proc.stderr, stderr_path, on_chunk), daemon=True)
         stdout_thread.start()
         stderr_thread.start()
         timed_out = False
@@ -87,10 +89,15 @@ class ShellAdapter:
         _ = ctx
 
 
-def _tee_stream(stream: Any, path) -> None:
+def _tee_stream(stream: Any, path, on_chunk=None) -> None:
     if stream is None:
         return
     with path.open("a", encoding="utf-8") as output:
         for line in iter(stream.readline, ""):
             output.write(line)
             output.flush()
+            if on_chunk is not None:
+                try:
+                    on_chunk()
+                except Exception:
+                    pass

@@ -101,7 +101,9 @@ runs, missing final submit, or crash tracebacks into `attention_flags` so they
 are visible before drilling into raw logs. When structured execute evidence
 reports successful writes, batch reports expose `created_resources` with loop,
 run, type, id, and source so partial side effects can be audited before retry or
-cleanup. Batch reports also include `status_counts` for the overall
+cleanup. Failed execute items are promoted into `failed_items` with loop, run,
+type, id, name, error, and source so prompt or fixture repairs can target the
+bad object directly. Batch reports also include `status_counts` for the overall
 pass/fail/blocked distribution, `failed_loops` for failed or blocked loops,
 `repair_hints` for evidence-derived next steps, and `retry_loops` plus a
 project-root retry command for failed, blocked, or unfinished loops, including
@@ -113,9 +115,10 @@ approved for execute mode, or if a recovered batch includes execute-mode retry
 targets, the retry command preserves `--allow-execute`.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
-starts, refreshed when each step starts or completes, and shell step
-stdout/stderr artifacts are updated while the command is still running. Long
-runs can be inspected before the final step finishes. In normal text mode,
+starts and refreshed when each step starts, when shell stdout/stderr advances,
+and when each step completes. Shell step stdout/stderr artifacts are also
+updated while the command is still running. Long runs can be inspected before
+the final step finishes. In normal text mode,
 `meguri run` prints `live_report=...`, `live_artifact_dir=...`, and the current
 step as soon as a running snapshot exists; `--json` remains clean final JSON
 only. `run.json.updated_at` changes on every snapshot refresh so a viewer can

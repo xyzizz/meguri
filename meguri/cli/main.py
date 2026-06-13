@@ -17,6 +17,7 @@ from meguri.project.pack import find_project_pack, resolve_scenario, slugify
 from meguri.reports.batch import (
     batch_attention_flags,
     batch_created_resources,
+    batch_failed_items,
     batch_failed_loops,
     batch_repair_hints,
     batch_retry_command,
@@ -29,6 +30,7 @@ from meguri.reports.indexes import render_project_index
 from meguri.reports.metrics import (
     extract_attention_flags_from_steps,
     extract_created_resources_from_steps,
+    extract_failed_items_from_steps,
     extract_failure_reasons_from_steps,
     extract_run_metrics_from_steps,
 )
@@ -293,6 +295,10 @@ def _run_summary(report) -> dict:
     if created_resources:
         summary["created_resources"] = created_resources
         summary["created_resource_count"] = len(created_resources)
+    failed_items = extract_failed_items_from_steps(report.steps)
+    if failed_items:
+        summary["failed_items"] = failed_items
+        summary["failed_item_count"] = len(failed_items)
     attention_flags = extract_attention_flags_from_steps(report.steps)
     if attention_flags:
         summary["attention_flags"] = attention_flags
@@ -459,6 +465,7 @@ def _write_batch_report(
     remaining_loops = planned_loops[completed:]
     retry_loops = batch_retry_loops(runs, remaining_loops)
     created_resources = batch_created_resources(runs)
+    failed_items = batch_failed_items(runs)
     attention_flags = batch_attention_flags(runs)
     repair_hints = batch_repair_hints(runs, remaining_loops)
     current_run_summary = _run_summary(current_run) if current_run is not None else None
@@ -498,6 +505,8 @@ def _write_batch_report(
         "attention_count": len(attention_flags),
         "created_resources": created_resources,
         "created_resource_count": len(created_resources),
+        "failed_items": failed_items,
+        "failed_item_count": len(failed_items),
         "runs": runs,
     }
     if current_run_summary is not None:
