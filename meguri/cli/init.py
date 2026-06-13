@@ -240,9 +240,11 @@ Workflow:
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe. When the user asks to run several loops in order, use
    `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
-   of starting loops manually or concurrently. Batch `batch.json` and
-   `index.html` are created when the batch starts and refreshed after each loop
-   completes; use them as the live progress surface.
+   of starting loops manually or concurrently. When the user asks to run all
+   remaining user-added loops, use `meguri run --all --exclude <loop>` after
+   confirming the exclusion list. Batch `batch.json` and `index.html` are
+   created when the batch starts and refreshed after each loop completes; use
+   them as the live progress surface.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
@@ -334,9 +336,11 @@ Workflow:
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe. When the user asks to run several loops in order, use
    `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
-   of starting loops manually or concurrently. Batch `batch.json` and
-   `index.html` are created when the batch starts and refreshed after each loop
-   completes; use them as the live progress surface.
+   of starting loops manually or concurrently. When the user asks to run all
+   remaining user-added loops, use `meguri run --all --exclude <loop>` after
+   confirming the exclusion list. Batch `batch.json` and `index.html` are
+   created when the batch starts and refreshed after each loop completes; use
+   them as the live progress surface.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect

@@ -28,7 +28,7 @@ def handle_loops(args: Any) -> int:
         print("Cannot list loops yet: no .meguri/ pack found.")
         return 2
 
-    entries = _read_loops(pack)
+    entries = read_loops(pack)
     visible = entries if args.all else [entry for entry in entries if entry.source == "user"]
 
     if args.json:
@@ -65,7 +65,7 @@ def handle_delete(args: Any) -> int:
 
     target = slugify(args.name, fallback=args.name)
     matches = [
-        entry for entry in _read_loops(pack)
+        entry for entry in read_loops(pack)
         if entry.loop_id == target or entry.name == target or entry.path.stem == target or entry.path.parent.name == target
     ]
     if not matches:
@@ -95,7 +95,7 @@ def handle_delete(args: Any) -> int:
     return 0
 
 
-def _read_loops(pack: ProjectPack) -> list[LoopEntry]:
+def read_loops(pack: ProjectPack) -> list[LoopEntry]:
     entries = _read_loop_folders(pack.loops_dir)
     existing = {entry.loop_id for entry in entries}
     entries.extend(_read_legacy_scenarios(pack.scenarios_dir, existing_ids=existing))

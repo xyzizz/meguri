@@ -11,12 +11,12 @@ from pathlib import Path
 from meguri.cli.add import handle_add
 from meguri.cli.init import handle_init
 from meguri.cli.inspect import handle_inspect
-from meguri.cli.loops import handle_delete, handle_loops
+from meguri.cli.loops import handle_delete, handle_loops, read_loops
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
 from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
-from meguri.project.pack import find_project_pack, resolve_scenario
+from meguri.project.pack import find_project_pack, resolve_scenario, slugify
 from meguri.reports.indexes import render_project_index
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
@@ -60,6 +60,9 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="Run one or more loops.")
     run.add_argument("scenarios", nargs="*", help="Loop aliases/paths. Defaults to smoke.")
+    run.add_argument("--all", dest="run_all", action="store_true", help="Run all user-added loops sequentially.")
+    run.add_argument("--exclude", action="append", default=[], help="Skip a loop when using --all. Can be repeated.")
+    run.add_argument("--include-system", action="store_true", help="Include system loops such as smoke when using --all.")
     run.add_argument("--runs-dir")
     run.add_argument("--replay")
     run.add_argument("--retry-of")
@@ -96,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "run":
         try:
-            scenario_names = args.scenarios or ["smoke"]
+            scenario_names = _select_run_targets(args)
             scenario_paths = [resolve_scenario(name) for name in scenario_names]
             runs_dir = Path(args.runs_dir).expanduser().resolve() if args.runs_dir else None
             replay_file = Path(args.replay).expanduser().resolve() if args.replay else None
@@ -160,6 +163,31 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "report":
         return handle_report(args)
     return 2
+
+
+def _select_run_targets(args) -> list[str]:
+    if args.run_all and args.scenarios:
+        raise ValueError("use either explicit loop names or --all, not both")
+    if args.include_system and not args.run_all:
+        raise ValueError("--include-system can only be used with --all")
+    if args.run_all:
+        pack = find_project_pack(Path.cwd())
+        entries = read_loops(pack)
+        if not args.include_system:
+            entries = [entry for entry in entries if entry.source == "user"]
+        scenario_names = [entry.loop_id for entry in entries]
+    else:
+        scenario_names = args.scenarios or ["smoke"]
+    if args.exclude:
+        raw_excludes = {str(value) for value in args.exclude}
+        normalized_excludes = {slugify(str(value), fallback=str(value)) for value in args.exclude}
+        scenario_names = [
+            name for name in scenario_names
+            if name not in raw_excludes and slugify(name, fallback=name) not in normalized_excludes
+        ]
+    if not scenario_names:
+        raise ValueError("no loops selected")
+    return scenario_names
 
 
 def _batch_status(run_reports) -> str:

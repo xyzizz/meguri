@@ -127,7 +127,7 @@ Ask Codex / Claude Code to use Meguri for:
 | List loops | Shows how many user-added loops exist in the current project. |
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
-| Run | Executes one loop, or several loops sequentially when multiple names are provided; writes running snapshots and keeps shell stdout/stderr artifacts live. |
+| Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. |
 | Report | Opens or summarizes the newest local HTML report. |
 
 ```text
@@ -138,6 +138,7 @@ Use Meguri to add a loop for checkout.
 Use Meguri to list loops.
 Use Meguri to delete the checkout loop.
 Use Meguri to validate and run the smoke loop.
+Use Meguri to run all loops except checkout.
 Use Meguri to open the latest report.
 ```
 

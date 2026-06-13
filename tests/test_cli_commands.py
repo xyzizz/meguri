@@ -63,6 +63,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "meguri run <loop1> <loop2>" in codex_skill
+    assert "meguri run --all --exclude <loop>" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
@@ -70,6 +71,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
     assert "evidence crash-safe" in claude_skill
+    assert "meguri run --all --exclude <loop>" in claude_skill
     assert "live progress surface" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
@@ -359,6 +361,36 @@ def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path,
     batch_record = json.loads(Path(batch["batch_dir"]).joinpath("batch.json").read_text(encoding="utf-8"))
     assert batch_record["status"] == "pass"
     assert [run["loop"] for run in batch_record["runs"]] == ["first_pass", "second_probe"]
+
+
+def test_run_all_user_loops_excludes_named_loop_and_system_smoke(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    ran_path = tmp_path / "ran.txt"
+    _write_loop(
+        tmp_path,
+        "first_done",
+        [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text('first', encoding='utf-8')"],
+    )
+    _write_loop(
+        tmp_path,
+        "second_todo",
+        [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text('second', encoding='utf-8')"],
+    )
+    _write_loop(
+        tmp_path,
+        "third_todo",
+        [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text(Path(r'{ran_path}').read_text(encoding='utf-8') + ',third', encoding='utf-8')"],
+    )
+
+    assert main(["run", "--all", "--exclude", "first_done", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["planned_loops"] == ["second_todo", "third_todo"]
+    assert [run["loop"] for run in batch["runs"]] == ["second_todo", "third_todo"]
+    assert "smoke" not in batch["planned_loops"]
+    assert ran_path.read_text(encoding="utf-8") == "second,third"
 
 
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
