@@ -10,6 +10,31 @@ import yaml
 from meguri.cli.main import main
 
 
+def _write_loop(tmp_path: Path, name: str, command: list[str]) -> None:
+    loop_dir = tmp_path / ".meguri" / "loops" / name
+    loop_dir.mkdir(parents=True, exist_ok=True)
+    loop_dir.joinpath("_loop.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "name": name,
+                "adapter": "shell",
+                "project_path": "../../..",
+                "mode": "dry_run",
+                "metadata": {"kind": "loop", "loop_id": name, "source": "user"},
+                "steps": [
+                    {
+                        "id": "run",
+                        "command": command,
+                        "checks": [{"id": "exit", "type": "exit_code", "equals": 0}],
+                    }
+                ],
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+
+
 def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
@@ -37,6 +62,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "evidence crash-safe" in codex_skill
     assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
+    assert "meguri run <loop1> <loop2>" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
@@ -211,6 +237,42 @@ def test_run_json_output_compacts_large_stdout(tmp_path: Path, monkeypatch, caps
     assert len(step["stdout"]) < 9000
     assert step["stdout_truncated"] is True
     assert step["stdout_chars"] > 20000
+
+
+def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    marker_path = tmp_path / "second_loop_ran.txt"
+    _write_loop(
+        tmp_path,
+        "first_fail",
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('first failed'); sys.exit(3)",
+        ],
+    )
+    _write_loop(
+        tmp_path,
+        "second_pass",
+        [
+            sys.executable,
+            "-c",
+            f"from pathlib import Path; Path(r'{marker_path}').write_text('ran', encoding='utf-8'); print('second passed')",
+        ],
+    )
+
+    assert main(["run", "first_fail", "second_pass", "--json"]) == 1
+    output = capsys.readouterr().out
+    batch = json.loads(output)
+
+    assert batch["status"] == "fail"
+    assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass"]
+    assert [run["status"] for run in batch["runs"]] == ["fail", "pass"]
+    assert marker_path.read_text(encoding="utf-8") == "ran"
+    assert Path(batch["runs"][0]["html_report_path"]).is_file()
+    assert Path(batch["runs"][1]["html_report_path"]).is_file()
 
 
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:

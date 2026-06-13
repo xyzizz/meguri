@@ -94,7 +94,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
 | Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
-| Run | 执行指定 loop，写入运行中快照，并持续更新 shell stdout/stderr artifacts。 |
+| Run | 执行一个 loop；传入多个名称时按顺序依次执行，并写入运行中快照、持续更新 shell stdout/stderr artifacts。 |
 | Report | 打开或总结最新的本地 HTML 报告。 |
 
 ```text

@@ -119,7 +119,7 @@ Ask Codex / Claude Code to use Meguri for:
 | List loops | Shows how many user-added loops exist in the current project. |
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
-| Run | Executes the selected loop, writes running snapshots, and keeps shell stdout/stderr artifacts live. |
+| Run | Executes one loop, or several loops sequentially when multiple names are provided; writes running snapshots and keeps shell stdout/stderr artifacts live. |
 | Report | Opens or summarizes the newest local HTML report. |
 
 ```text

@@ -52,8 +52,8 @@ def main(argv: list[str] | None = None) -> int:
     validate_scenario = sub.add_parser("validate-scenario", help="Compatibility alias: load and validate a scenario file.")
     validate_scenario.add_argument("scenario")
 
-    run = sub.add_parser("run", help="Run a loop.")
-    run.add_argument("scenario", nargs="?", default="smoke")
+    run = sub.add_parser("run", help="Run one or more loops.")
+    run.add_argument("scenarios", nargs="*", help="Loop aliases/paths. Defaults to smoke.")
     run.add_argument("--runs-dir")
     run.add_argument("--replay")
     run.add_argument("--retry-of")
@@ -90,27 +90,70 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.cmd == "run":
         try:
-            scenario_path = resolve_scenario(args.scenario)
+            scenario_names = args.scenarios or ["smoke"]
+            scenario_paths = [resolve_scenario(name) for name in scenario_names]
             runs_dir = Path(args.runs_dir).expanduser().resolve() if args.runs_dir else None
             replay_file = Path(args.replay).expanduser().resolve() if args.replay else None
         except Exception as exc:  # noqa: BLE001
             print(f"error: {exc}", file=sys.stderr)
             return 1
-        run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
-        if args.json:
-            print(report_to_json(run_report))
+        run_reports = []
+        for scenario_path in scenario_paths:
+            run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
+            run_reports.append(run_report)
+        if args.json and len(run_reports) == 1:
+            print(report_to_json(run_reports[0]))
+        elif args.json:
+            print(json.dumps({
+                "status": _batch_status(run_reports),
+                "runs": [_run_summary(report) for report in run_reports],
+            }, ensure_ascii=False, indent=2, default=str))
         else:
-            print(f"run_id={run_report.run_id}")
-            print(f"status={run_report.status}")
-            print(f"artifact_dir={run_report.artifact_dir}")
-            print(f"html_report={run_report.html_report_path}")
+            for run_report in run_reports:
+                if len(run_reports) > 1:
+                    print(f"loop={_loop_name(run_report)}")
+                print(f"run_id={run_report.run_id}")
+                print(f"status={run_report.status}")
+                print(f"artifact_dir={run_report.artifact_dir}")
+                print(f"html_report={run_report.html_report_path}")
+            if len(run_reports) > 1:
+                print(f"batch_status={_batch_status(run_reports)}")
         if args.open:
-            if not open_path(Path(run_report.html_report_path)):
-                print(f"could not open report automatically: {run_report.html_report_path}", file=sys.stderr)
-        return 0 if run_report.status == "pass" else 1
+            target_report = run_reports[-1]
+            if not open_path(Path(target_report.html_report_path)):
+                print(f"could not open report automatically: {target_report.html_report_path}", file=sys.stderr)
+        return 0 if _batch_status(run_reports) == "pass" else 1
     if args.cmd == "report":
         return handle_report(args)
     return 2
+
+
+def _batch_status(run_reports) -> str:
+    if not run_reports:
+        return "blocked"
+    if any(report.status == "fail" for report in run_reports):
+        return "fail"
+    if any(report.status == "blocked" for report in run_reports):
+        return "blocked"
+    if any(report.status == "warning" for report in run_reports):
+        return "warning"
+    if any(report.status == "running" for report in run_reports):
+        return "running"
+    return "pass"
+
+
+def _run_summary(report) -> dict[str, str]:
+    return {
+        "loop": _loop_name(report),
+        "run_id": report.run_id,
+        "status": report.status,
+        "artifact_dir": report.artifact_dir,
+        "html_report_path": report.html_report_path,
+    }
+
+
+def _loop_name(report) -> str:
+    return str(report.metadata.get("loop_id") or report.scenario_name)
 
 
 if __name__ == "__main__":

@@ -237,7 +237,9 @@ Workflow:
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
-   when safe.
+   when safe. When the user asks to run several loops in order, use
+   `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
+   of starting loops manually or concurrently.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes.
@@ -324,7 +326,9 @@ Workflow:
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
-   when safe.
+   when safe. When the user asks to run several loops in order, use
+   `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
+   of starting loops manually or concurrently.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes.
