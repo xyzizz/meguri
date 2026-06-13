@@ -65,6 +65,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "meguri run <loop1> <loop2>" in codex_skill
     assert "meguri run --all --exclude <loop>" in codex_skill
+    assert "meguri run <loop> --allow-execute" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
@@ -73,9 +74,11 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
+    assert "--allow-execute" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
     assert "evidence crash-safe" in claude_skill
     assert "meguri run --all --exclude <loop>" in claude_skill
+    assert "meguri run <loop> --allow-execute" in claude_skill
     assert "live progress surface" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
@@ -249,6 +252,29 @@ def test_run_json_output_compacts_large_stdout(tmp_path: Path, monkeypatch, caps
     assert len(step["stdout"]) < 9000
     assert step["stdout_truncated"] is True
     assert step["stdout_chars"] > 20000
+
+
+def test_run_execute_loop_requires_explicit_approval(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    marker_path = tmp_path / "execute_ran.txt"
+    _write_loop(
+        tmp_path,
+        "real_submit",
+        [sys.executable, "-c", f"from pathlib import Path; Path(r'{marker_path}').write_text('ran', encoding='utf-8')"],
+    )
+    loop_path = tmp_path / ".meguri" / "loops" / "real_submit" / "_loop.yaml"
+    raw = yaml.safe_load(loop_path.read_text(encoding="utf-8"))
+    raw["mode"] = "execute"
+    loop_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
+
+    assert main(["run", "real_submit"]) == 2
+    assert "--allow-execute" in capsys.readouterr().err
+    assert not marker_path.exists()
+
+    assert main(["run", "real_submit", "--allow-execute"]) == 0
+    assert marker_path.read_text(encoding="utf-8") == "ran"
 
 
 def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, monkeypatch, capsys) -> None:

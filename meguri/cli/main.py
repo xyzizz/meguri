@@ -66,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
     run.add_argument("--runs-dir")
     run.add_argument("--replay")
     run.add_argument("--retry-of")
+    run.add_argument("--allow-execute", action="store_true", help="Confirm execute-mode loops for this run.")
     run.add_argument("--json", action="store_true")
     run.add_argument("--open", action="store_true", help="Open the generated HTML report.")
 
@@ -108,6 +109,14 @@ def main(argv: list[str] | None = None) -> int:
         except Exception as exc:  # noqa: BLE001
             print(f"error: {exc}", file=sys.stderr)
             return 1
+        execute_loops = _execute_loop_names(scenario_paths)
+        if execute_loops and not args.allow_execute:
+            print(
+                "error: execute-mode loops require explicit user approval; rerun with "
+                f"--allow-execute after confirmation: {', '.join(execute_loops)}",
+                file=sys.stderr,
+            )
+            return 2
         run_reports = []
         started_at = utc_now()
         batch_context = _create_batch_context(scenario_paths[0]) if len(scenario_paths) > 1 else None
@@ -206,6 +215,15 @@ def _select_run_targets(args) -> list[str]:
     if not scenario_names:
         raise ValueError("no loops selected")
     return scenario_names
+
+
+def _execute_loop_names(scenario_paths: list[Path]) -> list[str]:
+    names = []
+    for scenario_path in scenario_paths:
+        scenario = load_scenario(scenario_path)
+        if scenario.mode == "execute":
+            names.append(str(scenario.metadata.get("loop_id") or scenario.name))
+    return names
 
 
 def _batch_status(run_reports) -> str:

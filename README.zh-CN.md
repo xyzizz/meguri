@@ -97,7 +97,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
 | Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
-| Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts。 |
+| Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts；execute-mode loop 必须先获得明确批准。 |
 | Report | 打开最新报告，或把最近多个散落 run 归并成一个 batch 报告。 |
 
 ```text
@@ -119,7 +119,7 @@ $meguri inspect
 ## 工作规则
 
 - 让 Codex / Claude Code 读取现有文档、测试、脚本和配置，再编写项目专属的 loop 或辅助测试。
-- 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。
+- 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。批准后，execute-mode loop 也必须带 `--allow-execute` 确认标记运行。
 - 不要把 LLM 的自我评价当作通过标准。通过证据应来自命令、结构化输出、日志、产物、截图或文件。
 - 编写 helper/verifier 脚本时，即使异常也要向 `MEGURI_EVIDENCE_DIR` 写结构化 evidence，包含部分输入/输出、错误、traceback 和 artifact 链接。
 - 在启用 submit、deploy、payment、production writes、external sends 或 data migrations 前，必须先询问。

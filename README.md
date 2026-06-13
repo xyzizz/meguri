@@ -134,7 +134,7 @@ Ask Codex / Claude Code to use Meguri for:
 | List loops | Shows how many user-added loops exist in the current project. |
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
-| Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. |
+| Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. Execute-mode loops require explicit approval. |
 | Report | Opens the newest report, or groups recent standalone runs into a batch report. |
 
 ```text
@@ -160,7 +160,8 @@ for clarification and writes nothing.
 - Let Codex / Claude Code inspect the repo, read existing tests/scripts/docs, and
   write project-specific loops or helper tests.
 - Keep new loops in `dry_run` unless the user explicitly approves execute
-  mode.
+  mode. After approval, run execute-mode loops with the `--allow-execute`
+  confirmation marker.
 - Never treat an LLM self-evaluation as a passing check. Passing evidence should
   come from commands, structured output, logs, artifacts, screenshots, or files.
 - When writing helper or verifier scripts, emit structured evidence into

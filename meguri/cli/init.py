@@ -202,7 +202,9 @@ Use Meguri to add a dry-run loop for <describe the goal>.
 Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing
 check. If you write helper or verifier scripts, write structured JSON evidence
 to `MEGURI_EVIDENCE_DIR` in a `finally` path so failures still include partial
-input/output, errors, traceback, and artifact paths.
+input/output, errors, traceback, and artifact paths. Keep loops in `dry_run`
+unless the user explicitly approves execute mode; after approval, execute-mode
+loops must be run with `meguri run <loop> --allow-execute`.
 """
 
 
@@ -241,6 +243,9 @@ Workflow:
    include partial input/output, errors, traceback, and artifact paths even when
    the target app or model response crashes.
 8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+   After that approval, run execute-mode loops with
+   `meguri run <loop> --allow-execute`; without that confirmation marker Meguri
+   will refuse to run execute loops.
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
@@ -296,9 +301,10 @@ default and delete only a named user-added loop unless the user explicitly asks
 to include or remove system loops.
 
 Always prefer deterministic evidence over LLM self-evaluation. Keep loops in
-`dry_run` unless the user explicitly approves execute mode. Before reporting
-completion, run `meguri validate` and the relevant `meguri run <loop> --open`
-when safe.
+`dry_run` unless the user explicitly approves execute mode. After that approval,
+run execute-mode loops with `meguri run <loop> --allow-execute`; without that
+confirmation marker Meguri refuses execute loops. Before reporting completion,
+run `meguri validate` and the relevant `meguri run <loop> --open` when safe.
 """
 
 
@@ -343,6 +349,9 @@ Workflow:
    include partial input/output, errors, traceback, and artifact paths even when
    the target app or model response crashes.
 8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+   After that approval, run execute-mode loops with
+   `meguri run <loop> --allow-execute`; without that confirmation marker Meguri
+   will refuse to run execute loops.
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
