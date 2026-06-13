@@ -81,6 +81,32 @@ def batch_created_resources(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
     return resources
 
 
+def batch_attention_flags(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
+    flags: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for run in runs:
+        loop = str(run.get("loop") or "")
+        run_id = str(run.get("run_id") or "")
+        for flag in run.get("attention_flags") or []:
+            if not isinstance(flag, dict):
+                continue
+            code = str(flag.get("code") or "")
+            if not code:
+                continue
+            key = (loop, run_id, code)
+            if key in seen:
+                continue
+            seen.add(key)
+            flags.append({
+                "loop": loop,
+                "run_id": run_id,
+                "code": code,
+                "severity": str(flag.get("severity") or "warning"),
+                "message": str(flag.get("message") or ""),
+            })
+    return flags
+
+
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[str]] = {}
     for run in runs:
@@ -150,6 +176,25 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + "".join(created_rows)
         + "</tbody></table>"
     ) if created_rows else ""
+    attention_rows = []
+    for flag in record.get("attention_flags") or []:
+        if not isinstance(flag, dict):
+            continue
+        attention_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(flag.get('loop') or '-'))}</td>"
+            f"<td>{html.escape(str(flag.get('run_id') or '-'))}</td>"
+            f"<td>{html.escape(str(flag.get('severity') or 'warning'))}</td>"
+            f"<td>{html.escape(str(flag.get('code') or '-'))}</td>"
+            f"<td>{html.escape(str(flag.get('message') or '-'))}</td>"
+            "</tr>"
+        )
+    attention_html = (
+        "<h2>Attention Flags</h2>"
+        "<table><thead><tr><th>Loop</th><th>Run</th><th>Severity</th><th>Code</th><th>Message</th></tr></thead><tbody>"
+        + "".join(attention_rows)
+        + "</tbody></table>"
+    ) if attention_rows else ""
     counts = record.get("status_counts") if isinstance(record.get("status_counts"), dict) else {}
     status_summary = ", ".join(f"{key}: {value}" for key, value in counts.items())
     failed_loops = ", ".join(str(loop) for loop in record.get("failed_loops") or [])
@@ -225,6 +270,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + current_run_html
         + summary_html
         + retry_html
+        + attention_html
         + created_html
         + groups_html
         + "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"

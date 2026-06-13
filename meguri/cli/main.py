@@ -16,6 +16,7 @@ from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
 from meguri.reports.batch import (
+    batch_attention_flags,
     batch_created_resources,
     batch_failed_loops,
     batch_retry_command,
@@ -25,7 +26,11 @@ from meguri.reports.batch import (
     render_batch_html,
 )
 from meguri.reports.indexes import render_project_index
-from meguri.reports.metrics import extract_created_resources_from_steps, extract_run_metrics_from_steps
+from meguri.reports.metrics import (
+    extract_attention_flags_from_steps,
+    extract_created_resources_from_steps,
+    extract_run_metrics_from_steps,
+)
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
 
@@ -285,6 +290,10 @@ def _run_summary(report) -> dict:
     if created_resources:
         summary["created_resources"] = created_resources
         summary["created_resource_count"] = len(created_resources)
+    attention_flags = extract_attention_flags_from_steps(report.steps)
+    if attention_flags:
+        summary["attention_flags"] = attention_flags
+        summary["attention_count"] = len(attention_flags)
     return summary
 
 
@@ -449,6 +458,7 @@ def _write_batch_report(
     remaining_loops = planned_loops[completed:]
     retry_loops = batch_retry_loops(runs, remaining_loops)
     created_resources = batch_created_resources(runs)
+    attention_flags = batch_attention_flags(runs)
     current_run_summary = _run_summary(current_run) if current_run is not None else None
     if current_run_summary is not None:
         current_step = _running_step_id(current_run)
@@ -481,6 +491,8 @@ def _write_batch_report(
             allow_execute=bool(batch_context.get("allow_execute")),
         ),
         "failure_groups": failure_groups(runs),
+        "attention_flags": attention_flags,
+        "attention_count": len(attention_flags),
         "created_resources": created_resources,
         "created_resource_count": len(created_resources),
         "runs": runs,

@@ -14,6 +14,7 @@ from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import ProjectPack, find_project_pack
 from meguri.reports.batch import (
+    batch_attention_flags,
     batch_created_resources,
     batch_failed_loops,
     batch_retry_command,
@@ -23,7 +24,11 @@ from meguri.reports.batch import (
     render_batch_html,
 )
 from meguri.reports.indexes import render_project_index
-from meguri.reports.metrics import extract_created_resources_from_steps, extract_run_metrics_from_steps
+from meguri.reports.metrics import (
+    extract_attention_flags_from_steps,
+    extract_created_resources_from_steps,
+    extract_run_metrics_from_steps,
+)
 
 
 def handle_report(args: Any) -> int:
@@ -174,6 +179,7 @@ def _write_selected_batch_report(
     batch_dir.mkdir(parents=True, exist_ok=True)
     retry_loops = batch_retry_loops(runs)
     created_resources = batch_created_resources(runs)
+    attention_flags = batch_attention_flags(runs)
     record = {
         "batch_id": batch_id,
         "source": "recent_runs",
@@ -193,6 +199,8 @@ def _write_selected_batch_report(
         "retry_loops": retry_loops,
         "retry_command": batch_retry_command(runs),
         "failure_groups": failure_groups(runs),
+        "attention_flags": attention_flags,
+        "attention_count": len(attention_flags),
         "created_resources": created_resources,
         "created_resource_count": len(created_resources),
         "runs": runs,
@@ -397,6 +405,10 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     if created_resources:
         summary["created_resources"] = created_resources
         summary["created_resource_count"] = len(created_resources)
+    attention_flags = extract_attention_flags_from_steps(raw.get("steps") or [])
+    if attention_flags:
+        summary["attention_flags"] = attention_flags
+        summary["attention_count"] = len(attention_flags)
     evidence_files = _evidence_files_from_raw(raw)
     if evidence_files:
         summary["evidence_files"] = evidence_files

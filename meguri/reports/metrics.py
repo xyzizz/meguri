@@ -39,10 +39,34 @@ def extract_created_resources_from_steps(steps: list[Any]) -> list[dict[str, str
     return resources
 
 
+def extract_attention_flags_from_steps(steps: list[Any]) -> list[dict[str, str]]:
+    flags: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for step in steps:
+        stdout = _get_value(step, "stdout")
+        if not isinstance(stdout, str) or not stdout:
+            continue
+        try:
+            value = extract_last_json(stdout)
+        except ValueError:
+            continue
+        for flag in _attention_flags(value):
+            code = flag["code"]
+            if code in seen:
+                continue
+            seen.add(code)
+            flags.append(flag)
+    return flags
+
+
 def format_metrics(metrics: dict[str, Any]) -> str:
     parts: list[str] = []
     if isinstance(metrics.get("turn_count"), int):
-        parts.append(f"turns={metrics['turn_count']}")
+        expected = metrics.get("expected_turn_count")
+        if isinstance(expected, int):
+            parts.append(f"turns={metrics['turn_count']}/{expected}")
+        else:
+            parts.append(f"turns={metrics['turn_count']}")
     if isinstance(metrics.get("submitted"), bool):
         parts.append(f"submitted={str(metrics['submitted']).lower()}")
     if isinstance(metrics.get("closed_status_verified"), bool):
@@ -59,7 +83,7 @@ def format_metrics(metrics: dict[str, Any]) -> str:
 def _merge_metrics(metrics: dict[str, Any], value: Any) -> None:
     if not isinstance(value, dict):
         return
-    for key in ("turn_count", "submitted", "closed_status_verified", "boundary_crossed"):
+    for key in ("turn_count", "expected_turn_count", "submitted", "closed_status_verified", "boundary_crossed"):
         if key in value and isinstance(value[key], (bool, int)):
             metrics[key] = value[key]
     counts = _submit_counts(value)
@@ -106,6 +130,34 @@ def _created_resources(value: Any) -> list[dict[str, str]]:
     return resources
 
 
+def _attention_flags(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, dict):
+        return []
+    flags: list[dict[str, str]] = []
+    turn_count = value.get("turn_count")
+    expected_turn_count = value.get("expected_turn_count")
+    if isinstance(turn_count, int) and isinstance(expected_turn_count, int) and turn_count < expected_turn_count:
+        flags.append({
+            "code": "short_run",
+            "severity": "warning",
+            "message": f"turn_count {turn_count} below expected {expected_turn_count}",
+        })
+    if value.get("final_submit") is True and value.get("submitted") is False:
+        flags.append({
+            "code": "not_submitted",
+            "severity": "warning",
+            "message": "final_submit expected but submitted is false",
+        })
+    crash_tracebacks = value.get("crash_tracebacks")
+    if isinstance(crash_tracebacks, list) and any(str(item).strip() for item in crash_tracebacks):
+        flags.append({
+            "code": "crash_traceback",
+            "severity": "error",
+            "message": _compact_message(_first_nonempty(crash_tracebacks)),
+        })
+    return flags
+
+
 def _created_resource_from_item(item: Any, *, source: str) -> dict[str, str] | None:
     if not isinstance(item, dict) or not _is_success_item(item):
         return None
@@ -145,6 +197,21 @@ def _resource_id(item: dict[str, Any]) -> str:
     if isinstance(result, dict):
         return _resource_id(result)
     return ""
+
+
+def _first_nonempty(values: list[Any]) -> str:
+    for value in values:
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _compact_message(value: str, *, limit: int = 180) -> str:
+    text = " ".join(value.split())
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit - 3]}..."
 
 
 def _get_value(value: Any, key: str) -> Any:

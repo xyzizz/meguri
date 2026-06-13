@@ -81,6 +81,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
     assert "batch `retry_loops`" in codex_skill
+    assert "`attention_flags`" in codex_skill
     assert "`created_resources`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
@@ -108,6 +109,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
     assert "batch `retry_loops`" in claude_skill
+    assert "`attention_flags`" in claude_skill
     assert "`created_resources`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
@@ -477,6 +479,45 @@ def test_run_multiple_loops_records_created_resources_in_batch(tmp_path: Path, m
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
     assert "Created Resources" in html
     assert "120250081240970683" in html
+
+
+def test_run_multiple_loops_records_attention_flags_in_batch(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    _write_loop(
+        tmp_path,
+        "preview_only",
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, sys; print(json.dumps({"
+                "'final_submit': True, "
+                "'submitted': False, "
+                "'turn_count': 1, "
+                "'expected_turn_count': 7, "
+                "'crash_tracebacks': ['Traceback: AgentResponseParseError']"
+                "})); sys.exit(1)"
+            ),
+        ],
+    )
+    _write_loop(tmp_path, "second_pass", [sys.executable, "-c", "print('ok')"])
+
+    assert main(["run", "preview_only", "second_pass", "--json"]) == 1
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["attention_count"] == 3
+    assert [flag["code"] for flag in batch["attention_flags"]] == [
+        "short_run",
+        "not_submitted",
+        "crash_traceback",
+    ]
+    assert batch["runs"][0]["attention_count"] == 3
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Attention Flags" in html
+    assert "preview_only" in html
+    assert "short_run" in html
 
 
 def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -1131,6 +1172,64 @@ def test_report_recent_extracts_created_resources_for_partial_execute_writes(tmp
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
     assert "Created Resources" in html
     assert "120250081016770683" in html
+
+
+def test_report_recent_extracts_attention_flags_for_incomplete_agent_chain(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_incomplete"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>incomplete</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "agent_chain_preview_only",
+            "status": "fail",
+            "mode": "execute",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "agent_chain_preview_only"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "passed": False,
+                        "final_submit": True,
+                        "submitted": False,
+                        "turn_count": 1,
+                        "expected_turn_count": 7,
+                        "errors": ["confirm_1: exception ValidationError: bad AgentResponse"],
+                        "crash_tracebacks": ["Traceback...\nAgentResponseParseError: missing reply and plan"],
+                    }),
+                    "checks": [
+                        {"id": "turn_count", "status": "fail", "message": "$.turn_count=1"},
+                        {"id": "submitted", "status": "fail", "message": "$.submitted=False"},
+                    ],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+    run = batch["runs"][0]
+
+    assert batch["attention_count"] == 3
+    assert [flag["code"] for flag in batch["attention_flags"]] == [
+        "short_run",
+        "not_submitted",
+        "crash_traceback",
+    ]
+    assert run["attention_count"] == 3
+    assert run["attention_flags"][0]["message"] == "turn_count 1 below expected 7"
+    assert run["metrics"]["expected_turn_count"] == 7
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Attention Flags" in html
+    assert "short_run" in html
+    assert "turns=1/7" in html
 
 
 def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:
