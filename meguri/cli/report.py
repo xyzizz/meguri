@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import platform
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +37,7 @@ def latest_report(pack: ProjectPack) -> Path:
         candidates.extend([path for path in pack.runs_dir.iterdir() if (path / "index.html").is_file()])
     if not candidates:
         raise FileNotFoundError(f"no HTML reports found in {pack.pack_root}")
-    return max(candidates, key=lambda path: path.stat().st_mtime) / "index.html"
+    return max(candidates, key=_report_sort_key) / "index.html"
 
 
 def report_for_run(pack: ProjectPack, run_id: str) -> Path:
@@ -66,6 +68,39 @@ def _loop_report_dirs(pack: ProjectPack) -> list[Path]:
             if (run_dir / "index.html").is_file():
                 candidates.append(run_dir)
     return candidates
+
+
+def _report_sort_key(path: Path) -> tuple[float, str]:
+    recorded = _recorded_run_time(path / "run.json")
+    if recorded is not None:
+        return (recorded, path.name)
+    return (path.stat().st_mtime, path.name)
+
+
+def _recorded_run_time(run_json: Path) -> float | None:
+    if not run_json.is_file():
+        return None
+    try:
+        raw = json.loads(run_json.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    for key in ("finished_at", "started_at"):
+        value = raw.get(key)
+        if not value:
+            continue
+        parsed = _parse_timestamp(str(value))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _parse_timestamp(value: str) -> float | None:
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 def open_path(path: Path) -> bool:

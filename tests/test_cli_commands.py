@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -202,6 +203,34 @@ def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, cap
 
     assert output.endswith("index.html")
     assert Path(output).is_file()
+
+
+def test_report_last_prefers_run_json_time_over_directory_mtime(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    older = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_100000"
+    newer = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_110000"
+    older.mkdir(parents=True)
+    newer.mkdir(parents=True)
+    for path, finished_at in [
+        (older, "2026-06-13T10:00:00+00:00"),
+        (newer, "2026-06-13T11:00:00+00:00"),
+    ]:
+        (path / "index.html").write_text("<html></html>", encoding="utf-8")
+        (path / "run.json").write_text(
+            json.dumps({"run_id": path.name, "status": "pass", "finished_at": finished_at}),
+            encoding="utf-8",
+        )
+
+    os.utime(newer, (1_000_000_000, 1_000_000_000))
+    os.utime(older, (2_000_000_000, 2_000_000_000))
+
+    assert main(["report", "--last"]) == 0
+    output = capsys.readouterr().out.strip()
+
+    assert output.endswith("20260613_110000/index.html")
 
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:
