@@ -72,6 +72,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N> --json" in codex_skill
     assert "batch `retry_command`" in codex_skill
     assert "batch `retry_loops`" in codex_skill
+    assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" in codex_skill
@@ -88,6 +89,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N> --json" in claude_skill
     assert "batch `retry_command`" in claude_skill
     assert "batch `retry_loops`" in claude_skill
+    assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" in claude_skill
@@ -307,9 +309,12 @@ def test_batch_retry_command_preserves_execute_approval(tmp_path: Path, monkeypa
     assert main(["run", "first_execute_fail", "second_execute_fail", "--allow-execute", "--json"]) == 1
     batch = json.loads(capsys.readouterr().out)
 
+    assert [run["mode"] for run in batch["runs"]] == ["execute", "execute"]
     assert batch["retry_loops"] == ["first_execute_fail", "second_execute_fail"]
     assert batch["retry_command"] == "meguri run first_execute_fail second_execute_fail --allow-execute"
     html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "<th>Mode</th>" in html
+    assert "<td>execute</td>" in html
     assert "meguri run first_execute_fail second_execute_fail --allow-execute" in html
 
 
@@ -367,6 +372,7 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert batch["status"] == "fail"
     assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass", "third_fail"]
     assert [run["status"] for run in batch["runs"]] == ["fail", "pass", "fail"]
+    assert [run["mode"] for run in batch["runs"]] == ["dry_run", "dry_run", "dry_run"]
     assert batch["runs"][0]["summary"] == "video_id is not valid; archived campaign"
     assert batch["runs"][0]["failure_reasons"] == ["video_id is not valid", "archived campaign"]
     assert batch["runs"][1]["metrics"]["turn_count"] == 7
@@ -620,6 +626,7 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
                 "run_id": run_id,
                 "scenario_name": loop,
                 "status": "fail",
+                "mode": "execute",
                 "finished_at": finished_at,
                 "artifact_dir": str(run_dir),
                 "metadata": {"loop_id": loop},
@@ -642,6 +649,7 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     assert batch["source"] == "recent_runs"
     assert batch["planned_loops"] == ["mid_loop", "new_loop"]
     assert [run["loop"] for run in batch["runs"]] == ["mid_loop", "new_loop"]
+    assert [run["mode"] for run in batch["runs"]] == ["execute", "execute"]
     assert batch["retry_loops"] == ["mid_loop", "new_loop"]
     assert batch["retry_command"] == "meguri run mid_loop new_loop"
     assert batch["failure_groups"] == [{

@@ -226,6 +226,7 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
         "loop": loop,
         "run_id": str(raw.get("run_id") or report_dir.name),
         "status": status,
+        "mode": _mode_from_raw(raw),
         "artifact_dir": str(raw.get("artifact_dir") or report_dir),
         "html_report_path": str(report_dir / "index.html"),
         "summary": "; ".join(failure_reasons) if failure_reasons else status,
@@ -240,6 +241,11 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
 def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:
     metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
     return str(metadata.get("loop_id") or raw.get("scenario_name") or raw.get("name") or report_dir.name)
+
+
+def _mode_from_raw(raw: dict[str, Any]) -> str:
+    metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+    return str(raw.get("mode") or metadata.get("mode") or "")
 
 
 def _failure_reasons_from_raw(raw: dict[str, Any]) -> list[str]:

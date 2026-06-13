@@ -92,6 +92,7 @@ class RunReport:
     replay: dict[str, Any] | None = None
     legacy_artifact_dir: str = ""
     updated_at: str = ""
+    mode: str = ""
 
     def to_dict(self, *, output_limit: int | None = None) -> dict[str, Any]:
         raw = asdict(self)

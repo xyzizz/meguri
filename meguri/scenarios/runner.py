@@ -528,6 +528,7 @@ def _write_run_snapshot(
         replay=replay,
         legacy_artifact_dir=str(runs_dir) if runs_dir else "",
         updated_at=updated_at,
+        mode=scenario.mode,
     )
     store.write_json("replay.json", replay)
     store.write_json("run.json", report.to_dict(output_limit=RUN_RECORD_OUTPUT_LIMIT))

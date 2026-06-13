@@ -90,9 +90,11 @@ loop list. The batch report links to every completed loop report in execution
 order, extracts structured metrics such as turn count,
 submitted, closed-status verification, and submit success/failure counts, and
 groups repeated failure reasons across loops when deterministic evidence exposes
-them. Batch reports also include `retry_loops` plus a project-root retry command
-for failed, blocked, or unfinished loops. If the original batch was explicitly
-approved for execute mode, the retry command preserves `--allow-execute`.
+them. Batch run summaries include each loop's mode, so execute risk stays visible
+in the report. Batch reports also include `retry_loops` plus a project-root
+retry command for failed, blocked, or unfinished loops. If the original batch was
+explicitly approved for execute mode, the retry command preserves
+`--allow-execute`.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step

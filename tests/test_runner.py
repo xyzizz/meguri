@@ -95,6 +95,8 @@ steps:
     assert artifact_dir.parent == loop_file.parent
     assert artifact_dir.name[:8].isdigit()
     assert (artifact_dir / "replay.json").is_file()
+    run_record = json.loads((artifact_dir / "run.json").read_text(encoding="utf-8"))
+    assert run_record["mode"] == "dry_run"
     replay = json.loads((artifact_dir / "replay.json").read_text(encoding="utf-8"))
     assert replay["loop_id"] == "shell_smoke"
     assert replay["scenario_path"] == str(loop_file)

@@ -250,6 +250,7 @@ def _run_summary(report) -> dict:
         "loop": _loop_name(report),
         "run_id": report.run_id,
         "status": report.status,
+        "mode": str(getattr(report, "mode", "") or ""),
         "artifact_dir": report.artifact_dir,
         "html_report_path": report.html_report_path,
         "summary": "; ".join(failure_reasons) if failure_reasons else report.status,

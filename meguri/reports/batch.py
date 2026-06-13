@@ -62,6 +62,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
             f"<td>{index}</td>"
             f"<td>{html.escape(str(run['loop']))}</td>"
             f"<td>{html.escape(str(run['status']))}</td>"
+            f"<td>{html.escape(str(run.get('mode') or '-'))}</td>"
             f"<td>{html.escape(str(run['run_id']))}</td>"
             f"<td>{html.escape(format_metrics(run.get('metrics') or {}))}</td>"
             f"<td>{html.escape(str(run['summary']))}</td>"
@@ -128,7 +129,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
         + retry_html +
         groups_html +
-        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
+        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"
     )
