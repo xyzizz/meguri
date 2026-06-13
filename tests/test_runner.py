@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -169,6 +170,47 @@ steps:
     assert report.replay["replay"]["status"] == "full"
 
 
+def test_runner_replay_records_pre_run_git_status_without_run_artifacts(tmp_path: Path) -> None:
+    _git(tmp_path, "init")
+    loop_file = tmp_path / ".meguri" / "loops" / "git_audit" / "_loop.yaml"
+    loop_file.parent.mkdir(parents=True)
+    loop_file.write_text(
+        f"""
+name: git_audit
+adapter: shell
+project_path: "../../.."
+mode: dry_run
+metadata:
+  loop_id: git_audit
+steps:
+  - id: emit
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('ok')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text("print('dirty before run')\n", encoding="utf-8")
+    _git(tmp_path, "add", ".meguri/loops/git_audit/_loop.yaml")
+
+    report = run_scenario(loop_file, runs_dir=None)
+    replay = json.loads((Path(report.artifact_dir) / "replay.json").read_text(encoding="utf-8"))
+
+    project_ref = replay["project_ref"]
+    status = project_ref["status"]
+    status_paths = [item["path"] for item in status]
+    assert project_ref["dirty"] is True
+    assert {"code": "??", "path": "app.py"} in status
+    assert Path(report.artifact_dir).name not in "\n".join(status_paths)
+    html = (Path(report.artifact_dir) / "index.html").read_text(encoding="utf-8")
+    assert "app.py" in html
+
+
 def test_runner_refreshes_run_record_after_each_step(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     marker_path = tmp_path / "seen_incremental_record.txt"
@@ -280,3 +322,7 @@ steps:
     assert "RuntimeError: boom from adapter" in stderr
     assert result["status"] == "blocked"
     assert result["data"]["exception_type"] == "RuntimeError"
+
+
+def _git(cwd: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)

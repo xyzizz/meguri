@@ -12,6 +12,7 @@ def build_replay_bundle(
     scenario_path: Path,
     command: list[str] | None,
     evidence_files: list[Path],
+    project_ref: dict[str, Any] | None = None,
     replay_source: str | None = None,
     retry_of: str | None = None,
 ) -> dict[str, Any]:
@@ -22,7 +23,7 @@ def build_replay_bundle(
         "loop_id": loop_id,
         "scenario_path": str(scenario_path),
         "command": command or [],
-        "project_ref": _project_ref(scenario_path),
+        "project_ref": project_ref or build_project_ref(scenario_path.parent),
         "inputs": inputs,
         "environment": {"redacted_env": _redacted_env_names()},
         "replay": {
@@ -34,11 +35,29 @@ def build_replay_bundle(
     }
 
 
-def _project_ref(path: Path) -> dict[str, Any]:
-    cwd = path.parent
-    commit = _git(cwd, ["rev-parse", "--short", "HEAD"])
-    dirty = bool(_git(cwd, ["status", "--short"]))
-    return {"git_commit": commit or None, "dirty": dirty}
+def build_project_ref(cwd: Path) -> dict[str, Any]:
+    root = _git(cwd, ["rev-parse", "--show-toplevel"])
+    git_cwd = Path(root) if root else cwd
+    branch = _git(git_cwd, ["branch", "--show-current"])
+    commit = _git(git_cwd, ["rev-parse", "--short", "HEAD"])
+    status = _git_status(git_cwd)
+    return {
+        "git_root": root or None,
+        "git_branch": branch or None,
+        "git_commit": commit or None,
+        "dirty": bool(status),
+        "status": status,
+    }
+
+
+def _git_status(cwd: Path) -> list[dict[str, str]]:
+    output = _git(cwd, ["status", "--short", "--untracked-files=all"])
+    entries = []
+    for line in output.splitlines():
+        if len(line) < 4:
+            continue
+        entries.append({"code": line[:2].strip(), "path": line[3:]})
+    return entries
 
 
 def _git(cwd: Path, args: list[str]) -> str:

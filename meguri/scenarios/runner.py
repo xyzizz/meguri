@@ -9,7 +9,7 @@ from meguri.adapters.registry import get_adapter
 from meguri.core.artifacts import ArtifactStore
 from meguri.core.evidence import collect_evidence
 from meguri.core.models import Artifact, CheckResult, RunContext, RunReport, StepResult, utc_now
-from meguri.core.replay import build_replay_bundle
+from meguri.core.replay import build_project_ref, build_replay_bundle
 from meguri.evaluators.deterministic import evaluate_step_checks
 from meguri.project.pack import find_project_pack
 from meguri.reports.html import render_html_report
@@ -29,6 +29,7 @@ def run_scenario(
     loop_id = str(scenario.metadata.get("loop_id") or scenario.name)
     run_id = _new_loop_run_id()
     artifact_dir = _artifact_dir_for(scenario_path, loop_id=loop_id, run_id=run_id, runs_dir=runs_dir)
+    project_ref = build_project_ref(scenario_path.parent)
     store = ArtifactStore(artifact_dir)
     evidence_dir = artifact_dir / "evidence"
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -46,7 +47,7 @@ def run_scenario(
             "MEGURI_EVIDENCE_DIR": str(evidence_dir),
             **({"MEGURI_REPLAY_FILE": str(replay_file)} if replay_file else {}),
         },
-        metadata={"scenario_path": str(scenario_path), "loop_id": loop_id, **scenario.metadata},
+        metadata={"scenario_path": str(scenario_path), "loop_id": loop_id, **scenario.metadata, "project_ref": project_ref},
     )
     adapter = get_adapter(scenario.adapter)
     started = started_dt.isoformat()
@@ -65,6 +66,7 @@ def run_scenario(
         steps=steps,
         all_checks=all_checks,
         status="running",
+        project_ref=project_ref,
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
@@ -93,6 +95,7 @@ def run_scenario(
                 steps=steps,
                 all_checks=all_checks,
                 status="blocked",
+                project_ref=project_ref,
                 replay_file=replay_file,
                 retry_of=retry_of,
                 runs_dir=runs_dir,
@@ -114,6 +117,7 @@ def run_scenario(
                     steps=steps,
                     all_checks=all_checks,
                     status="running",
+                    project_ref=project_ref,
                     replay_file=replay_file,
                     retry_of=retry_of,
                     runs_dir=runs_dir,
@@ -150,6 +154,7 @@ def run_scenario(
                     steps=steps,
                     all_checks=all_checks,
                     status="running",
+                    project_ref=project_ref,
                     replay_file=replay_file,
                     retry_of=retry_of,
                     runs_dir=runs_dir,
@@ -177,6 +182,7 @@ def run_scenario(
         started_dt=started_dt,
         steps=steps,
         all_checks=all_checks,
+        project_ref=project_ref,
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
@@ -242,6 +248,7 @@ def _write_final_snapshot(
     started_dt: datetime,
     steps: list,
     all_checks: list,
+    project_ref: dict,
     replay_file: Path | None,
     retry_of: str | None,
     runs_dir: Path | None,
@@ -259,6 +266,7 @@ def _write_final_snapshot(
         steps=steps,
         all_checks=all_checks,
         status=_overall_status(steps, all_checks),
+        project_ref=project_ref,
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
@@ -279,6 +287,7 @@ def _write_run_snapshot(
     steps: list,
     all_checks: list,
     status: str,
+    project_ref: dict,
     replay_file: Path | None,
     retry_of: str | None,
     runs_dir: Path | None,
@@ -297,6 +306,7 @@ def _write_run_snapshot(
         scenario_path=scenario_path,
         command=_first_command(steps, scenario.steps),
         evidence_files=[path.relative_to(artifact_dir) for path in sorted(evidence_dir.rglob("*.json"))],
+        project_ref=project_ref,
         replay_source=str(replay_file) if replay_file else None,
         retry_of=retry_of,
     )
@@ -311,7 +321,7 @@ def _write_run_snapshot(
         steps=list(steps),
         checks=list(all_checks),
         html_report_path=str(artifact_dir / "index.html"),
-        metadata=scenario.metadata,
+        metadata={**scenario.metadata, "project_ref": project_ref},
         evidence=evidence.bundles,
         evidence_warnings=evidence.warnings,
         replay=replay,
