@@ -25,10 +25,19 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 
 更完整的可复制安装提示词在 [`prompts/install.md`](prompts/install.md)。
 
-完成首次设置后，在当前 AI 会话里使用：
+完成首次设置后，当前会话里最可靠的方式是直接对 AI 说：
 
 ```text
-/meguri inspect
+运行 `meguri inspect`，并遵循输出的 Meguri 规范。
+```
+
+不同宿主的 slash 入口不完全一样：
+
+```text
+Claude Code: /meguri inspect
+Codex: /skills，然后选择 meguri
+Codex: $meguri inspect
+Codex custom prompt 重启后: /prompts:meguri inspect
 ```
 
 ## 安装内容

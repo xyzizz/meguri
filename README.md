@@ -33,10 +33,19 @@ scenarios or tests.
 A fuller copyable install prompt lives in
 [`prompts/install.md`](prompts/install.md).
 
-After setup, use Meguri from the active AI session:
+After setup, the reliable current-session command is:
 
 ```text
-/meguri inspect
+Run `meguri inspect` and follow the printed Meguri spec.
+```
+
+Slash entrypoints depend on the host:
+
+```text
+Claude Code: /meguri inspect
+Codex: /skills, then choose meguri
+Codex: $meguri inspect
+Codex custom prompt after restart: /prompts:meguri inspect
 ```
 
 ## What It Installs

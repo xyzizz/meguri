@@ -23,9 +23,10 @@ After installation:
 Future use after installation:
 
 ```text
-/meguri inspect
+Run `meguri inspect` and follow the printed Meguri spec.
 ```
 
 Claude Code exposes the project skill directly as `/meguri`. Codex installs the
-same workflow as a project skill plus a user prompt named `meguri`; if your Codex
-build shows prompts under the prompts namespace, use `/prompts:meguri inspect`.
+same workflow as a project skill plus a user prompt named `meguri`. In Codex,
+use `/skills` to choose `meguri`, type `$meguri inspect`, or restart/open a new
+session and use `/prompts:meguri inspect`.

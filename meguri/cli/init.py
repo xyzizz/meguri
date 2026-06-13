@@ -146,8 +146,9 @@ This directory contains the Meguri project pack for `{project_name}`.
 ## Agent entrypoints
 
 - Claude Code: `/meguri inspect`
-- Codex: `/meguri inspect` if your Codex build exposes custom prompt names directly, otherwise `/prompts:meguri inspect`
-- Codex skill fallback: `$meguri inspect`
+- Codex skill: `/skills`, then choose `meguri`
+- Codex skill mention: `$meguri inspect`
+- Codex custom prompt after restart: `/prompts:meguri inspect`
 
 ## Common commands
 

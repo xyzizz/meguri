@@ -135,11 +135,14 @@ cat <<EOF
 
 Meguri is ready.
 
-Next in Codex / Claude Code:
-  /meguri inspect
+Next in the current Codex / Claude Code session:
+  Ask the AI to run: meguri inspect
 
-The slash workflow asks the current AI agent to run and follow:
-  meguri inspect
+Host-specific shortcuts:
+  Claude Code: /meguri inspect
+  Codex: /skills, then choose meguri
+  Codex: \$meguri inspect
+  Codex custom prompt after restart: /prompts:meguri inspect
 
 If your current shell cannot find meguri yet, open a new terminal or run:
   python3 -m pipx ensurepath
