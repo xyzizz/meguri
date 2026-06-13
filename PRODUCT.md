@@ -14,6 +14,12 @@ Their job is not to hand-author every YAML scenario. Their job is to give the AI
 
 Meguri provides an agent-facing verification specification around Codex and Claude Code. The CLI owns local files, prompts, deterministic validation, scenario execution, and reports. The surrounding AI agent owns project understanding, test-flow design, and code/test authoring.
 
+The first-run experience is also agent-facing: the operator can paste a single
+installation prompt into Codex or Claude Code, and the active AI session installs
+Meguri, initializes the current project, runs `meguri inspect`, and continues
+from the generated specification. Meguri still never launches a second model or
+agent process.
+
 Success means an operator can ask an AI agent to design verification for a new project and still see what happened, why a run passed or failed, which evidence supports that result, and whether the workflow stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose and implement changes while Meguri owns budgets, gates, artifacts, and success criteria.
 
 ## Brand Personality

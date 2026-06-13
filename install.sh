@@ -15,6 +15,11 @@ Usage:
   curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
   curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 
+Agent-first install:
+  Paste the prompt from prompts/install.md into Codex or Claude Code while the
+  target project is open. The current AI agent will run this installer and then
+  continue with `meguri inspect`.
+
 Options:
   --init             Run `meguri init` in the current directory after install.
   --install-skills   Install project-local Codex and Claude Code skills. Implies --init.
@@ -130,7 +135,10 @@ cat <<EOF
 
 Meguri is ready.
 
-Next:
+Next in Codex / Claude Code:
+  /meguri inspect
+
+The slash workflow asks the current AI agent to run and follow:
   meguri inspect
 
 If your current shell cannot find meguri yet, open a new terminal or run:

@@ -9,17 +9,40 @@ test workflows.
 
 ## Quick Start
 
-In a Codex terminal, install Meguri and initialize the current target project:
+Open Codex or Claude Code in the target project, then paste this prompt:
 
-```bash
-cd /path/to/target-project
+```text
+Install Meguri in this current project and continue in this same AI session.
+
+You are the current Codex / Claude Code agent. Do not launch another Codex or
+Claude process.
+
+From the current project root, run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
+
+After installation:
+1. Run `meguri inspect`.
+2. Follow the printed Meguri inspect specification yourself in this same AI session.
+3. Create `.meguri/project-inspect.json` and `.meguri/project-brief.md` from project evidence.
+4. If the project goal, execution entry, pass criteria, credentials, data setup, or forbidden side effects are unclear, ask me concrete questions before writing scenarios or tests.
+5. If enough information is available, design the first deterministic dry-run verification scenario, run `meguri validate`, then run the safe scenario.
+6. Do not submit, deploy, pay, write to production, send external messages, or run migrations unless I explicitly approve.
 ```
 
-Then invoke Meguri from the active AI session:
+The canonical copyable prompt is versioned at
+[`prompts/install.md`](prompts/install.md).
+
+After that first setup, invoke Meguri from the active AI session:
 
 ```text
 /meguri inspect
+```
+
+The shell command inside the prompt installs Meguri and initializes the current
+target project:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 ```
 
 If you only want to install the CLI:

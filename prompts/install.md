@@ -1,0 +1,32 @@
+# Meguri Prompt Install
+
+Copy this into Codex or Claude Code while the current working directory is the
+target project:
+
+```text
+Install Meguri in this current project and continue in this same AI session.
+
+You are the current Codex / Claude Code agent. Do not launch another Codex or
+Claude process.
+
+From the current project root, run:
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
+
+After installation:
+1. Run `meguri inspect`.
+2. Follow the printed Meguri inspect specification yourself in this same AI session.
+3. Create `.meguri/project-inspect.json` and `.meguri/project-brief.md` from project evidence.
+4. If the project goal, execution entry, pass criteria, credentials, data setup, or forbidden side effects are unclear, ask me concrete questions before writing scenarios or tests.
+5. If enough information is available, design the first deterministic dry-run verification scenario, run `meguri validate`, then run the safe scenario.
+6. Do not submit, deploy, pay, write to production, send external messages, or run migrations unless I explicitly approve.
+```
+
+Future use after installation:
+
+```text
+/meguri inspect
+```
+
+Claude Code exposes the project skill directly as `/meguri`. Codex installs the
+same workflow as a project skill plus a user prompt named `meguri`; if your Codex
+build shows prompts under the prompts namespace, use `/prompts:meguri inspect`.
