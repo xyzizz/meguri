@@ -66,6 +66,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run --all --exclude <loop>" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
+    assert "meguri report --recent <N>" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
@@ -73,6 +74,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "evidence crash-safe" in claude_skill
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "live progress surface" in claude_skill
+    assert "meguri report --recent <N>" in claude_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
@@ -469,6 +471,54 @@ def test_report_last_uses_batch_updated_at_for_running_batch(tmp_path: Path, mon
     output = capsys.readouterr().out.strip()
 
     assert output.endswith("batches/20260613_100000_000000/index.html")
+
+
+def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    runs_root = tmp_path / ".meguri" / "runs"
+    for run_id, loop, finished_at, message in [
+        ("run_20260613_100000_old", "old_loop", "2026-06-13T10:00:00+00:00", "old reason"),
+        ("run_20260613_110000_mid", "mid_loop", "2026-06-13T11:00:00+00:00", "video_id is not valid"),
+        ("run_20260613_120000_new", "new_loop", "2026-06-13T12:00:00+00:00", "video_id is not valid"),
+    ]:
+        run_dir = runs_root / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": "fail",
+                "finished_at": finished_at,
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": "fail",
+                        "checks": [{"id": "exit", "status": "fail", "message": message}],
+                    }
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+    assert main(["report", "--recent", "2"]) == 0
+    html_path = Path(capsys.readouterr().out.strip())
+
+    assert html_path.parent.parent == tmp_path / ".meguri" / "batches"
+    batch = json.loads(html_path.with_name("batch.json").read_text(encoding="utf-8"))
+    assert batch["source"] == "recent_runs"
+    assert batch["planned_loops"] == ["mid_loop", "new_loop"]
+    assert [run["loop"] for run in batch["runs"]] == ["mid_loop", "new_loop"]
+    assert batch["failure_groups"] == [{
+        "reason": "video_id is not valid",
+        "count": 2,
+        "loops": ["mid_loop", "new_loop"],
+    }]
+    assert "old_loop" not in html_path.read_text(encoding="utf-8")
 
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:

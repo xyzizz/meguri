@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import argparse
-import html
 import json
-import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -17,6 +15,7 @@ from meguri.cli.validate import handle_validate
 from meguri.core.models import utc_now
 from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
+from meguri.reports.batch import failure_groups, render_batch_html
 from meguri.reports.indexes import render_project_index
 from meguri.scenarios.loader import load_scenario
 from meguri.scenarios.runner import report_to_json, run_scenario
@@ -72,6 +71,7 @@ def main(argv: list[str] | None = None) -> int:
     report = sub.add_parser("report", help="Show or open an existing HTML run report.")
     report.add_argument("run_id", nargs="?")
     report.add_argument("--last", action="store_true", help="Select the newest run report.")
+    report.add_argument("--recent", type=int, help="Create a batch report from the newest N standalone run reports.")
     report.add_argument("--open", action="store_true", help="Open the report.")
 
     args = parser.parse_args(argv)
@@ -305,23 +305,6 @@ def _dedupe_reasons(values: list[str], *, limit: int = 5) -> list[str]:
     return reasons
 
 
-def _failure_groups(runs: list[dict]) -> list[dict]:
-    grouped: dict[str, list[str]] = {}
-    for run in runs:
-        loop = str(run.get("loop") or "")
-        for reason in run.get("failure_reasons") or []:
-            if not isinstance(reason, str) or not reason:
-                continue
-            grouped.setdefault(reason, [])
-            if loop and loop not in grouped[reason]:
-                grouped[reason].append(loop)
-    groups = [
-        {"reason": reason, "count": len(loops), "loops": loops}
-        for reason, loops in grouped.items()
-    ]
-    return sorted(groups, key=lambda group: (-int(group["count"]), str(group["reason"])))
-
-
 def _create_batch_context(first_scenario_path: Path) -> dict:
     pack = find_project_pack(first_scenario_path.parent)
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -358,71 +341,13 @@ def _write_batch_report(
         "total_loops": len(planned_loops),
         "current_loop": remaining_loops[0] if status == "running" and remaining_loops else "",
         "remaining_loops": remaining_loops,
-        "failure_groups": _failure_groups(runs),
+        "failure_groups": failure_groups(runs),
         "runs": runs,
     }
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    batch_dir.joinpath("index.html").write_text(_render_batch_html(record, batch_dir), encoding="utf-8")
+    batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
     return record
-
-
-def _render_batch_html(record: dict, batch_dir: Path) -> str:
-    rows = []
-    for index, run in enumerate(record["runs"], start=1):
-        report_path = Path(run["html_report_path"])
-        href = os.path.relpath(report_path, batch_dir)
-        rows.append(
-            "<tr>"
-            f"<td>{index}</td>"
-            f"<td>{html.escape(run['loop'])}</td>"
-            f"<td>{html.escape(run['status'])}</td>"
-            f"<td>{html.escape(run['run_id'])}</td>"
-            f"<td>{html.escape(run['summary'])}</td>"
-            f"<td><a href=\"{html.escape(href)}\">Open report</a></td>"
-            "</tr>"
-        )
-    group_rows = []
-    for group in record.get("failure_groups") or []:
-        group_rows.append(
-            "<tr>"
-            f"<td>{html.escape(str(group['reason']))}</td>"
-            f"<td>{html.escape(str(group['count']))} loops</td>"
-            f"<td>{html.escape(', '.join(str(loop) for loop in group.get('loops') or []))}</td>"
-            "</tr>"
-        )
-    groups_html = (
-        "<h2>Failure Groups</h2>"
-        "<table><thead><tr><th>Reason</th><th>Count</th><th>Loops</th></tr></thead><tbody>"
-        + "".join(group_rows)
-        + "</tbody></table>"
-    ) if group_rows else ""
-    return (
-        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>Meguri Batch {html.escape(record['batch_id'])}</title>"
-        "<style>"
-        "body{font:14px/1.5 system-ui,sans-serif;margin:32px;color:#1d2430}"
-        "main{max-width:980px;margin:0 auto}"
-        ".status{font-weight:700;text-transform:uppercase}"
-        ".meta{color:#5d6778}"
-        "table{border-collapse:collapse;width:100%;margin-top:18px}"
-        "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
-        "a{color:#8a3b12;text-underline-offset:3px}"
-        "</style></head><body><main>"
-        f"<h1>Meguri Batch {html.escape(record['batch_id'])}</h1>"
-        f"<p>Status: <span class=\"status\">{html.escape(record['status'])}</span></p>"
-        f"<p class=\"meta\">Progress: {html.escape(str(record.get('completed_loops', 0)))}"
-        f" / {html.escape(str(record.get('total_loops', len(record.get('runs') or []))))} loops"
-        f"<br>Current: {html.escape(str(record.get('current_loop') or '-'))}"
-        f"<br>Started: {html.escape(record['started_at'])}"
-        f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
-        f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
-        + groups_html +
-        "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
-        + "".join(rows)
-        + "</tbody></table></main></body></html>"
-    )
 
 
 def _loop_name(report) -> str:
