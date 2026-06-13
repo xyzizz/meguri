@@ -95,3 +95,41 @@ steps:
     replay = json.loads((artifact_dir / "replay.json").read_text(encoding="utf-8"))
     assert replay["loop_id"] == "shell_smoke"
     assert replay["scenario_path"] == str(loop_file)
+
+
+def test_runner_refreshes_run_record_after_each_step(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    marker_path = tmp_path / "seen_incremental_record.txt"
+    scenario_path.write_text(
+        f"""
+name: incremental_shell
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: first
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('first done')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+  - id: second
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib; data=json.loads(pathlib.Path(os.environ['MEGURI_RUN_DIR'], 'run.json').read_text()); pathlib.Path(r'{marker_path}').write_text(data['steps'][0]['step_id'])"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    assert report.status == "pass"
+    assert marker_path.read_text(encoding="utf-8") == "first"

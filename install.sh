@@ -87,7 +87,12 @@ else
 fi
 
 log "installing ${PACKAGE_SPEC}"
-"${PIPX_CMD[@]}" install --force "${PACKAGE_SPEC}"
+PIPX_INSTALL_ARGS=(install --force)
+if "${PIPX_CMD[@]}" install --help 2>/dev/null | grep -q -- '--backend'; then
+  # Avoid broken pyenv/uv shims in agent terminals. pip is slower but steadier.
+  PIPX_INSTALL_ARGS+=(--backend pip)
+fi
+PIPX_DEFAULT_BACKEND=pip "${PIPX_CMD[@]}" "${PIPX_INSTALL_ARGS[@]}" "${PACKAGE_SPEC}"
 "${PIPX_CMD[@]}" ensurepath >/dev/null 2>&1 || true
 
 resolve_meguri() {

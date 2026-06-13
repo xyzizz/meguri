@@ -201,19 +201,24 @@ additive fields.
 During `run_scenario`, Meguri should:
 
 1. Resolve the loop id and create a loop-local timestamp run directory.
-2. Execute each step through the configured adapter.
-3. Persist stdout, stderr, and result artifacts as it does today.
-4. Scan evidence inputs after each step and again before final report rendering.
-5. Copy project-level evidence files into the current run directory's
+2. Immediately write initial `run.json`, `report.md`, `index.html`, and
+   `replay.json` with status `running`.
+3. Execute each step through the configured adapter.
+4. Persist stdout, stderr, and result artifacts as it does today.
+5. Refresh `run.json`, `report.md`, `index.html`, and `replay.json` after every
+   completed step, so long runs have inspectable partial records before the
+   final step finishes.
+6. Scan evidence inputs after each step and again before final report rendering.
+7. Copy project-level evidence files into the current run directory's
    `evidence/` folder.
-6. Ignore project-level evidence that does not match the current loop or run
+8. Ignore project-level evidence that does not match the current loop or run
    window, and record a warning when skipped files look related.
-7. Parse valid evidence files into `RunReport.evidence`.
-8. Record parse, schema, and missing-artifact problems as warnings rather than
+9. Parse valid evidence files into `RunReport.evidence`.
+10. Record parse, schema, and missing-artifact problems as warnings rather than
    failing an otherwise valid run.
-9. Write `replay.json` into the run directory.
-10. Render the run detail HTML using evidence when available.
-11. Regenerate the loop index page and project index page.
+11. Write the final `replay.json` into the run directory.
+12. Render the final run detail HTML using evidence when available.
+13. Regenerate the loop index page and project index page.
 
 The environment should expose the run directory to scripts:
 
@@ -272,11 +277,13 @@ neutral   gray
 active    outline/highlight
 ```
 
-If no structured evidence exists, the report falls back to the current
-step/check/stdout/stderr view and displays:
+If no structured evidence exists, the report still renders an Attempt Timeline
+using step-level events derived from `StepResult`. The selected event detail
+shows exit code, stdout, stderr, checks, and artifacts. The legacy step table is
+kept below the timeline, and the page displays:
 
 ```text
-No structured evidence file found.
+No structured evidence file found; showing step-level timeline.
 ```
 
 If an evidence file cannot be parsed, the HTML shows an evidence parse warning
@@ -452,7 +459,8 @@ Add focused tests for:
 - Preserving event order by time and file order fallback.
 - Rendering an HTML timeline when evidence exists.
 - Rendering project and loop index pages that link to historical run reports.
-- Falling back to the legacy step view when evidence is absent.
+- Rendering a step-level timeline plus legacy step details when evidence is
+  absent.
 - Showing evidence parse warnings without failing report generation.
 - Redacting explicit redacted objects and common secret patterns.
 - Writing `replay.json` with source run id, scenario path, command, project ref,

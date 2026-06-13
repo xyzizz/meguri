@@ -190,17 +190,21 @@ replay: dict[str, Any] | None
 `run_scenario` 执行时，Meguri 应该：
 
 1. 解析 loop id，并创建 loop-local 时间戳 run 目录。
-2. 通过配置的 adapter 执行每个 step。
-3. 像现在一样保存 stdout、stderr 和 result artifacts。
-4. 每个 step 完成后扫描 evidence 输入，并在最终渲染报告前再次扫描。
-5. 把符合条件的项目级 evidence 文件复制到当前 run 目录的 `evidence/` 文件夹。
-6. 忽略不匹配当前 loop 或当前 run 窗口的项目级 evidence；如果被跳过的文件看起来相关，
+2. 立即写入初始 `run.json`、`report.md`、`index.html` 和 `replay.json`，
+   状态为 `running`。
+3. 通过配置的 adapter 执行每个 step。
+4. 像现在一样保存 stdout、stderr 和 result artifacts。
+5. 每个 step 完成后刷新 `run.json`、`report.md`、`index.html` 和
+   `replay.json`，让长时间运行的 loop 在最终结束前也有可检查的部分记录。
+6. 每个 step 完成后扫描 evidence 输入，并在最终渲染报告前再次扫描。
+7. 把符合条件的项目级 evidence 文件复制到当前 run 目录的 `evidence/` 文件夹。
+8. 忽略不匹配当前 loop 或当前 run 窗口的项目级 evidence；如果被跳过的文件看起来相关，
    记录 warning。
-7. 把有效 evidence 文件解析进 `RunReport.evidence`。
-8. 对解析错误、schema 问题和缺失 artifact 记录 warning，而不是让本来有效的 run 失败。
-9. 在 run 目录写入 `replay.json`。
-10. 有 evidence 时，详细 run HTML 优先使用 evidence 渲染。
-11. 重新生成 loop index 页面和 project index 页面。
+9. 把有效 evidence 文件解析进 `RunReport.evidence`。
+10. 对解析错误、schema 问题和缺失 artifact 记录 warning，而不是让本来有效的 run 失败。
+11. 在 run 目录写入最终 `replay.json`。
+12. 有 evidence 时，最终详细 run HTML 优先使用 evidence 渲染。
+13. 重新生成 loop index 页面和 project index 页面。
 
 Meguri 应向脚本暴露 run 目录环境变量：
 
@@ -255,10 +259,12 @@ neutral   gray
 active    outline/highlight
 ```
 
-如果没有结构化 evidence，报告降级为当前 step/check/stdout/stderr 视图，并显示：
+如果没有结构化 evidence，报告仍然渲染 Attempt Timeline，只是事件来自
+`StepResult` 的 step-level 信息。选中事件详情展示 exit code、stdout、stderr、
+checks 和 artifacts。legacy step 表格保留在时间线下方，页面显示：
 
 ```text
-No structured evidence file found.
+No structured evidence file found; showing step-level timeline.
 ```
 
 如果 evidence 文件无法解析，HTML 显示 evidence parse warning，同时继续渲染现有 step 报告。
@@ -421,7 +427,7 @@ none       没有结构化 evidence 或 replay 入口
 - event 按 time 排序；没有 time 时保留文件顺序。
 - evidence 存在时，HTML 渲染 timeline。
 - 渲染 project index 和 loop index 页面，并能链接到历史 run 报告。
-- evidence 不存在时，回退到 legacy step view。
+- evidence 不存在时，渲染 step-level timeline，并保留 legacy step details。
 - evidence parse warning 不会让报告生成失败。
 - 显式 redacted object 和常见 secret pattern 都会被脱敏。
 - `replay.json` 写入 source run id、scenario path、command、project ref、inputs 和 replay status。

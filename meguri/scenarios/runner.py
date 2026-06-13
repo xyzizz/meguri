@@ -51,6 +51,23 @@ def run_scenario(
     started = started_dt.isoformat()
     steps = []
     all_checks = []
+    _write_run_snapshot(
+        store=store,
+        scenario=scenario,
+        scenario_path=scenario_path,
+        artifact_dir=artifact_dir,
+        evidence_dir=evidence_dir,
+        loop_id=loop_id,
+        run_id=run_id,
+        started=started,
+        started_dt=started_dt,
+        steps=steps,
+        all_checks=all_checks,
+        status="running",
+        replay_file=replay_file,
+        retry_of=retry_of,
+        runs_dir=runs_dir,
+    )
     try:
         adapter.setup(ctx)
         for step in scenario.steps:
@@ -76,11 +93,65 @@ def run_scenario(
                 result.checks = evaluate_step_checks(result, list(step.get("checks") or []))
             all_checks.extend(result.checks)
             steps.append(result)
+            _write_run_snapshot(
+                store=store,
+                scenario=scenario,
+                scenario_path=scenario_path,
+                artifact_dir=artifact_dir,
+                evidence_dir=evidence_dir,
+                loop_id=loop_id,
+                run_id=run_id,
+                started=started,
+                started_dt=started_dt,
+                steps=steps,
+                all_checks=all_checks,
+                status="running",
+                replay_file=replay_file,
+                retry_of=retry_of,
+                runs_dir=runs_dir,
+            )
             if step.get("stop_on_fail", True) and not result.ok:
                 break
     finally:
         adapter.cleanup(ctx)
     status = _overall_status(steps, all_checks)
+    return _write_run_snapshot(
+        store=store,
+        scenario=scenario,
+        scenario_path=scenario_path,
+        artifact_dir=artifact_dir,
+        evidence_dir=evidence_dir,
+        loop_id=loop_id,
+        run_id=run_id,
+        started=started,
+        started_dt=started_dt,
+        steps=steps,
+        all_checks=all_checks,
+        status=status,
+        replay_file=replay_file,
+        retry_of=retry_of,
+        runs_dir=runs_dir,
+    )
+
+
+def _write_run_snapshot(
+    *,
+    store: ArtifactStore,
+    scenario,
+    scenario_path: Path,
+    artifact_dir: Path,
+    evidence_dir: Path,
+    loop_id: str,
+    run_id: str,
+    started: str,
+    started_dt: datetime,
+    steps: list,
+    all_checks: list,
+    status: str,
+    replay_file: Path | None,
+    retry_of: str | None,
+    runs_dir: Path | None,
+) -> RunReport:
     evidence = collect_evidence(
         run_evidence_dir=evidence_dir,
         project_evidence_dir=_project_evidence_dir(scenario_path),
@@ -106,8 +177,8 @@ def run_scenario(
         finished_at=utc_now(),
         project_path=str(scenario.project_path),
         artifact_dir=str(artifact_dir),
-        steps=steps,
-        checks=all_checks,
+        steps=list(steps),
+        checks=list(all_checks),
         html_report_path=str(artifact_dir / "index.html"),
         metadata=scenario.metadata,
         evidence=evidence.bundles,

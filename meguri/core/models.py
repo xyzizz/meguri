@@ -7,7 +7,7 @@ from typing import Any, Literal
 from uuid import uuid4
 
 
-Status = Literal["pass", "fail", "warning", "blocked"]
+Status = Literal["pass", "fail", "warning", "blocked", "running"]
 
 
 def utc_now() -> str:

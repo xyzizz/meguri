@@ -15,6 +15,8 @@ def render_html_report(report: RunReport) -> str:
     status_class = html.escape(report.status)
     loop_name = str(report.metadata.get("loop_id") or report.scenario_name)
     evidence_attempts = _normalise_evidence_attempts(report.evidence)
+    if not evidence_attempts and report.steps:
+        evidence_attempts = _normalise_step_attempts(report)
     metadata = {
         "run_id": report.run_id,
         "loop": loop_name,
@@ -27,7 +29,11 @@ def render_html_report(report: RunReport) -> str:
         "evidence_warnings": report.evidence_warnings,
         "replay": report.replay,
     }
-    main_view = _render_evidence_timeline(evidence_attempts) if evidence_attempts else _render_legacy_steps(report)
+    main_view = _render_evidence_timeline(
+        evidence_attempts,
+        notice="" if report.evidence else "No structured evidence file found; showing step-level timeline.",
+        fallback_html=_render_legacy_steps(report) if not report.evidence else "",
+    ) if evidence_attempts else _render_legacy_steps(report)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -84,6 +90,7 @@ def render_html_report(report: RunReport) -> str:
     .status.fail {{ background: var(--fail); }}
     .status.blocked {{ background: var(--blocked); }}
     .status.warning {{ background: var(--warning); color: var(--ink); }}
+    .status.running {{ background: var(--accent); }}
     .summary {{
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -135,6 +142,7 @@ def render_html_report(report: RunReport) -> str:
     .event-node.fail {{ border-color: var(--fail); color: var(--fail); }}
     .event-node.blocked {{ border-color: var(--blocked); color: var(--blocked); }}
     .event-node.warning {{ border-color: var(--warning); color: var(--ink); }}
+    .event-node.running {{ border-color: var(--accent); color: var(--accent); }}
     .event-node.active {{ outline: 3px solid color-mix(in oklch, var(--accent), transparent 75%); }}
     .event-label {{ margin-top: 7px; width: 70px; color: var(--muted); font-size: 0.72rem; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }}
     .detail-panel {{
@@ -252,23 +260,23 @@ def _render_step(step: Any) -> str:
 
 
 def _render_legacy_steps(report: RunReport) -> str:
-    warning = '<p class="notice">No structured evidence file found.</p>'
     return f"""
       <h2>Steps</h2>
-      {warning}
       <div class="steps">
         {''.join(_render_step(step) for step in report.steps)}
       </div>
 """
 
 
-def _render_evidence_timeline(attempts: list[dict[str, Any]]) -> str:
+def _render_evidence_timeline(attempts: list[dict[str, Any]], *, notice: str = "", fallback_html: str = "") -> str:
     events = _flatten_events(attempts)
     selected = _initial_event_index(events)
     event_json = _safe_json(events)
     attempt_html = "".join(_render_attempt(attempt, start_index=_attempt_start_index(attempts, attempt)) for attempt in attempts)
+    notice_html = f'<p class="notice">{html.escape(notice)}</p>' if notice else ""
     return f"""
       <h2>Attempt Timeline</h2>
+      {notice_html}
       <div class="timeline-shell">
         <div class="attempts">
           {attempt_html}
@@ -316,6 +324,7 @@ def _render_evidence_timeline(attempts: list[dict[str, Any]]) -> str:
           render({selected});
         }})();
       </script>
+      {fallback_html}
 """
 
 
@@ -392,6 +401,54 @@ def _normalise_evidence_attempts(evidence: list[Any]) -> list[dict[str, Any]]:
     return attempts
 
 
+def _normalise_step_attempts(report: RunReport) -> list[dict[str, Any]]:
+    events = []
+    for step in report.steps:
+        artifacts = [
+            {
+                "label": str(getattr(artifact, "name", "") or getattr(artifact, "path", "") or "artifact"),
+                "path": str(getattr(artifact, "name", "") or getattr(artifact, "path", "")),
+            }
+            for artifact in step.artifacts
+        ]
+        checks = [
+            {
+                "id": str(check.id),
+                "status": str(check.status),
+                "message": str(check.message),
+            }
+            for check in step.checks
+        ]
+        events.append({
+            "id": str(step.step_id),
+            "type": "step",
+            "title": str(step.step_id),
+            "status": str(step.status),
+            "time": step.started_at,
+            "input": f"exit_code={step.exit_code}",
+            "output": _step_output(step),
+            "checks": checks,
+            "artifacts": artifacts,
+            "attempt_id": "steps",
+            "attempt_title": "Step Execution",
+        })
+    return [{
+        "id": "steps",
+        "title": "Step Execution",
+        "status": str(report.status),
+        "events": events,
+    }]
+
+
+def _step_output(step: Any) -> str:
+    parts = []
+    if step.stdout:
+        parts.append(f"stdout:\n{step.stdout}")
+    if step.stderr:
+        parts.append(f"stderr:\n{step.stderr}")
+    return "\n\n".join(parts)
+
+
 def _plain(value: Any) -> dict[str, Any]:
     if is_dataclass(value):
         value = asdict(value)
@@ -432,6 +489,7 @@ def _short_event_label(event: dict[str, Any]) -> str:
         "rerun": "Rerun",
         "artifact": "Artifact",
         "note": "Note",
+        "step": "Step",
     }
     return mapping.get(event_type, event_type[:10])
 
