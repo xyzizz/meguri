@@ -19,7 +19,8 @@ the generated HTML report. The feature stays local-first and self-contained.
 - Let users click each timeline event and inspect input, output, checks, and
   linked artifacts.
 - Redact sensitive content by default while preserving local artifact access.
-- Provide a copyable reproduce command and replay bundle for later reruns.
+- Provide loop replay: one captured run can be replayed to reproduce the issue or
+  retried after a fix.
 - Keep existing Meguri loops and reports working when no structured evidence is
   present.
 
@@ -257,7 +258,7 @@ The generated report shows redacted content by default. Raw local artifacts may
 still contain original data if the verification script wrote them, so the report
 must label raw artifact links clearly.
 
-## Reproduction
+## Loop Replay
 
 Each run writes:
 
@@ -270,6 +271,7 @@ Replay bundle shape:
 ```json
 {
   "version": 1,
+  "source_run_id": "run_20260613_152717_168e0b82",
   "loop_id": "agent_multiturn_no_submit",
   "scenario_path": ".meguri/scenarios/agent_multiturn_no_submit.yaml",
   "command": ["sh", "-lc", ".venv/bin/python .meguri/scripts/verify.py"],
@@ -287,27 +289,35 @@ Replay bundle shape:
     "python": ".venv/bin/python",
     "redacted_env": ["OPENAI_API_KEY", "DATABASE_URL"]
   },
-  "reproducibility": {
+  "replay": {
     "status": "partial",
     "missing": ["LLM credentials", "staging database"]
   }
 }
 ```
 
-The HTML exposes `Copy reproduce command` buttons:
+Loop replay is the one-click action behind both reproduction and retry. The HTML
+does not run local commands itself; it exposes copy buttons for the active
+Codex/Claude Code session to run.
+
+For normal reruns without captured input:
 
 ```bash
 meguri run agent_multiturn_no_submit
 ```
 
-When replay data is available:
+For replaying a captured loop run:
 
 ```bash
 meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json
 ```
 
-The HTML must not execute this command. It only copies it for the active
-Codex/Claude Code session or terminal to run.
+For retrying after a fix, the copied command keeps the same replay input and
+records the previous run as the retry source:
+
+```bash
+meguri run agent_multiturn_no_submit --replay .meguri/runs/<run_id>/replay.json --retry-of <run_id>
+```
 
 `--replay` loads the replay bundle, exposes it to the loop as
 `MEGURI_REPLAY_FILE`, and records the replay source in the new run. Meguri does
@@ -315,7 +325,16 @@ not pretend it can recreate missing credentials, external services, or
 production data. The loop script is responsible for using the replay bundle to
 drive deterministic inputs when possible.
 
-Reproducibility status:
+`--retry-of` marks the new run as a post-fix retry of an earlier run. The new
+report should link back to the source run, and the source report should be able
+to show the retry command and, when available, the follow-up run id. This makes
+the loop chain auditable:
+
+```text
+original run -> failed/blocked event -> fix -> retry with same replay bundle -> pass/block
+```
+
+Replay status:
 
 ```text
 full       enough command/input/environment metadata exists for a rerun
@@ -331,7 +350,7 @@ none       no structured evidence or replay entry exists
 - Evidence bundle count.
 - Attempt summaries.
 - Failed or blocked event summaries.
-- Replay command, if available.
+- Replay command and retry command, if available.
 
 It should not inline full conversations by default.
 
@@ -358,9 +377,10 @@ Add focused tests for:
 - Falling back to the legacy step view when evidence is absent.
 - Showing evidence parse warnings without failing report generation.
 - Redacting explicit redacted objects and common secret patterns.
-- Writing `replay.json` with scenario path, command, project ref, inputs, and
-  reproducibility status.
-- Rendering copyable replay commands without embedding command execution.
+- Writing `replay.json` with source run id, scenario path, command, project ref,
+  inputs, and replay status.
+- Rendering copyable replay and post-fix retry commands without embedding
+  command execution.
 
 ## Open Decisions Closed
 
@@ -370,4 +390,5 @@ Add focused tests for:
 - Event details use a fixed right-side panel on desktop.
 - Details show input/output, checks, and artifact links.
 - Redaction uses both script-provided flags and automatic secret masking.
-- Reproduction is copyable command plus replay bundle, not HTML-side execution.
+- One-click reproduction is loop replay: copyable replay and retry commands plus
+  a replay bundle, not HTML-side execution.
