@@ -17,18 +17,13 @@ execution, and records.
 Open Codex or Claude Code in the target project, then paste:
 
 ```text
-Install Meguri in this project and continue in this same AI session.
+Install Meguri in this project and enable the Codex / Claude Code slash entrypoint.
 
 Run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 
-After installation, start the Meguri inspect workflow, follow the printed
-Meguri spec, and write `.meguri/project-inspect.json` plus
-`.meguri/project-brief.md`.
-
-If the project goal, execution entry, pass criteria, credentials, data setup, or
-forbidden side effects are unclear, ask me concrete questions before writing
-scenarios or tests.
+After installation, run:
+/meguri inspect
 ```
 
 A fuller copyable install prompt lives in
@@ -81,7 +76,7 @@ Ask Codex / Claude Code to use Meguri for:
 
 | Workflow | What the active AI does |
 | --- | --- |
-| Inspect | Reads the project, follows the Meguri spec, and writes `.meguri/project-inspect.json` plus `.meguri/project-brief.md`. |
+| Inspect | Reads the project and creates the inspection artifacts. |
 | Add verification | Designs a deterministic scenario only after the goal, safe execution entry, and pass criteria are clear. |
 | Validate | Checks the project pack, scenarios, adapter references, skill files, and run configuration. |
 | Run | Executes the selected scenario and writes `run.json`, `report.md`, and `index.html`. |

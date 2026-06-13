@@ -135,7 +135,10 @@ cat <<EOF
 
 Meguri is ready.
 
-Use Meguri from the AI terminal:
+Run from the AI terminal:
+  /meguri inspect
+
+If slash entrypoints need selection:
   Claude Code: type /, search meguri, choose /meguri
   Codex: restart/open a new session, type /, search meguri, choose prompts:meguri
   Codex alternatives: /skills -> meguri, or \$meguri inspect

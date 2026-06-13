@@ -14,14 +14,13 @@ Meguri 不会自己理解你的项目。项目理解、测试流程设计、测�
 在目标项目里打开 Codex 或 Claude Code，然后粘贴：
 
 ```text
-请在当前项目安装 Meguri，并继续在当前 AI 会话中完成初始化。
+请在当前项目安装 Meguri，并启用 Codex / Claude Code 的 slash 入口。
 
 运行：
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 
-安装完成后，启动 Meguri inspect 工作流，遵循输出的 Meguri 规范，并写入 `.meguri/project-inspect.json` 和 `.meguri/project-brief.md`。
-
-如果项目目标、执行入口、通过标准、凭证、数据准备或禁止的副作用不清楚，请先向我提出具体问题，再编写场景或测试。
+安装完成后，执行：
+/meguri inspect
 ```
 
 更完整的可复制安装提示词在 [`prompts/install.md`](prompts/install.md)。
@@ -71,7 +70,7 @@ HTML 报告是自包含文件，并使用相对链接，因此整个 run 目录�
 
 | 工作流 | 当前 AI 会做什么 |
 | --- | --- |
-| Inspect | 阅读项目，遵循 Meguri 规范，并写入 `.meguri/project-inspect.json` 和 `.meguri/project-brief.md`。 |
+| Inspect | 阅读项目，并创建项目检查产物。 |
 | Add verification | 在目标、安全执行入口、通过标准都清楚后，设计确定性的验证场景。 |
 | Validate | 检查项目 pack、场景、adapter 引用、skill 文件和运行配置。 |
 | Run | 执行指定场景，并写入 `run.json`、`report.md` 和 `index.html`。 |
