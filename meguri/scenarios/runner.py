@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -68,50 +69,17 @@ def run_scenario(
         retry_of=retry_of,
         runs_dir=runs_dir,
     )
+    setup_ok = False
     try:
-        adapter.setup(ctx)
-        for step in scenario.steps:
-            running = _running_step_result(step, artifact_dir)
-            steps.append(running)
-            _write_run_snapshot(
-                store=store,
-                scenario=scenario,
-                scenario_path=scenario_path,
-                artifact_dir=artifact_dir,
-                evidence_dir=evidence_dir,
-                loop_id=loop_id,
-                run_id=run_id,
-                started=started,
-                started_dt=started_dt,
-                steps=steps,
-                all_checks=all_checks,
-                status="running",
-                replay_file=replay_file,
-                retry_of=retry_of,
-                runs_dir=runs_dir,
-            )
-            result = adapter.run_step(step, ctx)
-            result.artifacts.extend([
-                store.write_text(f"steps/{result.step_id}/stdout.txt", result.stdout, kind="stdout"),
-                store.write_text(f"steps/{result.step_id}/stderr.txt", result.stderr, kind="stderr"),
-                store.write_json(f"steps/{result.step_id}/result.json", {
-                    "status": result.status,
-                    "exit_code": result.exit_code,
-                    "data": result.data,
-                }),
-            ])
-            if result.status == "blocked":
-                result.checks = [
-                    CheckResult(
-                        id=f"{result.step_id}_blocked",
-                        status="blocked",
-                        message="step blocked before checks; inspect stderr artifact",
-                    )
-                ]
-            else:
-                result.checks = evaluate_step_checks(result, list(step.get("checks") or []))
+        try:
+            adapter.setup(ctx)
+            setup_ok = True
+        except Exception as exc:  # noqa: BLE001 - run records must close cleanly.
+            result = _exception_step_result("adapter_setup", exc, traceback.format_exc(), "adapter setup failed")
+            _persist_step_result(store, result)
+            result.checks = [_blocked_check(result.step_id, "adapter setup failed; inspect stderr artifact")]
             all_checks.extend(result.checks)
-            steps[-1] = result
+            steps.append(result)
             _write_run_snapshot(
                 store=store,
                 scenario=scenario,
@@ -124,16 +92,160 @@ def run_scenario(
                 started_dt=started_dt,
                 steps=steps,
                 all_checks=all_checks,
-                status="running",
+                status="blocked",
                 replay_file=replay_file,
                 retry_of=retry_of,
                 runs_dir=runs_dir,
             )
-            if step.get("stop_on_fail", True) and not result.ok:
-                break
+        if setup_ok:
+            for step in scenario.steps:
+                running = _running_step_result(step, artifact_dir)
+                steps.append(running)
+                _write_run_snapshot(
+                    store=store,
+                    scenario=scenario,
+                    scenario_path=scenario_path,
+                    artifact_dir=artifact_dir,
+                    evidence_dir=evidence_dir,
+                    loop_id=loop_id,
+                    run_id=run_id,
+                    started=started,
+                    started_dt=started_dt,
+                    steps=steps,
+                    all_checks=all_checks,
+                    status="running",
+                    replay_file=replay_file,
+                    retry_of=retry_of,
+                    runs_dir=runs_dir,
+                )
+                try:
+                    result = adapter.run_step(step, ctx)
+                except Exception as exc:  # noqa: BLE001 - keep the run auditable.
+                    result = _exception_step_result(
+                        str(step["id"]),
+                        exc,
+                        traceback.format_exc(),
+                        "adapter step failed",
+                        step=step,
+                    )
+                _persist_step_result(store, result)
+                if result.status == "blocked":
+                    result.checks = [
+                        _blocked_check(result.step_id, "step blocked before checks; inspect stderr artifact")
+                    ]
+                else:
+                    result.checks = evaluate_step_checks(result, list(step.get("checks") or []))
+                all_checks.extend(result.checks)
+                steps[-1] = result
+                _write_run_snapshot(
+                    store=store,
+                    scenario=scenario,
+                    scenario_path=scenario_path,
+                    artifact_dir=artifact_dir,
+                    evidence_dir=evidence_dir,
+                    loop_id=loop_id,
+                    run_id=run_id,
+                    started=started,
+                    started_dt=started_dt,
+                    steps=steps,
+                    all_checks=all_checks,
+                    status="running",
+                    replay_file=replay_file,
+                    retry_of=retry_of,
+                    runs_dir=runs_dir,
+                )
+                if step.get("stop_on_fail", True) and not result.ok:
+                    break
     finally:
-        adapter.cleanup(ctx)
-    status = _overall_status(steps, all_checks)
+        try:
+            adapter.cleanup(ctx)
+        except Exception as exc:  # noqa: BLE001
+            result = _exception_step_result("adapter_cleanup", exc, traceback.format_exc(), "adapter cleanup failed")
+            _persist_step_result(store, result)
+            result.checks = [_blocked_check(result.step_id, "adapter cleanup failed; inspect stderr artifact")]
+            all_checks.extend(result.checks)
+            steps.append(result)
+    return _write_final_snapshot(
+        store=store,
+        scenario=scenario,
+        scenario_path=scenario_path,
+        artifact_dir=artifact_dir,
+        evidence_dir=evidence_dir,
+        loop_id=loop_id,
+        run_id=run_id,
+        started=started,
+        started_dt=started_dt,
+        steps=steps,
+        all_checks=all_checks,
+        replay_file=replay_file,
+        retry_of=retry_of,
+        runs_dir=runs_dir,
+    )
+
+
+def _persist_step_result(store: ArtifactStore, result: StepResult) -> None:
+    result.artifacts.extend([
+        store.write_text(f"steps/{result.step_id}/stdout.txt", result.stdout, kind="stdout"),
+        store.write_text(f"steps/{result.step_id}/stderr.txt", result.stderr, kind="stderr"),
+        store.write_json(f"steps/{result.step_id}/result.json", {
+            "status": result.status,
+            "exit_code": result.exit_code,
+            "data": result.data,
+        }),
+    ])
+
+
+def _blocked_check(step_id: str, message: str) -> CheckResult:
+    return CheckResult(
+        id=f"{step_id}_blocked",
+        status="blocked",
+        message=message,
+    )
+
+
+def _exception_step_result(
+    step_id: str,
+    exc: Exception,
+    traceback_text: str,
+    message: str,
+    *,
+    step: dict | None = None,
+) -> StepResult:
+    now = utc_now()
+    data = {
+        "exception_type": type(exc).__name__,
+        "exception_message": str(exc),
+        "exception_stage": message,
+    }
+    if step and isinstance(step.get("command"), list):
+        data["command"] = [str(part) for part in step["command"]]
+    return StepResult(
+        step_id=step_id,
+        status="blocked",
+        started_at=now,
+        finished_at=now,
+        stderr=f"{message}: {type(exc).__name__}: {exc}\n\n{traceback_text}",
+        data=data,
+    )
+
+
+def _write_final_snapshot(
+    *,
+    store: ArtifactStore,
+    scenario,
+    scenario_path: Path,
+    artifact_dir: Path,
+    evidence_dir: Path,
+    loop_id: str,
+    run_id: str,
+    started: str,
+    started_dt: datetime,
+    steps: list,
+    all_checks: list,
+    replay_file: Path | None,
+    retry_of: str | None,
+    runs_dir: Path | None,
+) -> RunReport:
     return _write_run_snapshot(
         store=store,
         scenario=scenario,
@@ -146,7 +258,7 @@ def run_scenario(
         started_dt=started_dt,
         steps=steps,
         all_checks=all_checks,
-        status=status,
+        status=_overall_status(steps, all_checks),
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,

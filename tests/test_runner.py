@@ -238,3 +238,45 @@ steps:
     assert live_stdout_marker.read_text(encoding="utf-8") == "seen"
     stdout_path = Path(report.artifact_dir) / "steps" / "long" / "stdout.txt"
     assert "live hello" in stdout_path.read_text(encoding="utf-8")
+
+
+def test_runner_closes_report_when_adapter_step_raises(tmp_path: Path, monkeypatch) -> None:
+    class ExplodingAdapter:
+        name = "exploding"
+
+        def setup(self, ctx) -> None:
+            pass
+
+        def run_step(self, step, ctx):
+            raise RuntimeError("boom from adapter")
+
+        def cleanup(self, ctx) -> None:
+            pass
+
+    scenario_path = tmp_path / "scenario.yaml"
+    scenario_path.write_text(
+        """
+name: exploding_loop
+adapter: exploding
+project_path: "."
+mode: dry_run
+steps:
+  - id: explode
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("meguri.scenarios.runner.get_adapter", lambda name: ExplodingAdapter())
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+    artifact_dir = Path(report.artifact_dir)
+
+    assert report.status == "blocked"
+    assert (artifact_dir / "run.json").is_file()
+    assert (artifact_dir / "index.html").is_file()
+    assert (artifact_dir / "steps" / "explode" / "stderr.txt").is_file()
+    assert (artifact_dir / "steps" / "explode" / "result.json").is_file()
+    stderr = (artifact_dir / "steps" / "explode" / "stderr.txt").read_text(encoding="utf-8")
+    result = json.loads((artifact_dir / "steps" / "explode" / "result.json").read_text(encoding="utf-8"))
+    assert "RuntimeError: boom from adapter" in stderr
+    assert result["status"] == "blocked"
+    assert result["data"]["exception_type"] == "RuntimeError"
