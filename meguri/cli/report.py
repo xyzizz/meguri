@@ -35,8 +35,8 @@ def handle_report(args: Any) -> int:
     json_record = None
     try:
         if getattr(args, "running", False):
-            if args.run_id or args.last or args.recent is not None or getattr(args, "runs", None):
-                raise FileNotFoundError("--running cannot be combined with run id, --last, --recent, or --runs")
+            if args.run_id or args.last or args.recent is not None or getattr(args, "runs", None) or getattr(args, "loops", None):
+                raise FileNotFoundError("--running cannot be combined with run id, --last, --recent, --runs, or --loops")
             running_record = running_reports(pack)
             if getattr(args, "json", False):
                 print(json.dumps(running_record, ensure_ascii=False, indent=2, default=str))
@@ -48,15 +48,21 @@ def handle_report(args: Any) -> int:
                     print(f"could not open report automatically: {running_record['html_report_paths'][0]}", file=sys.stderr)
             return 0
         if args.recent is not None:
-            if getattr(args, "runs", None):
-                raise FileNotFoundError("--recent and --runs cannot be combined")
+            if getattr(args, "runs", None) or getattr(args, "loops", None):
+                raise FileNotFoundError("--recent cannot be combined with --runs or --loops")
             batch_record = recent_batch_report(pack, args.recent)
             html_path = Path(batch_record["html_report_path"])
             json_record = batch_record
         elif getattr(args, "runs", None):
-            if args.run_id:
-                raise FileNotFoundError("run id positional cannot be combined with --runs")
+            if args.run_id or getattr(args, "loops", None):
+                raise FileNotFoundError("--runs cannot be combined with run id or --loops")
             batch_record = selected_batch_report(pack, list(args.runs))
+            html_path = Path(batch_record["html_report_path"])
+            json_record = batch_record
+        elif getattr(args, "loops", None):
+            if args.run_id:
+                raise FileNotFoundError("run id positional cannot be combined with --loops")
+            batch_record = latest_loop_batch_report(pack, list(args.loops))
             html_path = Path(batch_record["html_report_path"])
             json_record = batch_record
         else:
@@ -146,12 +152,20 @@ def selected_batch_report(pack: ProjectPack, refs: list[str]) -> dict[str, Any]:
     return _write_selected_batch_report(pack, selected, source="selected_runs", selected_refs=refs)
 
 
+def latest_loop_batch_report(pack: ProjectPack, loops: list[str]) -> dict[str, Any]:
+    if not loops:
+        raise FileNotFoundError("--loops requires at least one loop name")
+    selected = [_latest_report_dir_for_loop(pack, loop) for loop in loops]
+    return _write_selected_batch_report(pack, selected, source="latest_loops", selected_loops=loops)
+
+
 def _write_selected_batch_report(
     pack: ProjectPack,
     selected: list[Path],
     *,
     source: str,
     selected_refs: list[str] | None = None,
+    selected_loops: list[str] | None = None,
 ) -> dict[str, Any]:
     runs = [_run_summary_from_json(path) for path in selected]
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -182,6 +196,8 @@ def _write_selected_batch_report(
     record["source"] = source
     if selected_refs is not None:
         record["selected_refs"] = selected_refs
+    if selected_loops is not None:
+        record["selected_loops"] = selected_loops
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
@@ -201,6 +217,16 @@ def _report_dir_for_ref(pack: ProjectPack, ref: str) -> Path:
             return candidate
         raise FileNotFoundError(f"report directory missing index.html: {ref}")
     return report_for_run(pack, ref).parent
+
+
+def _latest_report_dir_for_loop(pack: ProjectPack, loop: str) -> Path:
+    candidates = [
+        report_dir for report_dir in [*_loop_report_dirs(pack), *_legacy_report_dirs(pack)]
+        if _loop_name_from_raw(_read_json(report_dir / "run.json") or {}, report_dir) == loop
+    ]
+    if not candidates:
+        raise FileNotFoundError(f"no run report found for loop: {loop}")
+    return max(candidates, key=_report_sort_key)
 
 
 def report_for_run(pack: ProjectPack, run_id: str) -> Path:
@@ -385,7 +411,11 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
 
 def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:
     metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
-    return str(metadata.get("loop_id") or raw.get("scenario_name") or raw.get("name") or report_dir.name)
+    if metadata.get("loop_id") or raw.get("scenario_name") or raw.get("name"):
+        return str(metadata.get("loop_id") or raw.get("scenario_name") or raw.get("name"))
+    if report_dir.parent.parent.name == "loops":
+        return report_dir.parent.name
+    return report_dir.name
 
 
 def _mode_from_raw(raw: dict[str, Any]) -> str:

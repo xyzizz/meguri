@@ -76,6 +76,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
     assert "meguri report --runs <run_id-or-path> ..." in codex_skill
+    assert "meguri report --loops <loop> ..." in codex_skill
     assert "`status_counts`" in codex_skill
     assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
@@ -101,6 +102,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
     assert "meguri report --runs <run_id-or-path> ..." in claude_skill
+    assert "meguri report --loops <loop> ..." in claude_skill
     assert "`status_counts`" in claude_skill
     assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
@@ -877,13 +879,97 @@ def test_report_runs_creates_batch_from_explicit_run_refs(tmp_path: Path, monkey
     assert "old_loop" not in html
 
 
+def test_report_loops_groups_latest_run_for_each_named_loop(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    runs_root = tmp_path / ".meguri" / "runs"
+    for run_id, loop, status, finished_at, message in [
+        ("run_20260613_100000_loop_a_old", "loop_a", "fail", "2026-06-13T10:00:00+00:00", "old reason"),
+        ("run_20260613_110000_loop_b", "loop_b", "pass", "2026-06-13T11:00:00+00:00", ""),
+        ("run_20260613_120000_loop_a_new", "loop_a", "fail", "2026-06-13T12:00:00+00:00", "latest reason"),
+    ]:
+        run_dir = runs_root / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": status,
+                "mode": "execute",
+                "finished_at": finished_at,
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": status,
+                        "checks": [{"id": "exit", "status": status, "message": message}] if message else [],
+                    }
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+    assert main(["report", "--loops", "loop_a", "loop_b", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["source"] == "latest_loops"
+    assert batch["selected_loops"] == ["loop_a", "loop_b"]
+    assert batch["planned_loops"] == ["loop_a", "loop_b"]
+    assert [run["run_id"] for run in batch["runs"]] == [
+        "run_20260613_120000_loop_a_new",
+        "run_20260613_110000_loop_b",
+    ]
+    assert batch["status"] == "fail"
+    assert batch["status_counts"] == {"fail": 1, "pass": 1}
+    assert batch["failed_loops"] == ["loop_a"]
+    assert batch["retry_command"] == "meguri run loop_a"
+    assert "old reason" not in json.dumps(batch)
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "loop_a" in html
+    assert "loop_b" in html
+    assert "old reason" not in html
+
+
+def test_report_loops_uses_loop_directory_when_run_metadata_is_missing(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_120000"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>checkout</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "status": "pass",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "steps": [],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--loops", "checkout", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["source"] == "latest_loops"
+    assert batch["planned_loops"] == ["checkout"]
+    assert batch["runs"][0]["loop"] == "checkout"
+    assert batch["runs"][0]["run_id"] == "20260613_120000"
+
+
 def test_report_runs_rejects_recent_mix(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     capsys.readouterr()
 
     assert main(["report", "--recent", "1", "--runs", "run_1"]) == 1
-    assert "--recent and --runs cannot be combined" in capsys.readouterr().err
+    assert "--recent cannot be combined with --runs or --loops" in capsys.readouterr().err
+
+    assert main(["report", "--runs", "run_1", "--loops", "loop_a"]) == 1
+    assert "--runs cannot be combined with run id or --loops" in capsys.readouterr().err
 
 
 def test_report_recent_extracts_structured_run_metrics(tmp_path: Path, monkeypatch, capsys) -> None:

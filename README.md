@@ -147,7 +147,7 @@ Ask Codex / Claude Code to use Meguri for:
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
 | Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. Execute-mode loops require explicit approval. |
-| Report | Opens reports, lists running reports, prints single-run JSON summaries with evidence/replay pointers, groups recent standalone runs, or groups explicit run ids/paths into a batch report. |
+| Report | Opens reports, lists running reports, prints single-run JSON summaries with evidence/replay pointers, groups recent standalone runs, groups explicit run ids/paths, or groups the newest run for each named loop into a batch report. |
 
 ```text
 Examples:
@@ -163,6 +163,7 @@ Use Meguri to summarize this run id as JSON.
 Use Meguri to summarize the latest 7 run reports.
 Use Meguri to summarize the latest 7 run reports as JSON.
 Use Meguri to summarize these exact run report paths as JSON.
+Use Meguri to summarize the latest runs for these loop names as JSON.
 Use Meguri to open the latest report.
 ```
 
