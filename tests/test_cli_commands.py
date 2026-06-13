@@ -24,11 +24,11 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
-    assert "meguri inspect" in codex_skill
+    assert "Meguri inspect workflow" in codex_skill
     assert "test-flow design" in codex_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
-    assert "meguri inspect" in claude_skill
+    assert "Meguri inspect workflow" in claude_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
 
 

@@ -9,7 +9,7 @@ FORCE=false
 
 usage() {
   cat <<'USAGE'
-Install Meguri with pipx.
+Install Meguri for Codex and Claude Code.
 
 Usage:
   curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
@@ -18,12 +18,12 @@ Usage:
 Agent-first install:
   Paste the prompt from prompts/install.md into Codex or Claude Code while the
   target project is open. The current AI agent will run this installer and then
-  continue with `meguri inspect`.
+  continue with the Meguri inspect workflow.
 
 Options:
-  --init             Run `meguri init` in the current directory after install.
-  --install-skills   Install project-local Codex and Claude Code skills. Implies --init.
-  --force            Overwrite generated Meguri files during init.
+  --init             Initialize the current project after install.
+  --install-skills   Install project-local Codex and Claude Code entrypoints. Implies --init.
+  --force            Overwrite generated Meguri files during initialization.
   --repo-url URL     Install from a different Git repository URL.
   --package-spec S   Install an explicit pip package spec.
   -h, --help         Show this help.
@@ -135,15 +135,15 @@ cat <<EOF
 
 Meguri is ready.
 
-Next in the current Codex / Claude Code session:
-  Ask the AI to run: meguri inspect
-
-Host-specific shortcuts:
+Use Meguri from the AI terminal:
   Claude Code: /meguri inspect
   Codex: /skills, then choose meguri
   Codex: \$meguri inspect
-  Codex custom prompt after restart: /prompts:meguri inspect
+  Codex prompt after restart: /prompts:meguri inspect
 
-If your current shell cannot find meguri yet, open a new terminal or run:
+If a newly installed entrypoint does not appear, restart Codex / Claude Code
+or open a new session in this project.
+
+If a later Meguri step is not found, refresh the executable path with:
   python3 -m pipx ensurepath
 EOF

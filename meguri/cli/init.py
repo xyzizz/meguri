@@ -143,26 +143,26 @@ def _pack_readme(project_name: str) -> str:
 
 This directory contains the Meguri project pack for `{project_name}`.
 
-## Agent entrypoints
+## AI terminal entrypoints
 
 - Claude Code: `/meguri inspect`
 - Codex skill: `/skills`, then choose `meguri`
 - Codex skill mention: `$meguri inspect`
-- Codex custom prompt after restart: `/prompts:meguri inspect`
+- Codex prompt after restart: `/prompts:meguri inspect`
 
-## Common commands
+## Common AI requests
 
-```bash
-meguri inspect
-meguri validate
-meguri run smoke --open
-meguri report --last --open
+```text
+Use Meguri to inspect this project.
+Use Meguri to validate this project pack.
+Use Meguri to run the smoke scenario and open the report.
+Use Meguri to open the latest report.
 ```
 
 Add new scenarios with:
 
-```bash
-meguri add "describe the flow" --command "safe command" --pass-criteria "what proves success"
+```text
+Use Meguri to add a dry-run verification flow for <describe the flow>.
 ```
 
 Keep scenarios deterministic. Do not treat an LLM's self-evaluation as a passing check.
@@ -177,17 +177,16 @@ description: Use when the user wants Codex to design, add, run, validate, inspec
 
 You are using the Meguri project workflow for Codex.
 
-Meguri is an agent-facing verification harness. The CLI owns specification files,
-deterministic validation, scenario execution, and reports. Codex owns project
-understanding, test-flow design, and any code/test authoring.
+Meguri is an agent-facing verification workflow. Meguri owns specification
+files, deterministic validation, scenario execution, and reports. Codex owns
+project understanding, test-flow design, and any code/test authoring.
 
-Use `$meguri` as the user-facing command name in conversation, but execute the
-local CLI with `meguri`.
+Use `$meguri` as the user-facing entrypoint in conversation.
 
 Workflow:
 1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Run `meguri inspect` to materialize and print the current Meguri inspect
-   specification. Follow that spec yourself in this Codex session.
+2. Start the Meguri inspect workflow to materialize and print the current
+   Meguri inspect specification. Follow that spec yourself in this Codex session.
 3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
@@ -219,9 +218,9 @@ Use Meguri for this request: $ARGUMENTS
 Meguri is a specification and harness layer. Use this active Codex session for
 project understanding, test-flow design, and any code/test authoring.
 
-If the request is empty or starts with `inspect`, run `meguri inspect`, follow
-the printed specification yourself, and write `.meguri/project-inspect.json` plus
-`.meguri/project-brief.md`.
+If the request is empty or starts with `inspect`, start the Meguri inspect
+workflow, follow the printed specification yourself, and write
+`.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
 If the request asks to add/design verification, first inspect existing docs,
 manifests, tests, scripts, CI, and entrypoints. Ask concrete questions when the
@@ -246,20 +245,20 @@ disable-model-invocation: true
 
 You are using the Meguri project workflow for Claude Code.
 
-Meguri is an agent-facing verification harness. The CLI owns specification files,
-deterministic validation, scenario execution, and reports. Claude Code owns
-project understanding, test-flow design, and any code/test authoring.
+Meguri is an agent-facing verification workflow. Meguri owns specification
+files, deterministic validation, scenario execution, and reports. Claude Code
+owns project understanding, test-flow design, and any code/test authoring.
 
-Use `/meguri` as the user-facing command name in conversation, but execute the
-local CLI with `meguri`.
+Use `/meguri` as the user-facing entrypoint in conversation.
 
-Requested Meguri command:
+Requested Meguri workflow:
 $ARGUMENTS
 
 Workflow:
 1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Run `meguri inspect` to materialize and print the current Meguri inspect
-   specification. Follow that spec yourself in this Claude Code session.
+2. Start the Meguri inspect workflow to materialize and print the current
+   Meguri inspect specification. Follow that spec yourself in this Claude Code
+   session.
 3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your

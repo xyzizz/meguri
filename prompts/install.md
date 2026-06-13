@@ -12,21 +12,22 @@ From the current project root, run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 
 After installation:
-1. Run `meguri inspect`.
-2. Follow the printed Meguri inspect specification yourself in this same AI session.
+1. Start the Meguri inspect workflow in this same AI session.
+2. Follow the printed Meguri inspect specification.
 3. Create `.meguri/project-inspect.json` and `.meguri/project-brief.md` from project evidence.
 4. If the project goal, execution entry, pass criteria, credentials, data setup, or forbidden side effects are unclear, ask me concrete questions before writing scenarios or tests.
-5. If enough information is available, design the first deterministic dry-run verification scenario, run `meguri validate`, then run the safe scenario.
+5. If enough information is available, design the first deterministic dry-run verification scenario, validate the Meguri pack, then run the safe scenario.
 6. Do not submit, deploy, pay, write to production, send external messages, or run migrations unless I explicitly approve.
 ```
 
 Future use after installation:
 
 ```text
-Run `meguri inspect` and follow the printed Meguri spec.
+Claude Code: /meguri inspect
+Codex: /skills, then choose meguri
+Codex: $meguri inspect
+Codex prompt after restart: /prompts:meguri inspect
 ```
 
-Claude Code exposes the project skill directly as `/meguri`. Codex installs the
-same workflow as a project skill plus a user prompt named `meguri`. In Codex,
-use `/skills` to choose `meguri`, type `$meguri inspect`, or restart/open a new
-session and use `/prompts:meguri inspect`.
+If the newly installed entrypoint does not appear, restart Codex / Claude Code
+or open a new session in the same project.
