@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import shlex
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
@@ -197,6 +198,7 @@ def render_html_report(report: RunReport) -> str:
       {_metric("Updated", report.updated_at or report.finished_at)}
       {_metric("Finished", report.finished_at or "-")}
     </section>
+    {_render_replay(report, loop_name)}
     <section>
       {main_view}
     </section>
@@ -212,6 +214,25 @@ def render_html_report(report: RunReport) -> str:
 
 def _metric(label: str, value: str) -> str:
     return f'<div class="metric"><span>{html.escape(label)}</span><strong>{html.escape(value)}</strong></div>'
+
+
+def _render_replay(report: RunReport, loop_name: str) -> str:
+    replay = report.replay if isinstance(report.replay, dict) else None
+    if not replay:
+        return ""
+    replay_status = "-"
+    if isinstance(replay.get("replay"), dict):
+        replay_status = str(replay["replay"].get("status") or "-")
+    loop = str(replay.get("loop_id") or loop_name)
+    source_run_id = str(replay.get("source_run_id") or report.run_id)
+    command = shlex.join(["meguri", "run", loop, "--replay", "replay.json", "--retry-of", source_run_id])
+    return f"""
+    <section>
+      <h2>Replay</h2>
+      <p class="notice">Status: {html.escape(replay_status)}. Re-run after repair with:</p>
+      <pre>{html.escape(command)}</pre>
+    </section>
+"""
 
 
 def _render_step(step: Any) -> str:

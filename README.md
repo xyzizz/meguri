@@ -104,7 +104,9 @@ the step artifacts. If a step's structured stdout declares `evidence_json` or
 `evidence_markdown` files under the run directory, Meguri links them as step
 artifacts. Replay metadata also captures the pre-run git branch,
 commit, dirty flag, and dirty file list so a report can be audited against the
-exact project state that produced it. Legacy
+exact project state that produced it. Each run report shows a Replay command
+that reuses `replay.json` and marks the retry with `--retry-of`, so repairs can
+be rerun without reconstructing the command from memory. Legacy
 `.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their
 new records are written under `.meguri/loops/<loop_id>/`. Existing
 `.meguri/runs/<run_id>/` reports remain readable.

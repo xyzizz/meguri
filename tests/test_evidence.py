@@ -203,3 +203,29 @@ def test_html_report_renders_step_timeline_when_evidence_is_absent(tmp_path: Pat
     assert "agent_submit" in html
     assert "partial transcript before crash" in html
     assert "invalid UUID in operation_log_id" in html
+
+
+def test_html_report_renders_replay_command(tmp_path: Path) -> None:
+    now = utc_now()
+    report = RunReport(
+        run_id="20260613_152717",
+        scenario_name="agent_loop",
+        status="fail",
+        started_at=now,
+        finished_at=now,
+        project_path=str(tmp_path),
+        artifact_dir=str(tmp_path),
+        steps=[],
+        checks=[],
+        replay={
+            "version": 1,
+            "source_run_id": "20260613_152717",
+            "loop_id": "agent_loop",
+            "replay": {"status": "full", "missing": []},
+        },
+    )
+
+    html = render_html_report(report)
+
+    assert "Replay" in html
+    assert "meguri run agent_loop --replay replay.json --retry-of 20260613_152717" in html
