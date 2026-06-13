@@ -32,11 +32,18 @@ def handle_report(args: Any) -> int:
 
     try:
         if args.recent is not None:
+            if getattr(args, "runs", None):
+                raise FileNotFoundError("--recent and --runs cannot be combined")
             batch_record = recent_batch_report(pack, args.recent)
+            html_path = Path(batch_record["html_report_path"])
+        elif getattr(args, "runs", None):
+            if args.run_id:
+                raise FileNotFoundError("run id positional cannot be combined with --runs")
+            batch_record = selected_batch_report(pack, list(args.runs))
             html_path = Path(batch_record["html_report_path"])
         else:
             if getattr(args, "json", False):
-                raise FileNotFoundError("--json is only supported with --recent")
+                raise FileNotFoundError("--json is only supported with --recent or --runs")
             html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
@@ -72,6 +79,23 @@ def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
     if not selected:
         raise FileNotFoundError(f"no standalone run reports found in {pack.pack_root}")
     selected = sorted(selected, key=_report_sort_key)
+    return _write_selected_batch_report(pack, selected, source="recent_runs")
+
+
+def selected_batch_report(pack: ProjectPack, refs: list[str]) -> dict[str, Any]:
+    if not refs:
+        raise FileNotFoundError("--runs requires at least one run id or report path")
+    selected = [_report_dir_for_ref(pack, ref) for ref in refs]
+    return _write_selected_batch_report(pack, selected, source="selected_runs", selected_refs=refs)
+
+
+def _write_selected_batch_report(
+    pack: ProjectPack,
+    selected: list[Path],
+    *,
+    source: str,
+    selected_refs: list[str] | None = None,
+) -> dict[str, Any]:
     runs = [_run_summary_from_json(path) for path in selected]
     batch_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     batch_dir = pack.pack_root / "batches" / batch_id
@@ -98,10 +122,28 @@ def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
         "failure_groups": failure_groups(runs),
         "runs": runs,
     }
+    record["source"] = source
+    if selected_refs is not None:
+        record["selected_refs"] = selected_refs
     batch_dir.joinpath("batch.json").write_text(json.dumps(record, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
     return record
+
+
+def _report_dir_for_ref(pack: ProjectPack, ref: str) -> Path:
+    candidate = Path(ref).expanduser()
+    if not candidate.is_absolute():
+        candidate = Path.cwd() / candidate
+    if candidate.is_file():
+        if candidate.name in {"index.html", "run.json"} and (candidate.parent / "index.html").is_file():
+            return candidate.parent
+        raise FileNotFoundError(f"report path must be an index.html or run.json file: {ref}")
+    if candidate.is_dir():
+        if (candidate / "index.html").is_file():
+            return candidate
+        raise FileNotFoundError(f"report directory missing index.html: {ref}")
+    return report_for_run(pack, ref).parent
 
 
 def report_for_run(pack: ProjectPack, run_id: str) -> Path:

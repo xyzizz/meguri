@@ -70,6 +70,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
+    assert "meguri report --runs <run_id-or-path> ..." in codex_skill
     assert "`status_counts`" in codex_skill
     assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
@@ -89,6 +90,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "live progress surface" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
+    assert "meguri report --runs <run_id-or-path> ..." in claude_skill
     assert "`status_counts`" in claude_skill
     assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
@@ -673,6 +675,66 @@ def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path,
     html = html_path.read_text(encoding="utf-8")
     assert "meguri run mid_loop new_loop" in html
     assert "old_loop" not in html
+
+
+def test_report_runs_creates_batch_from_explicit_run_refs(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    runs_root = tmp_path / ".meguri" / "runs"
+    for run_id, loop, status, finished_at, message in [
+        ("run_20260613_100000_old", "old_loop", "fail", "2026-06-13T10:00:00+00:00", "old reason"),
+        ("run_20260613_110000_mid", "mid_loop", "fail", "2026-06-13T11:00:00+00:00", "video_id is not valid"),
+        ("run_20260613_120000_new", "new_loop", "pass", "2026-06-13T12:00:00+00:00", ""),
+    ]:
+        run_dir = runs_root / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": status,
+                "mode": "execute",
+                "finished_at": finished_at,
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": status,
+                        "checks": [{"id": "exit", "status": status, "message": message}] if message else [],
+                    }
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+    explicit_path = runs_root / "run_20260613_120000_new" / "index.html"
+    assert main(["report", "--runs", "run_20260613_110000_mid", str(explicit_path), "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["source"] == "selected_runs"
+    assert batch["selected_refs"] == ["run_20260613_110000_mid", str(explicit_path)]
+    assert batch["planned_loops"] == ["mid_loop", "new_loop"]
+    assert batch["status"] == "fail"
+    assert batch["status_counts"] == {"fail": 1, "pass": 1}
+    assert batch["failed_loops"] == ["mid_loop"]
+    assert batch["retry_command"] == "meguri run mid_loop"
+    assert "old_loop" not in json.dumps(batch)
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "mid_loop" in html
+    assert "new_loop" in html
+    assert "old_loop" not in html
+
+
+def test_report_runs_rejects_recent_mix(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    assert main(["report", "--recent", "1", "--runs", "run_1"]) == 1
+    assert "--recent and --runs cannot be combined" in capsys.readouterr().err
 
 
 def test_report_recent_extracts_structured_run_metrics(tmp_path: Path, monkeypatch, capsys) -> None:

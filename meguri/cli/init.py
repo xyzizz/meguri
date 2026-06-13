@@ -272,10 +272,13 @@ Workflow:
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `failure_groups`, and per-loop summaries to prioritize shared repairs, then
    drill into each linked loop report. If
-   earlier runs were started separately, use `meguri report --recent <N>` to group the latest
-   standalone reports into a recoverable batch report before summarizing. Use
-   `meguri report --recent <N> --json` when you need clean structured data for
-   a written summary. After making a repair, use the batch `retry_loops` list
+   earlier runs were started separately and you only know the count, use
+   `meguri report --recent <N>` to group the latest standalone reports into a
+   recoverable batch report before summarizing. If you have exact run ids or
+   report paths, use `meguri report --runs <run_id-or-path> ...` so unrelated
+   reports are not included. Use `meguri report --recent <N> --json` or
+   `meguri report --runs <run_id-or-path> ... --json` when you need clean
+   structured data for a written summary. After making a repair, use the batch `retry_loops` list
    to understand exactly which loops will run, then use batch `retry_command`
    for grouped failures; it preserves `--allow-execute` when
    the original batch was explicitly approved for execute mode. Use the run
@@ -384,10 +387,13 @@ Workflow:
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `failure_groups`, and per-loop summaries to prioritize shared repairs, then
    drill into each linked loop report. If
-   earlier runs were started separately, use `meguri report --recent <N>` to group the latest
-   standalone reports into a recoverable batch report before summarizing. Use
-   `meguri report --recent <N> --json` when you need clean structured data for
-   a written summary. After making a repair, use the batch `retry_loops` list
+   earlier runs were started separately and you only know the count, use
+   `meguri report --recent <N>` to group the latest standalone reports into a
+   recoverable batch report before summarizing. If you have exact run ids or
+   report paths, use `meguri report --runs <run_id-or-path> ...` so unrelated
+   reports are not included. Use `meguri report --recent <N> --json` or
+   `meguri report --runs <run_id-or-path> ... --json` when you need clean
+   structured data for a written summary. After making a repair, use the batch `retry_loops` list
    to understand exactly which loops will run, then use batch `retry_command`
    for grouped failures; it preserves `--allow-execute` when
    the original batch was explicitly approved for execute mode. Use the run

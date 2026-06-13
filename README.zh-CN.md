@@ -98,7 +98,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
 | Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts；execute-mode loop 必须先获得明确批准。 |
-| Report | 打开最新报告，或把最近多个散落 run 归并成一个 batch 报告。 |
+| Report | 打开最新报告，或把最近多个散落 run、指定 run id/路径归并成一个 batch 报告。 |
 
 ```text
 示例：
@@ -111,6 +111,7 @@ $meguri inspect
 用 Meguri 运行除 checkout 之外的所有 loop。
 用 Meguri 汇总最近 7 个 run 报告。
 用 Meguri 以 JSON 汇总最近 7 个 run 报告。
+用 Meguri 以 JSON 汇总这些指定的 run 报告路径。
 用 Meguri 打开最新报告。
 ```
 
