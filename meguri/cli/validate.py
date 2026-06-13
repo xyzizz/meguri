@@ -32,8 +32,15 @@ def handle_validate(args: Any) -> int:
                 errors.append(f"missing {pack.pack_root / 'project.yaml'}")
             if not pack.scenarios_dir.is_dir():
                 errors.append(f"missing scenarios directory: {pack.scenarios_dir}")
+            if not pack.loops_dir.is_dir():
+                warnings.append("loops directory is not present yet; legacy scenarios remain supported")
+            validated_loop_ids: set[str] = set()
+            for loop_path in sorted(pack.loops_dir.glob("*/_loop.yaml")):
+                _validate_scenario_path(loop_path, errors, warnings)
+                validated_loop_ids.add(loop_path.parent.name)
             for scenario_path in sorted(pack.scenarios_dir.glob("*.y*ml")):
-                _validate_scenario_path(scenario_path, errors, warnings)
+                if scenario_path.stem not in validated_loop_ids:
+                    _validate_scenario_path(scenario_path, errors, warnings)
             if not (pack.project_root / ".agents" / "skills" / "meguri" / "SKILL.md").is_file():
                 warnings.append("Codex skill is not installed in .agents/skills/meguri/SKILL.md")
             if not (pack.project_root / ".claude" / "skills" / "meguri" / "SKILL.md").is_file():

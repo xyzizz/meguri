@@ -205,8 +205,9 @@ def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: P
 
     assert main(["validate"]) == 0
     assert "ok" in capsys.readouterr().out
+    assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()
 
-    scenario_path = tmp_path / ".meguri" / "scenarios" / "smoke.yaml"
+    scenario_path = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
     raw = yaml.safe_load(scenario_path.read_text(encoding="utf-8"))
     raw["adapter"] = "missing_adapter"
     scenario_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
