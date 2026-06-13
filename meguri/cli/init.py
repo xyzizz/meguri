@@ -21,9 +21,9 @@ def handle_init(args: Any) -> int:
         created.extend(_write_skills(project_root, force=bool(args.force), skipped=skipped))
 
     for path in created:
-        print(f"created {path.relative_to(project_root)}")
+        print(f"created {_display_path(project_root, path)}")
     for path in skipped:
-        print(f"exists  {path.relative_to(project_root)}")
+        print(f"exists  {_display_path(project_root, path)}")
     if not created and skipped:
         print("no changes; pass --force to overwrite generated files")
     return 0
@@ -85,6 +85,7 @@ def _write_skills(project_root: Path, *, force: bool, skipped: list[Path]) -> li
     files = {
         project_root / ".agents" / "skills" / "meguri" / "SKILL.md": _codex_skill(),
         project_root / ".claude" / "skills" / "meguri" / "SKILL.md": _claude_skill(),
+        Path.home() / ".codex" / "prompts" / "meguri.md": _codex_slash_prompt(),
     }
     created: list[Path] = []
     for path, text in files.items():
@@ -101,6 +102,13 @@ def _write_if_allowed(path: Path, text: str, *, force: bool, skipped: list[Path]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path
+
+
+def _display_path(project_root: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(project_root))
+    except ValueError:
+        return str(path)
 
 
 def _detect_smoke(project_root: Path) -> tuple[list[str], list[dict[str, Any]]]:
@@ -134,6 +142,12 @@ def _pack_readme(project_name: str) -> str:
     return f"""# Meguri Pack
 
 This directory contains the Meguri project pack for `{project_name}`.
+
+## Agent entrypoints
+
+- Claude Code: `/meguri inspect`
+- Codex: `/meguri inspect` if your Codex build exposes custom prompt names directly, otherwise `/prompts:meguri inspect`
+- Codex skill fallback: `$meguri inspect`
 
 ## Common commands
 
@@ -193,10 +207,41 @@ Workflow:
 """
 
 
+def _codex_slash_prompt() -> str:
+    return """---
+description: Meguri verification workflow for the current project
+argument-hint: inspect|add|run|validate|report [args]
+---
+
+Use Meguri for this request: $ARGUMENTS
+
+Meguri is a specification and harness layer, not a model runner. You are the
+current Codex agent. Do not launch another Codex or Claude process to understand
+the project.
+
+If the request is empty or starts with `inspect`, run `meguri inspect`, follow
+the printed specification yourself, and write `.meguri/project-inspect.json` plus
+`.meguri/project-brief.md`.
+
+If the request asks to add/design verification, first inspect existing docs,
+manifests, tests, scripts, CI, and entrypoints. Ask concrete questions when the
+goal, execution entry, pass criteria, credentials, data setup, or forbidden side
+effects are unclear. Then write deterministic scenarios and any needed
+test/helper code.
+
+Always prefer deterministic evidence over LLM self-evaluation. Keep scenarios in
+`dry_run` unless the user explicitly approves execute mode. Before reporting
+completion, run `meguri validate` and the relevant `meguri run <scenario> --open`
+when safe.
+"""
+
+
 def _claude_skill() -> str:
     return """---
 name: meguri
 description: Use when the user wants Claude Code to design, add, run, validate, inspect, or repair Meguri verification flows in this repository. Trigger for /meguri, test-flow design, project verification planning, scenario generation, run reports, artifacts, and evidence-driven agent repair.
+argument-hint: inspect|add|run|validate|report [args]
+disable-model-invocation: true
 ---
 
 You are using the Meguri project workflow for Claude Code.
@@ -207,6 +252,9 @@ project understanding, test-flow design, and any code/test authoring.
 
 Use `/meguri` as the user-facing command name in conversation, but execute the
 local CLI with `meguri`.
+
+Requested Meguri command:
+$ARGUMENTS
 
 Workflow:
 1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.

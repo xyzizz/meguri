@@ -14,7 +14,12 @@ In a Codex terminal, install Meguri and initialize the current target project:
 ```bash
 cd /path/to/target-project
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
-meguri inspect
+```
+
+Then invoke Meguri from the active AI session:
+
+```text
+/meguri inspect
 ```
 
 If you only want to install the CLI:
@@ -32,6 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
   README.md
 .agents/skills/meguri/SKILL.md
 .claude/skills/meguri/SKILL.md
+~/.codex/prompts/meguri.md
 ```
 
 `meguri inspect` prints the Meguri inspection specification for the current
@@ -50,13 +56,23 @@ Meguri does not launch another model from inside `meguri inspect`.
 Inside an active Codex conversation, use:
 
 ```text
-$meguri 为当前项目设计测试流程。先 inspect，信息不够先问我，最后写入场景并验证。
+/meguri inspect
+```
+
+Codex's documented reusable workflow surface is skills (`$meguri` or `/skills`)
+and custom prompts (`/prompts:meguri`). Meguri installs both the repo skill and a
+user prompt named `meguri`; on Codex builds that expose prompt names directly,
+`/meguri inspect` works as the short form. If your Codex build shows the prompt
+under the prompts namespace, use:
+
+```text
+/prompts:meguri inspect
 ```
 
 Inside Claude Code, use:
 
 ```text
-/meguri 为当前项目设计测试流程。先 inspect，信息不够先问我，最后写入场景并验证。
+/meguri inspect
 ```
 
 Skills run `meguri inspect` so the current agent follows the same Meguri

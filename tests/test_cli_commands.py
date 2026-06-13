@@ -11,6 +11,7 @@ from meguri.cli.main import main
 
 def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
     assert main(["init", "--install-skills"]) == 0
 
@@ -19,11 +20,16 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert (tmp_path / ".meguri" / "README.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
+    assert (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").is_file()
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
+    codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     assert "meguri inspect" in codex_skill
     assert "test-flow design" in codex_skill
+    assert "argument-hint: inspect|add|run|validate|report [args]" in codex_prompt
+    assert "Do not launch another Codex or Claude process" in codex_prompt
     assert "meguri inspect" in claude_skill
+    assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:
@@ -132,6 +138,7 @@ def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, cap
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
     assert main(["init", "--install-skills"]) == 0
     capsys.readouterr()
 
