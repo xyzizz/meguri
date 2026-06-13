@@ -183,7 +183,9 @@ project root after repair. When a batch was started with execute approval, the
 batch `retry_command` preserves `--allow-execute`. Batch run summaries include
 per-loop `mode` so execute risk remains visible during review. While a loop is
 still running, the batch record exposes `current_run` with the live report path
-and current step.
+and current step. When structured execute evidence reports successful writes,
+batch records expose `created_resources` so partial side effects can be audited
+before retry or cleanup.
 
 ## AI terminal entrypoints
 
@@ -280,8 +282,9 @@ Workflow:
    into raw artifacts. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `failure_groups`, and per-loop summaries to prioritize shared repairs, then
-   drill into each linked loop report. If
+   `created_resources`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs and audit partial execute-mode side effects, then drill into
+   each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use
@@ -406,8 +409,9 @@ Workflow:
    into raw artifacts. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `failure_groups`, and per-loop summaries to prioritize shared repairs, then
-   drill into each linked loop report. If
+   `created_resources`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs and audit partial execute-mode side effects, then drill into
+   each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use

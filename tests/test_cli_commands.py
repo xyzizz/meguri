@@ -81,6 +81,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in codex_skill
     assert "batch `retry_command`" in codex_skill
     assert "batch `retry_loops`" in codex_skill
+    assert "`created_resources`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
@@ -107,6 +108,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`failed_loops`" in claude_skill
     assert "batch `retry_command`" in claude_skill
     assert "batch `retry_loops`" in claude_skill
+    assert "`created_resources`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
@@ -430,6 +432,51 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
 
     assert main(["report", "--last"]) == 0
     assert capsys.readouterr().out.strip() == batch["html_report_path"]
+
+
+def test_run_multiple_loops_records_created_resources_in_batch(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    _write_loop(
+        tmp_path,
+        "first_partial_write",
+        [
+            sys.executable,
+            "-c",
+            (
+                "import json, sys; print(json.dumps({"
+                "'submitted': True, "
+                "'submit_results': [{"
+                "'ok': True, "
+                "'resource_type': 'campaign', "
+                "'campaign_id': '120250081240970683'"
+                "}, {"
+                "'ok': False, "
+                "'error': 'location conflict'"
+                "}]})); sys.exit(1)"
+            ),
+        ],
+    )
+    _write_loop(tmp_path, "second_pass", [sys.executable, "-c", "print('ok')"])
+
+    assert main(["run", "first_partial_write", "second_pass", "--json"]) == 1
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["created_resource_count"] == 1
+    assert batch["created_resources"] == [
+        {
+            "loop": "first_partial_write",
+            "run_id": batch["runs"][0]["run_id"],
+            "type": "campaign",
+            "id": "120250081240970683",
+            "source": "submit_results",
+        }
+    ]
+    assert batch["runs"][0]["created_resource_count"] == 1
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Created Resources" in html
+    assert "120250081240970683" in html
 
 
 def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -1022,6 +1069,68 @@ def test_report_recent_extracts_structured_run_metrics(tmp_path: Path, monkeypat
     assert "turns=7" in html
     assert "submit=1/2" in html
     assert "closed=true" in html
+
+
+def test_report_recent_extracts_created_resources_for_partial_execute_writes(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_side_effects"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>side effects</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "reference_campaign_new_campaign",
+            "status": "fail",
+            "mode": "execute",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "reference_campaign_new_campaign"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "submitted": True,
+                        "submit_results": [
+                            {
+                                "ok": True,
+                                "resource_type": "campaign",
+                                "campaign_id": "120250081016770683",
+                            },
+                            {
+                                "ok": False,
+                                "resource_type": "adset",
+                                "error": "location conflict",
+                            },
+                        ],
+                    }),
+                    "checks": [{"id": "submit", "status": "fail", "message": "location conflict"}],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["created_resource_count"] == 1
+    assert batch["created_resources"] == [
+        {
+            "loop": "reference_campaign_new_campaign",
+            "run_id": "run_20260613_120000_side_effects",
+            "type": "campaign",
+            "id": "120250081016770683",
+            "source": "submit_results",
+        }
+    ]
+    assert batch["runs"][0]["created_resource_count"] == 1
+    assert batch["runs"][0]["created_resources"][0]["id"] == "120250081016770683"
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Created Resources" in html
+    assert "120250081016770683" in html
 
 
 def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:

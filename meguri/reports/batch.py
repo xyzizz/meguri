@@ -53,6 +53,34 @@ def batch_failed_loops(runs: list[dict[str, Any]]) -> list[str]:
     return _dedupe(targets)
 
 
+def batch_created_resources(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
+    resources: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for run in runs:
+        loop = str(run.get("loop") or "")
+        run_id = str(run.get("run_id") or "")
+        for resource in run.get("created_resources") or []:
+            if not isinstance(resource, dict):
+                continue
+            resource_type = str(resource.get("type") or "resource")
+            resource_id = str(resource.get("id") or "")
+            source = str(resource.get("source") or "")
+            if not resource_id:
+                continue
+            key = (loop, run_id, resource_type, resource_id)
+            if key in seen:
+                continue
+            seen.add(key)
+            resources.append({
+                "loop": loop,
+                "run_id": run_id,
+                "type": resource_type,
+                "id": resource_id,
+                "source": source,
+            })
+    return resources
+
+
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[str]] = {}
     for run in runs:
@@ -102,6 +130,26 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + "".join(group_rows)
         + "</tbody></table>"
     ) if group_rows else ""
+    created_rows = []
+    for resource in record.get("created_resources") or []:
+        if not isinstance(resource, dict):
+            continue
+        created_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(resource.get('loop') or '-'))}</td>"
+            f"<td>{html.escape(str(resource.get('run_id') or '-'))}</td>"
+            f"<td>{html.escape(str(resource.get('type') or 'resource'))}</td>"
+            f"<td>{html.escape(str(resource.get('id') or '-'))}</td>"
+            f"<td>{html.escape(str(resource.get('source') or '-'))}</td>"
+            "</tr>"
+        )
+    created_html = (
+        "<h2>Created Resources</h2>"
+        "<p class=\"meta\">Audit these execute-mode side effects before retrying or cleaning up.</p>"
+        "<table><thead><tr><th>Loop</th><th>Run</th><th>Type</th><th>ID</th><th>Source</th></tr></thead><tbody>"
+        + "".join(created_rows)
+        + "</tbody></table>"
+    ) if created_rows else ""
     counts = record.get("status_counts") if isinstance(record.get("status_counts"), dict) else {}
     status_summary = ", ".join(f"{key}: {value}" for key, value in counts.items())
     failed_loops = ", ".join(str(loop) for loop in record.get("failed_loops") or [])
@@ -177,6 +225,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + current_run_html
         + summary_html
         + retry_html
+        + created_html
         + groups_html
         + "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
