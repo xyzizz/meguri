@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import json
+import os
 import shlex
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
@@ -225,7 +226,15 @@ def _render_replay(report: RunReport, loop_name: str) -> str:
         replay_status = str(replay["replay"].get("status") or "-")
     loop = str(replay.get("loop_id") or loop_name)
     source_run_id = str(replay.get("source_run_id") or report.run_id)
-    command = shlex.join(["meguri", "run", loop, "--replay", "replay.json", "--retry-of", source_run_id])
+    command = shlex.join([
+        "meguri",
+        "run",
+        loop,
+        "--replay",
+        _replay_path_for_command(report),
+        "--retry-of",
+        source_run_id,
+    ])
     return f"""
     <section>
       <h2>Replay</h2>
@@ -233,6 +242,17 @@ def _render_replay(report: RunReport, loop_name: str) -> str:
       <pre>{html.escape(command)}</pre>
     </section>
 """
+
+
+def _replay_path_for_command(report: RunReport) -> str:
+    replay_path = Path(report.artifact_dir) / "replay.json"
+    project_path = Path(report.project_path) if report.project_path else None
+    if project_path is not None:
+        try:
+            return Path(os.path.relpath(replay_path, project_path)).as_posix()
+        except (OSError, ValueError):
+            pass
+    return replay_path.as_posix()
 
 
 def _render_step(step: Any) -> str:

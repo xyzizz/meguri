@@ -174,8 +174,8 @@ During a run, `timeline.ndjson` is appended as each step advances, and
 and whenever a step starts or finishes. `run.json.updated_at` changes on every
 snapshot refresh. If a run is interrupted, Meguri records the active step as
 blocked, appends a `run_interrupted` timeline event, and leaves the report
-readable. Each run report includes a Replay command that uses the run-local
-`replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
+readable. Each run report includes a project-root Replay command that uses the
+run-local `replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
 
 ## AI terminal entrypoints
 
@@ -268,9 +268,8 @@ Workflow:
    were started separately, use `meguri report --recent <N>` to group the latest
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for
-   a written summary. After making a repair, use the run report's Replay command
-   to rerun with `replay.json` and `--retry-of <run_id>` instead of rebuilding
-   the command from memory.
+   a written summary. After making a repair, use the run report's project-root
+   Replay command instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -376,9 +375,8 @@ Workflow:
    were started separately, use `meguri report --recent <N>` to group the latest
    standalone reports into a recoverable batch report before summarizing. Use
    `meguri report --recent <N> --json` when you need clean structured data for
-   a written summary. After making a repair, use the run report's Replay command
-   to rerun with `replay.json` and `--retry-of <run_id>` instead of rebuilding
-   the command from memory.
+   a written summary. After making a repair, use the run report's project-root
+   Replay command instead of rebuilding the command from memory.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """

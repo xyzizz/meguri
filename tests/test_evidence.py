@@ -207,6 +207,7 @@ def test_html_report_renders_step_timeline_when_evidence_is_absent(tmp_path: Pat
 
 def test_html_report_renders_replay_command(tmp_path: Path) -> None:
     now = utc_now()
+    artifact_dir = tmp_path / ".meguri" / "loops" / "agent_loop" / "20260613_152717"
     report = RunReport(
         run_id="20260613_152717",
         scenario_name="agent_loop",
@@ -214,7 +215,7 @@ def test_html_report_renders_replay_command(tmp_path: Path) -> None:
         started_at=now,
         finished_at=now,
         project_path=str(tmp_path),
-        artifact_dir=str(tmp_path),
+        artifact_dir=str(artifact_dir),
         steps=[],
         checks=[],
         replay={
@@ -228,4 +229,7 @@ def test_html_report_renders_replay_command(tmp_path: Path) -> None:
     html = render_html_report(report)
 
     assert "Replay" in html
-    assert "meguri run agent_loop --replay replay.json --retry-of 20260613_152717" in html
+    assert (
+        "meguri run agent_loop --replay .meguri/loops/agent_loop/20260613_152717/replay.json "
+        "--retry-of 20260613_152717"
+    ) in html
