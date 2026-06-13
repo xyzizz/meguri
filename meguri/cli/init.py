@@ -238,9 +238,9 @@ Workflow:
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/run.json`,
-   `report.md`, `index.html`, stdout, stderr, evidence, and linked artifacts
-   before proposing fixes.
+11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
+   `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
+   linked artifacts before proposing fixes.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -325,9 +325,9 @@ Workflow:
    delete a named user-added loop.
 10. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/run.json`,
-   `report.md`, `index.html`, stdout, stderr, evidence, and linked artifacts
-   before proposing fixes.
+11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
+   `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
+   linked artifacts before proposing fixes.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """

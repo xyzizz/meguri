@@ -35,7 +35,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "Meguri inspect workflow" in codex_skill
     assert "loop design" in codex_skill
     assert "evidence crash-safe" in codex_skill
-    assert ".meguri/loops/<loop_id>/<run_id>/run.json" in codex_skill
+    assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
+    assert "`run.json`, `report.md`, `index.html`" in codex_skill
     assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt

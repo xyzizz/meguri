@@ -60,6 +60,7 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
     _loop.yaml
     index.html
     <YYYYMMDD_HHMMSS>/
+      timeline.ndjson
       run.json
       report.md
       index.html
@@ -70,7 +71,7 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
       steps/<step_id>/result.json
 ```
 
-项目首页展示所有 loops，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。运行记录会在 loop 开始时写入，在每个 step 开始和完成时刷新；shell step 的 stdout/stderr artifact 会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。`run.json` 和命令 JSON 输出只保留 stdout/stderr 摘要与字符数，完整流仍保存在 step artifacts。如果 step 的结构化 stdout 声明了运行目录内的 `evidence_json` 或 `evidence_markdown` 文件，Meguri 会把它们提升成 step artifact 链接。Replay metadata 还会记录运行开始前的 git branch、commit、dirty 标记和 dirty 文件列表，方便把报告和当时的项目状态对应起来。旧的 `.meguri/scenarios/*.yaml` loop 文件仍可运行，新的运行记录会写入 `.meguri/loops/<loop_id>/`；既有 `.meguri/runs/<run_id>/` 报告仍然可读。
+项目首页展示所有 loops，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。`timeline.ndjson` 是追加写入的事件流水，会随着 loop 和每个 step 的推进持续落盘；`run.json`、`report.md`、`index.html` 会在 loop 开始时写入，并在每个 step 开始和完成时刷新；shell step 的 stdout/stderr artifact 会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。`run.json` 和命令 JSON 输出只保留 stdout/stderr 摘要与字符数，完整流仍保存在 step artifacts。如果 step 的结构化 stdout 声明了运行目录内的 `evidence_json` 或 `evidence_markdown` 文件，Meguri 会把它们提升成 step artifact 链接。Replay metadata 还会记录运行开始前的 git branch、commit、dirty 标记和 dirty 文件列表，方便把报告和当时的项目状态对应起来。旧的 `.meguri/scenarios/*.yaml` loop 文件仍可运行，新的运行记录会写入 `.meguri/loops/<loop_id>/`；既有 `.meguri/runs/<run_id>/` 报告仍然可读。
 
 ## Loop
 

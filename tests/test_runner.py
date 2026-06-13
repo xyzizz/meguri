@@ -249,6 +249,53 @@ steps:
     assert marker_path.read_text(encoding="utf-8") == "first"
 
 
+def test_runner_appends_timeline_events_as_each_step_progresses(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    scenario_path.write_text(
+        f"""
+name: incremental_timeline
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: first
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('first done')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+  - id: second
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('second done')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    timeline_path = Path(report.artifact_dir) / "timeline.ndjson"
+    events = [json.loads(line) for line in timeline_path.read_text(encoding="utf-8").splitlines()]
+    event_keys = [(event["event"], event.get("step_id"), event["status"]) for event in events]
+    assert event_keys == [
+        ("run_started", None, "running"),
+        ("step_started", "first", "running"),
+        ("step_finished", "first", "pass"),
+        ("step_started", "second", "running"),
+        ("step_finished", "second", "pass"),
+        ("run_finished", None, "pass"),
+    ]
+    assert all(event["run_id"] == report.run_id for event in events)
+
+
 def test_runner_writes_running_step_snapshot_and_live_stdout(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     running_marker = tmp_path / "saw_running_snapshot.txt"

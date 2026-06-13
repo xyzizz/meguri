@@ -56,6 +56,14 @@ def run_scenario(
     started = started_dt.isoformat()
     steps = []
     all_checks = []
+    _append_timeline_event(
+        artifact_dir,
+        run_id=run_id,
+        loop_id=loop_id,
+        event="run_started",
+        status="running",
+        details={"scenario": scenario.name, "mode": scenario.mode},
+    )
     _write_run_snapshot(
         store=store,
         scenario=scenario,
@@ -85,6 +93,7 @@ def run_scenario(
             result.checks = [_blocked_check(result.step_id, "adapter setup failed; inspect stderr artifact")]
             all_checks.extend(result.checks)
             steps.append(result)
+            _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_finished", step=result)
             _write_run_snapshot(
                 store=store,
                 scenario=scenario,
@@ -107,6 +116,7 @@ def run_scenario(
             for step in scenario.steps:
                 running = _running_step_result(step, artifact_dir)
                 steps.append(running)
+                _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_started", step=running)
                 _write_run_snapshot(
                     store=store,
                     scenario=scenario,
@@ -144,6 +154,7 @@ def run_scenario(
                     result.checks = evaluate_step_checks(result, list(step.get("checks") or []))
                 all_checks.extend(result.checks)
                 steps[-1] = result
+                _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_finished", step=result)
                 _write_run_snapshot(
                     store=store,
                     scenario=scenario,
@@ -173,6 +184,7 @@ def run_scenario(
             result.checks = [_blocked_check(result.step_id, "adapter cleanup failed; inspect stderr artifact")]
             all_checks.extend(result.checks)
             steps.append(result)
+            _append_step_timeline_event(artifact_dir, run_id=run_id, loop_id=loop_id, event="step_finished", step=result)
     return _write_final_snapshot(
         store=store,
         scenario=scenario,
@@ -203,6 +215,60 @@ def _persist_step_result(store: ArtifactStore, result: StepResult) -> None:
         }),
     ])
     _promote_declared_evidence_artifacts(store.root, result)
+
+
+def _append_step_timeline_event(
+    artifact_dir: Path,
+    *,
+    run_id: str,
+    loop_id: str,
+    event: str,
+    step: StepResult,
+) -> None:
+    _append_timeline_event(
+        artifact_dir,
+        run_id=run_id,
+        loop_id=loop_id,
+        event=event,
+        status=step.status,
+        step_id=step.step_id,
+        details={
+            "started_at": step.started_at,
+            "finished_at": step.finished_at,
+            "exit_code": step.exit_code,
+            "checks": [{"id": check.id, "status": check.status, "message": check.message} for check in step.checks],
+            "artifacts": [artifact.name for artifact in step.artifacts],
+        },
+    )
+
+
+def _append_timeline_event(
+    artifact_dir: Path,
+    *,
+    run_id: str,
+    loop_id: str,
+    event: str,
+    status: str,
+    step_id: str | None = None,
+    details: dict | None = None,
+) -> None:
+    payload = {
+        "at": utc_now(),
+        "run_id": run_id,
+        "loop_id": loop_id,
+        "event": event,
+        "status": status,
+    }
+    if step_id is not None:
+        payload["step_id"] = step_id
+    if details:
+        payload["details"] = details
+    path = artifact_dir / "timeline.ndjson"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as stream:
+        stream.write(json.dumps(payload, ensure_ascii=False, default=str))
+        stream.write("\n")
+        stream.flush()
 
 
 def _promote_declared_evidence_artifacts(run_dir: Path, result: StepResult) -> None:
@@ -284,6 +350,15 @@ def _write_final_snapshot(
     retry_of: str | None,
     runs_dir: Path | None,
 ) -> RunReport:
+    status = _overall_status(steps, all_checks)
+    _append_timeline_event(
+        artifact_dir,
+        run_id=run_id,
+        loop_id=loop_id,
+        event="run_finished",
+        status=status,
+        details={"steps": len(steps), "checks": len(all_checks)},
+    )
     return _write_run_snapshot(
         store=store,
         scenario=scenario,
@@ -296,7 +371,7 @@ def _write_final_snapshot(
         started_dt=started_dt,
         steps=steps,
         all_checks=all_checks,
-        status=_overall_status(steps, all_checks),
+        status=status,
         project_ref=project_ref,
         replay_file=replay_file,
         retry_of=retry_of,
