@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from meguri.core.models import utc_now
+from meguri.core.models import Artifact, CheckResult, RunReport, StepResult, utc_now
 from meguri.project.pack import ProjectPack, find_project_pack
 from meguri.reports.batch import (
     batch_attention_flags,
@@ -29,6 +29,7 @@ from meguri.reports.metrics import (
     extract_failure_reasons_from_steps,
     extract_run_metrics_from_steps,
 )
+from meguri.reports.html import render_html_report
 
 
 def handle_report(args: Any) -> int:
@@ -40,6 +41,13 @@ def handle_report(args: Any) -> int:
 
     json_record = None
     try:
+        if getattr(args, "refresh", False) and (
+            getattr(args, "running", False)
+            or args.recent is not None
+            or getattr(args, "runs", None)
+            or getattr(args, "loops", None)
+        ):
+            raise FileNotFoundError("--refresh can only be used with a single run report")
         if getattr(args, "running", False):
             if args.run_id or args.last or args.recent is not None or getattr(args, "runs", None) or getattr(args, "loops", None):
                 raise FileNotFoundError("--running cannot be combined with run id, --last, --recent, --runs, or --loops")
@@ -73,6 +81,8 @@ def handle_report(args: Any) -> int:
             json_record = batch_record
         else:
             html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
+            if getattr(args, "refresh", False):
+                refresh_run_html(html_path.parent)
             if getattr(args, "json", False):
                 json_record = report_record_for_html(html_path)
     except FileNotFoundError as exc:
@@ -273,6 +283,16 @@ def report_record_for_html(html_path: Path) -> dict[str, Any]:
     raise FileNotFoundError(f"JSON report data not found for: {html_path}")
 
 
+def refresh_run_html(report_dir: Path) -> Path:
+    raw = _read_json(report_dir / "run.json")
+    if not isinstance(raw, dict):
+        raise FileNotFoundError(f"run.json not found or invalid for report: {report_dir}")
+    report = _run_report_from_raw(raw, report_dir)
+    html_path = report_dir / "index.html"
+    html_path.write_text(render_html_report(report), encoding="utf-8")
+    return html_path
+
+
 def _loop_report_dirs(pack: ProjectPack) -> list[Path]:
     if not pack.loops_dir.is_dir():
         return []
@@ -427,6 +447,82 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     if replay_command:
         summary["replay_command"] = replay_command
     return summary
+
+
+def _run_report_from_raw(raw: dict[str, Any], report_dir: Path) -> RunReport:
+    return RunReport(
+        run_id=str(raw.get("run_id") or report_dir.name),
+        scenario_name=str(raw.get("scenario_name") or raw.get("name") or _loop_name_from_raw(raw, report_dir)),
+        status=str(raw.get("status") or "blocked"),
+        started_at=str(raw.get("started_at") or ""),
+        finished_at=str(raw.get("finished_at") or ""),
+        project_path=str(raw.get("project_path") or ""),
+        artifact_dir=str(raw.get("artifact_dir") or report_dir),
+        steps=_steps_from_raw(raw.get("steps") or [], raw),
+        checks=_checks_from_raw(raw.get("checks") or []),
+        html_report_path=str(report_dir / "index.html"),
+        metadata=raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {},
+        evidence=raw.get("evidence") if isinstance(raw.get("evidence"), list) else [],
+        evidence_warnings=raw.get("evidence_warnings") if isinstance(raw.get("evidence_warnings"), list) else [],
+        replay=raw.get("replay") if isinstance(raw.get("replay"), dict) else None,
+        legacy_artifact_dir=str(raw.get("legacy_artifact_dir") or ""),
+        updated_at=str(raw.get("updated_at") or ""),
+        mode=str(raw.get("mode") or ""),
+    )
+
+
+def _steps_from_raw(values: Any, raw: dict[str, Any]) -> list[StepResult]:
+    if not isinstance(values, list):
+        return []
+    steps: list[StepResult] = []
+    for index, value in enumerate(values, start=1):
+        if not isinstance(value, dict):
+            continue
+        steps.append(StepResult(
+            step_id=str(value.get("step_id") or value.get("id") or f"step_{index}"),
+            status=str(value.get("status") or "blocked"),
+            started_at=str(value.get("started_at") or raw.get("started_at") or ""),
+            finished_at=str(value.get("finished_at") or raw.get("finished_at") or ""),
+            exit_code=value.get("exit_code") if isinstance(value.get("exit_code"), int) else None,
+            stdout=str(value.get("stdout") or ""),
+            stderr=str(value.get("stderr") or ""),
+            data=value.get("data") if isinstance(value.get("data"), dict) else {},
+            artifacts=_artifacts_from_raw(value.get("artifacts") or []),
+            checks=_checks_from_raw(value.get("checks") or []),
+        ))
+    return steps
+
+
+def _checks_from_raw(values: Any) -> list[CheckResult]:
+    if not isinstance(values, list):
+        return []
+    checks: list[CheckResult] = []
+    for index, value in enumerate(values, start=1):
+        if not isinstance(value, dict):
+            continue
+        checks.append(CheckResult(
+            id=str(value.get("id") or f"check_{index}"),
+            status=str(value.get("status") or "blocked"),
+            message=str(value.get("message") or ""),
+            details=value.get("details") if isinstance(value.get("details"), dict) else {},
+        ))
+    return checks
+
+
+def _artifacts_from_raw(values: Any) -> list[Artifact]:
+    if not isinstance(values, list):
+        return []
+    artifacts: list[Artifact] = []
+    for value in values:
+        if not isinstance(value, dict):
+            continue
+        artifacts.append(Artifact(
+            name=str(value.get("name") or ""),
+            path=str(value.get("path") or ""),
+            kind=str(value.get("kind") or "file"),
+            metadata=value.get("metadata") if isinstance(value.get("metadata"), dict) else {},
+        ))
+    return artifacts
 
 
 def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:

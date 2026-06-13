@@ -92,6 +92,7 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("--running", action="store_true", help="List run and batch reports that are currently marked running.")
     report.add_argument("--json", action="store_true", help="Print clean JSON when creating a batch report.")
     report.add_argument("--open", action="store_true", help="Open the report.")
+    report.add_argument("--refresh", action="store_true", help="Regenerate a single run HTML report from its run.json.")
 
     args = parser.parse_args(argv)
     if args.cmd == "init":

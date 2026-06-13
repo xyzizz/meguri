@@ -70,6 +70,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "meguri report <run_id> --json" in codex_skill
+    assert "meguri report <run_id> --refresh" in codex_skill
     assert "meguri report --last --json" in codex_skill
     assert "`evidence_files`" in codex_skill
     assert "`replay_command`" in codex_skill
@@ -98,6 +99,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri report --running --json" in claude_skill
     assert "live progress surface" in claude_skill
     assert "meguri report <run_id> --json" in claude_skill
+    assert "meguri report <run_id> --refresh" in claude_skill
     assert "meguri report --last --json" in claude_skill
     assert "`evidence_files`" in claude_skill
     assert "`replay_command`" in claude_skill
@@ -1404,6 +1406,81 @@ def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, 
         "turn_count": 7,
     }
     assert record["html_report_path"] == str(run_dir / "index.html")
+
+
+def test_report_refresh_rewrites_single_run_html_from_run_json(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_refresh"
+    run_dir.mkdir(parents=True)
+    html_path = run_dir / "index.html"
+    html_path.write_text("<html>stale</html>", encoding="utf-8")
+    run_dir.joinpath("run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "reference_campaign_new_campaign",
+            "status": "fail",
+            "mode": "execute",
+            "started_at": "2026-06-13T11:59:00+00:00",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "project_path": str(tmp_path),
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "reference_campaign_new_campaign"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "started_at": "2026-06-13T11:59:00+00:00",
+                    "finished_at": "2026-06-13T12:00:00+00:00",
+                    "exit_code": 1,
+                    "stdout": json.dumps({
+                        "submitted": True,
+                        "turns": [
+                            {
+                                "events": [
+                                    {
+                                        "tool_result": {
+                                            "items": [
+                                                {
+                                                    "id": "120250081240970683",
+                                                    "name": "copy_facebook_campaign_to_account",
+                                                    "status": "success",
+                                                },
+                                                {
+                                                    "name": "copy_facebook_adset_to_campaign",
+                                                    "status": "error",
+                                                    "error": "please remove conflicting locations",
+                                                },
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                    }),
+                    "checks": [
+                        {
+                            "id": "submit",
+                            "status": "fail",
+                            "message": "submit: submitted failed item count=1, expected 0",
+                        }
+                    ],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", run_dir.name, "--refresh"]) == 0
+
+    assert capsys.readouterr().out.strip() == str(html_path)
+    refreshed = html_path.read_text(encoding="utf-8")
+    assert "stale" not in refreshed
+    assert "Failure Reasons" in refreshed
+    assert "please remove conflicting locations" in refreshed
+    assert "Created Resources" in refreshed
+    assert "120250081240970683" in refreshed
 
 
 def test_report_last_json_selects_newest_single_run(tmp_path: Path, monkeypatch, capsys) -> None:
