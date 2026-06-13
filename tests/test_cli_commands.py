@@ -25,16 +25,17 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     smoke = yaml.safe_load((tmp_path / ".meguri" / "scenarios" / "smoke.yaml").read_text(encoding="utf-8"))
     assert smoke["metadata"]["kind"] == "loop"
     assert smoke["metadata"]["loop_id"] == "smoke"
+    assert smoke["metadata"]["source"] == "system"
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     assert "Meguri inspect workflow" in codex_skill
     assert "loop design" in codex_skill
-    assert "argument-hint: inspect|add|run|validate|report [args]" in codex_prompt
+    assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
-    assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
+    assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
 
 
@@ -110,7 +111,57 @@ def test_add_writes_valid_scenario_when_required_fields_are_supplied(tmp_path: P
     assert raw["adapter"] == "shell"
     assert raw["metadata"]["kind"] == "loop"
     assert raw["metadata"]["loop_id"] == "login_flow"
+    assert raw["metadata"]["source"] == "user"
     assert raw["metadata"]["pass_criteria"] == "command exits with ok"
+
+
+def test_loops_lists_user_added_loops_and_delete_removes_named_loop(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    assert main([
+        "add",
+        "checkout flow",
+        "--name",
+        "checkout",
+        "--command",
+        f"{sys.executable} -c \"print('ok')\"",
+        "--pass-criteria",
+        "command exits",
+    ]) == 0
+    capsys.readouterr()
+
+    assert main(["loops"]) == 0
+    output = capsys.readouterr().out
+    assert "loops=1" in output
+    assert "checkout" in output
+    assert "smoke" not in output
+
+    assert main(["loops", "--all"]) == 0
+    output = capsys.readouterr().out
+    assert "loops=2" in output
+    assert "checkout" in output
+    assert "smoke" in output
+
+    assert main(["delete", "checkout"]) == 0
+    output = capsys.readouterr().out
+    assert "deleted loop checkout" in output
+    assert not (tmp_path / ".meguri" / "scenarios" / "checkout.yaml").exists()
+
+    assert main(["loops"]) == 0
+    assert "loops=0" in capsys.readouterr().out
+
+
+def test_delete_refuses_system_loop_without_force(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    assert main(["delete", "smoke"]) == 1
+    output = capsys.readouterr().out
+    assert "Refusing to delete system loop" in output
+    assert (tmp_path / ".meguri" / "scenarios" / "smoke.yaml").exists()
 
 
 def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch, capsys) -> None:

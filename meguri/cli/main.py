@@ -8,6 +8,7 @@ from pathlib import Path
 from meguri.cli.add import handle_add
 from meguri.cli.init import handle_init
 from meguri.cli.inspect import handle_inspect
+from meguri.cli.loops import handle_delete, handle_loops
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
 from meguri.project.pack import default_runs_dir_for_scenario, resolve_scenario
@@ -36,6 +37,15 @@ def main(argv: list[str] | None = None) -> int:
     add.add_argument("--timeout-seconds", type=float, default=300)
     add.add_argument("--force", action="store_true", help="Overwrite an existing loop.")
 
+    loops = sub.add_parser("loops", help="List user-added loops.")
+    loops.add_argument("--all", action="store_true", help="Include system loops such as smoke.")
+    loops.add_argument("--json", action="store_true", help="Print clean JSON.")
+
+    delete = sub.add_parser("delete", help="Delete a named user-added loop.")
+    delete.add_argument("name", help="Loop name or alias to delete.")
+    delete.add_argument("--force", action="store_true", help="Allow deleting system loops.")
+    delete.add_argument("--dry-run", action="store_true", help="Show what would be deleted.")
+
     validate_pack = sub.add_parser("validate", help="Validate a project pack or loop.")
     validate_pack.add_argument("target", nargs="?", help="Loop alias/path. Defaults to the current project pack.")
 
@@ -60,6 +70,10 @@ def main(argv: list[str] | None = None) -> int:
         return handle_inspect(args)
     if args.cmd == "add":
         return handle_add(args)
+    if args.cmd == "loops":
+        return handle_loops(args)
+    if args.cmd == "delete":
+        return handle_delete(args)
     if args.cmd == "validate":
         return handle_validate(args)
     if args.cmd == "validate-scenario":

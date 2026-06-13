@@ -82,6 +82,8 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | --- | --- |
 | Inspect | 阅读项目，并创建项目检查产物。 |
 | Add loop | 在目标、安全执行入口、通过标准都清楚后，设计确定性的 loop。 |
+| List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
+| Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
 | Run | 执行指定 loop，并写入 `run.json`、`report.md` 和 `index.html`。 |
 | Report | 打开或总结最新的本地 HTML 报告。 |
@@ -91,6 +93,8 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 /meguri inspect
 $meguri inspect
 用 Meguri 增加一个下单 loop。
+用 Meguri 查看当前有多少 loop。
+用 Meguri 删除 checkout loop。
 用 Meguri validate 并运行 smoke loop。
 用 Meguri 打开最新报告。
 ```

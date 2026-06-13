@@ -53,6 +53,7 @@ def handle_add(args: Any) -> int:
         "metadata": {
             "kind": "loop",
             "loop_id": loop_id,
+            "source": "user",
             "user_goal": args.description,
             "pass_criteria": args.pass_criteria,
             "forbidden_side_effects": forbidden,

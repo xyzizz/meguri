@@ -52,6 +52,7 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
                 "metadata": {
                     "kind": "loop",
                     "loop_id": "smoke",
+                    "source": "system",
                     "objective": "Verify the project can run a safe smoke command under Meguri.",
                     "completion_chain": [
                         "verify",
@@ -169,6 +170,8 @@ compatibility.
 ```text
 Use Meguri to inspect this project.
 Use Meguri to validate this project pack.
+Use Meguri to list loops.
+Use Meguri to delete the <name> loop.
 Use Meguri to run the smoke loop and open the report.
 Use Meguri to open the latest report.
 ```
@@ -186,7 +189,7 @@ Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing che
 def _codex_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Codex to design, add, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
 ---
 
 You are using the Meguri project workflow for Codex.
@@ -214,11 +217,13 @@ Workflow:
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
 7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-8. After edits, run `meguri validate` and then `meguri run <loop> --open`
+8. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
+   delete a named user-added loop.
+9. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
+10. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
    stderr, and linked artifacts before proposing fixes.
-10. Stop and ask before enabling submit, deploy, payment, production writes,
+11. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -226,7 +231,7 @@ Workflow:
 def _codex_slash_prompt() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|run|validate|report [args]
+argument-hint: inspect|add|loops|delete|run|validate|report [args]
 ---
 
 Use Meguri for this request: $ARGUMENTS
@@ -244,6 +249,10 @@ goal, execution entry, pass criteria, credentials, data setup, or forbidden side
 effects are unclear. Then write deterministic loops and any needed test/helper
 code.
 
+If the request asks to list or delete loops, list only user-added loops by
+default and delete only a named user-added loop unless the user explicitly asks
+to include or remove system loops.
+
 Always prefer deterministic evidence over LLM self-evaluation. Keep loops in
 `dry_run` unless the user explicitly approves execute mode. Before reporting
 completion, run `meguri validate` and the relevant `meguri run <loop> --open`
@@ -254,8 +263,8 @@ when safe.
 def _claude_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Claude Code to design, add, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, run reports, artifacts, and evidence-driven agent repair.
-argument-hint: inspect|add|run|validate|report [args]
+description: Use when the user wants Claude Code to design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
+argument-hint: inspect|add|loops|delete|run|validate|report [args]
 disable-model-invocation: true
 ---
 
@@ -288,11 +297,13 @@ Workflow:
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
 7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-8. After edits, run `meguri validate` and then `meguri run <loop> --open`
+8. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
+   delete a named user-added loop.
+9. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
-9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
+10. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
    stderr, and linked artifacts before proposing fixes.
-10. Stop and ask before enabling submit, deploy, payment, production writes,
+11. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -300,7 +311,7 @@ Workflow:
 def _claude_command() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|run|validate|report [args]
+argument-hint: inspect|add|loops|delete|run|validate|report [args]
 ---
 
 Use the Meguri loop workflow in this Claude Code session.
@@ -312,8 +323,8 @@ If the request is empty or starts with `inspect`, start the Meguri inspect
 workflow, follow the printed specification, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
-For add, run, validate, or report requests, follow the project-local Meguri pack,
-prefer deterministic evidence, keep loops in `dry_run` unless explicitly
-approved, and ask before submit, deploy, payment, production writes, external
-sends, or data migrations.
+For add, loops, delete, run, validate, or report requests, follow the
+project-local Meguri pack, prefer deterministic evidence, keep loops in
+`dry_run` unless explicitly approved, and ask before submit, deploy, payment,
+production writes, external sends, or data migrations.
 """

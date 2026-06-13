@@ -91,6 +91,8 @@ Ask Codex / Claude Code to use Meguri for:
 | --- | --- |
 | Inspect | Reads the project and creates the inspection artifacts. |
 | Add loop | Designs a deterministic loop only after the goal, safe execution entry, and pass criteria are clear. |
+| List loops | Shows how many user-added loops exist in the current project. |
+| Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
 | Run | Executes the selected loop and writes `run.json`, `report.md`, and `index.html`. |
 | Report | Opens or summarizes the newest local HTML report. |
@@ -100,6 +102,8 @@ Examples:
 /meguri inspect
 $meguri inspect
 Use Meguri to add a loop for checkout.
+Use Meguri to list loops.
+Use Meguri to delete the checkout loop.
 Use Meguri to validate and run the smoke loop.
 Use Meguri to open the latest report.
 ```
