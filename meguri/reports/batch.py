@@ -2,10 +2,25 @@ from __future__ import annotations
 
 import html
 import os
+import shlex
 from pathlib import Path
 from typing import Any
 
 from meguri.reports.metrics import format_metrics
+
+
+def batch_retry_command(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> str:
+    targets = []
+    for run in runs:
+        status = str(run.get("status") or "")
+        loop = str(run.get("loop") or "")
+        if loop and status in {"fail", "blocked"}:
+            targets.append(loop)
+    targets.extend(str(loop) for loop in (remaining_loops or []) if loop)
+    targets = _dedupe(targets)
+    if not targets:
+        return ""
+    return shlex.join(["meguri", "run", *targets])
 
 
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -67,6 +82,14 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
             f"{': ' + html.escape(str(interruption.get('message'))) if interruption.get('message') else ''}"
             "</p>"
         )
+    retry_command = str(record.get("retry_command") or "")
+    retry_html = ""
+    if retry_command:
+        retry_html = (
+            "<h2>Retry Failed Loops</h2>"
+            "<p class=\"meta\">Run from the project root after repair. Execute-mode loops still require explicit approval.</p>"
+            f"<pre>{html.escape(retry_command)}</pre>"
+        )
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -77,6 +100,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         ".status{font-weight:700;text-transform:uppercase}"
         ".meta{color:#5d6778}"
         ".notice{background:#fff4df;border-left:3px solid #b06a00;padding:10px 12px}"
+        "pre{background:#f5f6f8;border:1px solid #ddd;border-radius:6px;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}"
         "table{border-collapse:collapse;width:100%;margin-top:18px}"
         "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
         "a{color:#8a3b12;text-underline-offset:3px}"
@@ -90,8 +114,20 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Started: {html.escape(str(record.get('started_at') or '-'))}"
         f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
-        + groups_html +
+        + retry_html +
+        groups_html +
         "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"
     )
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    deduped = []
+    seen: set[str] = set()
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
