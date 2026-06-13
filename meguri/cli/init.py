@@ -244,8 +244,9 @@ Workflow:
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
-   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, then
-   drill into each linked loop report.
+   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
+   the per-loop failure summaries to prioritize repairs, then drill into each
+   linked loop report.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -335,8 +336,9 @@ Workflow:
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For multi-loop runs, inspect
-   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, then
-   drill into each linked loop report.
+   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
+   the per-loop failure summaries to prioritize repairs, then drill into each
+   linked loop report.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """

@@ -83,7 +83,8 @@ Meguri writes run records inside the target project:
 The project index lists loops and multi-loop batch records, the loop index
 lists historical run records, and each run report is self-contained with
 relative links. Multi-loop runs write `.meguri/batches/<batch_id>/batch.json`
-and `index.html`, linking to every loop report in execution order.
+and `index.html`, linking to every loop report in execution order and showing
+per-loop failure summaries when deterministic evidence exposes them.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts, refreshed when each step starts or completes, and shell step

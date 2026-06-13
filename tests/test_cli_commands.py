@@ -251,7 +251,12 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
         [
             sys.executable,
             "-c",
-            "import sys; print('first failed'); sys.exit(3)",
+            (
+                "import json, sys; "
+                "print(json.dumps({'passed': False, 'errors': ['video_id is not valid'], "
+                "'submit_results': [{'ok': False, 'error': 'archived campaign'}]})); "
+                "sys.exit(3)"
+            ),
         ],
     )
     _write_loop(
@@ -271,6 +276,8 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert batch["status"] == "fail"
     assert [run["loop"] for run in batch["runs"]] == ["first_fail", "second_pass"]
     assert [run["status"] for run in batch["runs"]] == ["fail", "pass"]
+    assert batch["runs"][0]["summary"] == "video_id is not valid; archived campaign"
+    assert batch["runs"][0]["failure_reasons"] == ["video_id is not valid", "archived campaign"]
     batch_dir = Path(batch["batch_dir"])
     assert batch_dir.parent == tmp_path / ".meguri" / "batches"
     assert batch["html_report_path"] == str(batch_dir / "index.html")
@@ -281,6 +288,7 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert [run["loop"] for run in batch_record["runs"]] == ["first_fail", "second_pass"]
     html = (batch_dir / "index.html").read_text(encoding="utf-8")
     assert "first_fail" in html
+    assert "video_id is not valid" in html
     assert "second_pass" in html
     assert marker_path.read_text(encoding="utf-8") == "ran"
     assert Path(batch["runs"][0]["html_report_path"]).is_file()
