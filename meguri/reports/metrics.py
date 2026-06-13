@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from meguri.evaluators.deterministic import extract_last_json
@@ -57,6 +58,26 @@ def extract_attention_flags_from_steps(steps: list[Any]) -> list[dict[str, str]]
             seen.add(code)
             flags.append(flag)
     return flags
+
+
+def extract_failure_reasons_from_steps(steps: list[Any]) -> list[str]:
+    item_reasons: list[str] = []
+    general_reasons: list[str] = []
+    for step in steps:
+        stdout = _get_value(step, "stdout")
+        if not isinstance(stdout, str) or not stdout:
+            continue
+        try:
+            value = extract_last_json(stdout)
+        except ValueError:
+            continue
+        item_values, general_values = _json_failure_reason_groups(value)
+        item_reasons.extend(item_values)
+        general_reasons.extend(general_values)
+    if item_reasons:
+        actionable_general = [reason for reason in general_reasons if not _is_mechanical_failure_reason(reason)]
+        return _dedupe_texts(actionable_general + item_reasons)
+    return _dedupe_texts(general_reasons)
 
 
 def format_metrics(metrics: dict[str, Any]) -> str:
@@ -163,6 +184,31 @@ def _attention_flags(value: Any) -> list[dict[str, str]]:
     return flags
 
 
+def _json_failure_reason_groups(value: Any) -> tuple[list[str], list[str]]:
+    item_reasons: list[str] = []
+    general_reasons: list[str] = []
+    if isinstance(value, dict):
+        general_reasons.extend(_string_list(value.get("failure_reasons")))
+        general_reasons.extend(_string_list(value.get("errors")))
+        if isinstance(value.get("error"), str):
+            general_reasons.append(value["error"])
+        item_collection_keys = ("submit_results", "tool_results", "results", "items", "failed_submit_items")
+        for key in item_collection_keys:
+            item_reasons.extend(_failed_item_reasons(value.get(key)))
+        for key, child in value.items():
+            if key in item_collection_keys:
+                continue
+            child_items, child_general = _json_failure_reason_groups(child)
+            item_reasons.extend(child_items)
+            general_reasons.extend(child_general)
+    elif isinstance(value, list):
+        for child in value:
+            child_items, child_general = _json_failure_reason_groups(child)
+            item_reasons.extend(child_items)
+            general_reasons.extend(child_general)
+    return item_reasons, general_reasons
+
+
 def _created_resource_from_item(item: Any, *, source: str) -> dict[str, str] | None:
     if not isinstance(item, dict) or not _is_success_item(item):
         return None
@@ -180,6 +226,32 @@ def _is_success_item(item: dict[str, Any]) -> bool:
     ok = item.get("ok")
     status = str(item.get("status") or item.get("result") or "").lower()
     return ok is True or status in {"pass", "passed", "success", "succeeded"}
+
+
+def _failed_item_reasons(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    reasons: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            reasons.append(item)
+            continue
+        if not isinstance(item, dict):
+            continue
+        ok = item.get("ok")
+        status = str(item.get("status") or item.get("result") or "").lower()
+        failed = ok is False or status in {"fail", "failed", "error", "blocked"} or bool(item.get("error"))
+        if not failed:
+            continue
+        for key in ("error", "message", "reason"):
+            if isinstance(item.get(key), str):
+                reasons.append(item[key])
+        result = item.get("result")
+        if isinstance(result, dict):
+            for key in ("error", "message", "reason"):
+                if isinstance(result.get(key), str):
+                    reasons.append(result[key])
+    return reasons
 
 
 def _resource_type(item: dict[str, Any]) -> str:
@@ -226,6 +298,53 @@ def _normalise_resource_id(value: Any) -> str:
     if not text or text.lower() in {"-", "n/a", "na", "none", "null", "unknown"}:
         return ""
     return text
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, str)]
+    return []
+
+
+def _dedupe_texts(values: list[str], *, limit: int = 5) -> list[str]:
+    results: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        text = _normalise_failure_reason(value)
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        results.append(text[:500])
+        if len(results) >= limit:
+            break
+    return results
+
+
+def _normalise_failure_reason(value: Any) -> str:
+    text = " ".join(str(value).split())
+    if "[Tool loop warning:" in text:
+        text = text.split("[Tool loop warning:", 1)[0].strip()
+    if text.startswith("{") and text.endswith("}"):
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return text
+        if isinstance(parsed, dict):
+            for key in ("error", "message", "reason"):
+                parsed_value = parsed.get(key)
+                if isinstance(parsed_value, str) and parsed_value.strip():
+                    return " ".join(parsed_value.split())
+    return text
+
+
+def _is_mechanical_failure_reason(value: str) -> bool:
+    text = " ".join(str(value).lower().split())
+    return (
+        "submitted success item count" in text
+        or "submitted failed item count" in text
+    ) and "expected" in text
 
 
 def _first_nonempty(values: list[Any]) -> str:

@@ -13,7 +13,6 @@ from meguri.cli.loops import handle_delete, handle_loops, read_loops
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
 from meguri.core.models import utc_now
-from meguri.evaluators.deterministic import extract_last_json
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
 from meguri.reports.batch import (
     batch_attention_flags,
@@ -29,6 +28,7 @@ from meguri.reports.indexes import render_project_index
 from meguri.reports.metrics import (
     extract_attention_flags_from_steps,
     extract_created_resources_from_steps,
+    extract_failure_reasons_from_steps,
     extract_run_metrics_from_steps,
 )
 from meguri.scenarios.loader import load_scenario
@@ -332,14 +332,9 @@ def _batch_snapshot_writer(
 def _failure_reasons(report) -> list[str]:
     if report.status == "pass":
         return []
-    json_reasons: list[str] = []
+    json_reasons = extract_failure_reasons_from_steps(report.steps)
     fallback_reasons: list[str] = []
     for step in report.steps:
-        if step.stdout:
-            try:
-                json_reasons.extend(_json_failure_reasons(extract_last_json(step.stdout)))
-            except ValueError:
-                pass
         for check in step.checks:
             if check.status not in {"pass", "warning"}:
                 fallback_reasons.append(check.message)
@@ -347,52 +342,6 @@ def _failure_reasons(report) -> list[str]:
             fallback_reasons.append(_last_nonempty_line(step.stderr))
     reasons = json_reasons or fallback_reasons
     return _dedupe_reasons(reasons)
-
-
-def _json_failure_reasons(value) -> list[str]:
-    reasons: list[str] = []
-    if isinstance(value, dict):
-        reasons.extend(_string_list(value.get("failure_reasons")))
-        reasons.extend(_string_list(value.get("errors")))
-        if isinstance(value.get("error"), str):
-            reasons.append(value["error"])
-        for key in ("submit_results", "tool_results", "results", "items", "failed_submit_items"):
-            reasons.extend(_failed_item_reasons(value.get(key)))
-    return reasons
-
-
-def _failed_item_reasons(value) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    reasons: list[str] = []
-    for item in value:
-        if isinstance(item, str):
-            reasons.append(item)
-            continue
-        if not isinstance(item, dict):
-            continue
-        ok = item.get("ok")
-        status = str(item.get("status") or item.get("result") or "").lower()
-        failed = ok is False or status in {"fail", "failed", "error", "blocked"}
-        if not failed and not item.get("error"):
-            continue
-        for key in ("error", "message", "reason"):
-            if isinstance(item.get(key), str):
-                reasons.append(item[key])
-        result = item.get("result")
-        if isinstance(result, dict):
-            for key in ("error", "message", "reason"):
-                if isinstance(result.get(key), str):
-                    reasons.append(result[key])
-    return reasons
-
-
-def _string_list(value) -> list[str]:
-    if isinstance(value, str):
-        return [value]
-    if isinstance(value, list):
-        return [item for item in value if isinstance(item, str)]
-    return []
 
 
 def _last_nonempty_line(value: str) -> str:

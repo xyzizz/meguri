@@ -1174,6 +1174,78 @@ def test_report_recent_extracts_created_resources_for_partial_execute_writes(tmp
     assert "120250081016770683" in html
 
 
+def test_report_recent_extracts_nested_business_failure_reasons(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_nested_failure"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>failure</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "reference_campaign_new_campaign",
+            "status": "fail",
+            "mode": "execute",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "reference_campaign_new_campaign"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "submitted": True,
+                        "turns": [
+                            {
+                                "id": "submit",
+                                "events": [
+                                    {
+                                        "tool_result": {
+                                            "items": [
+                                                {
+                                                    "id": "120250081016770683",
+                                                    "name": "copy_facebook_campaign_to_account",
+                                                    "status": "success",
+                                                },
+                                                {
+                                                    "name": "copy_facebook_adset_to_campaign",
+                                                    "status": "error",
+                                                    "error": "please remove conflicting locations",
+                                                },
+                                            ]
+                                        }
+                                    }
+                                ],
+                            }
+                        ],
+                    }),
+                    "checks": [
+                        {
+                            "id": "submit",
+                            "status": "fail",
+                            "message": "submit: submitted failed item count=1, expected 0",
+                        }
+                    ],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["runs"][0]["failure_reasons"] == ["please remove conflicting locations"]
+    assert batch["failure_groups"] == [
+        {
+            "reason": "please remove conflicting locations",
+            "count": 1,
+            "loops": ["reference_campaign_new_campaign"],
+        }
+    ]
+
+
 def test_report_recent_extracts_attention_flags_for_incomplete_agent_chain(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
