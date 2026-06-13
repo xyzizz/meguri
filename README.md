@@ -4,9 +4,10 @@ Languages: English | [简体中文](README.zh-CN.md)
 
 Agent-facing verification harness for Codex and Claude Code.
 
-Meguri is a project-local workflow for the active Codex / Claude Code session.
-It gives the AI a stable way to inspect a project, design deterministic
-verification flows, run them safely, and leave an auditable report.
+Meguri is a project-local loop workflow for the active Codex / Claude Code
+session. It gives the AI a stable way to inspect a project, design deterministic
+verification loops, run them safely, repair when appropriate, rerun, and leave an
+auditable report.
 
 Meguri does not understand your project by itself. The AI in the current terminal
 session does that work; Meguri provides the structure, safety rules, validation,
@@ -70,6 +71,18 @@ Meguri writes run records inside the target project:
 The HTML report is self-contained and uses relative links, so the run directory
 can be archived or shared.
 
+## Loop
+
+A loop is Meguri's user-facing unit. It is not just a test flow; it is the full
+completion chain:
+
+```text
+goal -> safe execution -> deterministic checks -> evidence -> repair when safe -> rerun -> pass / blocked / ask
+```
+
+Loops are currently stored as `.meguri/scenarios/*.yaml` for runner
+compatibility.
+
 ## AI Workflows
 
 Ask Codex / Claude Code to use Meguri for:
@@ -77,35 +90,35 @@ Ask Codex / Claude Code to use Meguri for:
 | Workflow | What the active AI does |
 | --- | --- |
 | Inspect | Reads the project and creates the inspection artifacts. |
-| Add verification | Designs a deterministic scenario only after the goal, safe execution entry, and pass criteria are clear. |
-| Validate | Checks the project pack, scenarios, adapter references, skill files, and run configuration. |
-| Run | Executes the selected scenario and writes `run.json`, `report.md`, and `index.html`. |
+| Add loop | Designs a deterministic loop only after the goal, safe execution entry, and pass criteria are clear. |
+| Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
+| Run | Executes the selected loop and writes `run.json`, `report.md`, and `index.html`. |
 | Report | Opens or summarizes the newest local HTML report. |
 
 ```text
 Examples:
 /meguri inspect
 $meguri inspect
-Use Meguri to add a dry-run checkout verification flow.
-Use Meguri to validate and run the smoke scenario.
+Use Meguri to add a loop for checkout.
+Use Meguri to validate and run the smoke loop.
 Use Meguri to open the latest report.
 ```
 
-Adding verification is intentionally conservative. If the request is ambiguous
+Adding a loop is intentionally conservative. If the request is ambiguous
 or missing a safe execution entry or deterministic pass criteria, Meguri asks
 for clarification and writes nothing.
 
 ## Workflow Rules
 
 - Let Codex / Claude Code inspect the repo, read existing tests/scripts/docs, and
-  write project-specific scenarios or helper tests.
-- Keep new scenarios in `dry_run` unless the user explicitly approves execute
+  write project-specific loops or helper tests.
+- Keep new loops in `dry_run` unless the user explicitly approves execute
   mode.
 - Never treat an LLM self-evaluation as a passing check. Passing evidence should
   come from commands, structured output, logs, artifacts, screenshots, or files.
 - Ask before enabling submit, deploy, payment, production writes, external sends,
   or data migrations.
-- After changes, validate the Meguri pack and run the relevant safe scenario.
+- After changes, validate the Meguri pack and run the relevant safe loop.
 
 ## Development
 

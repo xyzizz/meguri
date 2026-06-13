@@ -10,9 +10,11 @@ from meguri.core.models import RunReport
 
 def render_html_report(report: RunReport) -> str:
     status_class = html.escape(report.status)
+    loop_name = str(report.metadata.get("loop_id") or report.scenario_name)
     metadata = {
         "run_id": report.run_id,
-        "scenario": report.scenario_name,
+        "loop": loop_name,
+        "scenario_file_name": report.scenario_name,
         "status": report.status,
         "started_at": report.started_at,
         "finished_at": report.finished_at,
@@ -117,13 +119,14 @@ def render_html_report(report: RunReport) -> str:
   <main>
     <header>
       <div>
-        <h1>{html.escape(report.scenario_name)}</h1>
+        <h1>{html.escape(loop_name)}</h1>
         <p>{html.escape(report.run_id)} · {html.escape(_duration_text(report.started_at, report.finished_at))}</p>
       </div>
       <div class="status {status_class}">{html.escape(report.status)}</div>
     </header>
     <section class="summary" aria-label="Run summary">
       {_metric("Project", report.project_path)}
+      {_metric("Loop", loop_name)}
       {_metric("Artifacts", report.artifact_dir)}
       {_metric("Started", report.started_at)}
       {_metric("Finished", report.finished_at)}

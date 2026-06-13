@@ -37,7 +37,7 @@ class ProjectPack:
         return self.pack_root / RUNS_DIR_NAME
 
 
-def slugify(value: str, *, fallback: str = "scenario") -> str:
+def slugify(value: str, *, fallback: str = "loop") -> str:
     slug = re.sub(r"[^a-zA-Z0-9]+", "_", value.strip().lower()).strip("_")
     return slug or fallback
 
@@ -82,14 +82,14 @@ def resolve_scenario(value: str | Path, *, cwd: Path | None = None) -> Path:
         candidate = ((cwd or Path.cwd()) / raw).resolve()
         if candidate.exists():
             return candidate
-        raise FileNotFoundError(f"scenario file not found: {value}")
+        raise FileNotFoundError(f"loop file not found: {value}")
 
     pack = find_project_pack(cwd)
     for suffix in (".yaml", ".yml"):
         candidate = pack.scenarios_dir / f"{raw.name}{suffix}"
         if candidate.exists():
             return candidate.resolve()
-    raise FileNotFoundError(f"scenario alias not found in {pack.scenarios_dir}: {value}")
+    raise FileNotFoundError(f"loop alias not found in {pack.scenarios_dir}: {value}")
 
 
 def default_runs_dir_for_scenario(scenario_path: Path) -> Path:

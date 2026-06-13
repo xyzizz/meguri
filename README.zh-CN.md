@@ -4,8 +4,8 @@
 
 面向 Codex 和 Claude Code 的 Agent 验证工作台。
 
-Meguri 是一个放在目标项目里的 AI 工作流。它让当前 Codex / Claude Code
-会话可以用稳定的方式理解项目、设计确定性的验证流程、安全运行验证，并留下可审计的报告。
+Meguri 是一个放在目标项目里的 AI loop 工作流。它让当前 Codex / Claude
+Code 会话可以用稳定的方式理解项目、设计确定性的验证闭环、安全运行验证、必要时修复并复测，最后留下可审计的报告。
 
 Meguri 不会自己理解你的项目。项目理解、测试流程设计、测试代码编写，仍然由当前终端里的 AI 完成；Meguri 负责提供结构、约束、校验、执行和记录。
 
@@ -64,6 +64,16 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
 
 HTML 报告是自包含文件，并使用相对链接，因此整个 run 目录可以直接归档或分享。
 
+## Loop
+
+Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一条完整的完成链路：
+
+```text
+目标 -> 安全执行 -> 确定性检查 -> 证据 -> 安全时修复 -> 复测 -> 通过 / 阻塞 / 询问
+```
+
+当前底层仍以 `.meguri/scenarios/*.yaml` 存储 loop，以兼容现有 runner。
+
 ## AI 工作流
 
 让 Codex / Claude Code 用 Meguri 完成：
@@ -71,29 +81,29 @@ HTML 报告是自包含文件，并使用相对链接，因此整个 run 目录�
 | 工作流 | 当前 AI 会做什么 |
 | --- | --- |
 | Inspect | 阅读项目，并创建项目检查产物。 |
-| Add verification | 在目标、安全执行入口、通过标准都清楚后，设计确定性的验证场景。 |
-| Validate | 检查项目 pack、场景、adapter 引用、skill 文件和运行配置。 |
-| Run | 执行指定场景，并写入 `run.json`、`report.md` 和 `index.html`。 |
+| Add loop | 在目标、安全执行入口、通过标准都清楚后，设计确定性的 loop。 |
+| Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
+| Run | 执行指定 loop，并写入 `run.json`、`report.md` 和 `index.html`。 |
 | Report | 打开或总结最新的本地 HTML 报告。 |
 
 ```text
 示例：
 /meguri inspect
 $meguri inspect
-用 Meguri 增加一个 dry-run 的下单验证流程。
-用 Meguri validate 并运行 smoke 场景。
+用 Meguri 增加一个下单 loop。
+用 Meguri validate 并运行 smoke loop。
 用 Meguri 打开最新报告。
 ```
 
-新增验证会保持保守。如果请求语义不清、缺少安全执行入口，或缺少确定性的通过标准，Meguri 会要求澄清，并且不写入文件。
+新增 loop 会保持保守。如果请求语义不清、缺少安全执行入口，或缺少确定性的通过标准，Meguri 会要求澄清，并且不写入文件。
 
 ## 工作规则
 
-- 让 Codex / Claude Code 读取现有文档、测试、脚本和配置，再编写项目专属的验证场景或辅助测试。
-- 除非用户明确批准 execute 模式，否则新场景保持 `dry_run`。
+- 让 Codex / Claude Code 读取现有文档、测试、脚本和配置，再编写项目专属的 loop 或辅助测试。
+- 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。
 - 不要把 LLM 的自我评价当作通过标准。通过证据应来自命令、结构化输出、日志、产物、截图或文件。
 - 在启用 submit、deploy、payment、production writes、external sends 或 data migrations 前，必须先询问。
-- 修改后，在安全的情况下校验 Meguri pack，并运行对应的安全场景。
+- 修改后，在安全的情况下校验 Meguri pack，并运行对应的安全 loop。
 
 ## 开发
 

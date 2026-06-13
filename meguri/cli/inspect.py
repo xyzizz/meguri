@@ -30,10 +30,11 @@ def build_inspect_prompt(pack: ProjectPack) -> str:
     pack_root = pack.pack_root
     return f"""You are the current Codex / Claude Code agent. You are running Meguri inspect for this repository.
 
-Meguri is a specification and harness layer. It owns the local specification,
-file layout, deterministic validation, scenario execution, and reports. Use the
-active AI session for project understanding, test-flow design, and any code/test
-authoring.
+Meguri is a specification and harness layer. Its user-facing unit is a loop:
+check evidence, repair when safe, rerun, then pass, block, or ask. Meguri owns
+the local specification, file layout, deterministic validation, loop execution,
+and reports. Use the active AI session for project understanding, loop design,
+and any code/test authoring.
 
 Repository root:
 {project_root}
@@ -48,12 +49,12 @@ Your task:
    - package.json, pyproject.toml, go.mod, Cargo.toml, or equivalent manifests
    - tests, scripts, CI config, app entrypoints, and existing verification helpers
 2. Infer the current test surface and verification gaps from evidence in the repo.
-3. Do not treat your own opinion as a pass/fail signal. Meguri scenarios must use
+3. Do not treat your own opinion as a pass/fail signal. Meguri loops must use
    deterministic commands, logs, structured output, artifacts, screenshots, or files.
 4. Do not perform submit, deploy, payment, production write, external send, or data
    migration actions. If a workflow requires them, mark it as blocked or ask.
 5. During inspect, write only under `.meguri/`. Do not edit source code, tests, or
-   scenarios yet unless the user explicitly asked for implementation beyond inspect.
+   loops yet unless the user explicitly asked for implementation beyond inspect.
 
 Write these files:
 
@@ -84,7 +85,7 @@ Write these files:
       "why": "deterministic reason"
     }}
   ],
-  "recommended_scenarios": [
+  "recommended_loops": [
     {{
       "name": "snake_case",
       "user_goal": "string",
@@ -109,12 +110,12 @@ Write these files:
 
 `.meguri/project-brief.md`
 - A concise, audit-friendly brief for a human and future agents.
-- Include detected project shape, evidence read, recommended scenarios, missing
-  information, risk boundaries, and the next Meguri commands to run.
+- Include detected project shape, evidence read, recommended loops, missing
+  information, risk boundaries, and the next Meguri actions.
 
 After writing the files:
 1. If `questions` is non-empty, stop and ask the user those questions.
 2. If status is `ready`, suggest the smallest next implementation step.
-3. Do not run `meguri add`, write scenarios, or edit tests during inspect unless
+3. Do not run `meguri add`, write loops, or edit tests during inspect unless
    the user explicitly asked you to continue beyond inspection.
 """

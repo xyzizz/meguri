@@ -25,24 +25,24 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("inspect", help="Print the Meguri inspection spec for the current Codex or Claude Code agent.")
 
-    add = sub.add_parser("add", help="Add a scenario draft when enough deterministic information is provided.")
-    add.add_argument("description", help="Natural-language description of the flow to verify.")
-    add.add_argument("--name", help="Scenario file/name. Defaults to a slug from the description.")
-    add.add_argument("--command", help="Safe command to execute for this scenario.")
+    add = sub.add_parser("add", help="Add a verification loop when enough deterministic information is provided.")
+    add.add_argument("description", help="Natural-language description of the loop to close.")
+    add.add_argument("--name", help="Loop file/name. Defaults to a slug from the description.")
+    add.add_argument("--command", help="Safe execution entry for this loop.")
     add.add_argument("--pass-criteria", help="Deterministic evidence that proves success.")
     add.add_argument("--forbid", action="append", default=[], help="Forbidden side effect or output text. Can be repeated.")
     add.add_argument("--mode", choices=["dry_run", "execute"], default="dry_run")
-    add.add_argument("--allow-execute", action="store_true", help="Confirm execute mode for this scenario.")
+    add.add_argument("--allow-execute", action="store_true", help="Confirm execute mode for this loop.")
     add.add_argument("--timeout-seconds", type=float, default=300)
-    add.add_argument("--force", action="store_true", help="Overwrite an existing scenario.")
+    add.add_argument("--force", action="store_true", help="Overwrite an existing loop.")
 
-    validate_pack = sub.add_parser("validate", help="Validate a project pack or scenario.")
-    validate_pack.add_argument("target", nargs="?", help="Scenario alias or path. Defaults to the current project pack.")
+    validate_pack = sub.add_parser("validate", help="Validate a project pack or loop.")
+    validate_pack.add_argument("target", nargs="?", help="Loop alias/path. Defaults to the current project pack.")
 
     validate_scenario = sub.add_parser("validate-scenario", help="Compatibility alias: load and validate a scenario file.")
     validate_scenario.add_argument("scenario")
 
-    run = sub.add_parser("run", help="Run a scenario.")
+    run = sub.add_parser("run", help="Run a loop.")
     run.add_argument("scenario", nargs="?", default="smoke")
     run.add_argument("--runs-dir")
     run.add_argument("--json", action="store_true")

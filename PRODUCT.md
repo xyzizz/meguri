@@ -6,13 +6,13 @@ product
 
 ## Users
 
-Meguri is for developers, agent harness operators, and engineers who use Codex or Claude Code to design project-specific verification flows. They want the AI to understand the current project, propose tests, write helper code when needed, and still leave a deterministic, auditable record.
+Meguri is for developers, agent harness operators, and engineers who use Codex or Claude Code to design project-specific verification loops. They want the AI to understand the current project, propose tests, write helper code when needed, and still leave a deterministic, auditable record.
 
-Their job is not to hand-author every YAML scenario. Their job is to give the AI a controlled local workbench: inspect the project, ask when details are missing, design scenarios, execute steps, collect artifacts, evaluate deterministic checks, understand failures, and decide whether a repair loop can continue safely.
+Their job is not to hand-author every YAML file. Their job is to give the AI a controlled local workbench: inspect the project, ask when details are missing, design loops, execute steps, collect artifacts, evaluate deterministic checks, understand failures, repair when safe, rerun, and decide whether the loop can close.
 
 ## Product Purpose
 
-Meguri provides an agent-facing verification specification around Codex and Claude Code. The CLI owns local files, prompts, deterministic validation, scenario execution, and reports. The surrounding AI agent owns project understanding, test-flow design, and code/test authoring.
+Meguri provides an agent-facing verification specification around Codex and Claude Code. The user-facing object is a loop: a verification goal plus the completion chain from check to evidence to safe repair to rerun to pass, blocked, or needs-confirmation. Meguri owns local files, prompts, deterministic validation, loop execution, and reports. The surrounding AI agent owns project understanding, loop design, and code/test authoring.
 
 The first-run experience is also agent-facing: the operator can paste a single
 installation prompt into Codex or Claude Code, and the active AI session installs
@@ -20,7 +20,7 @@ Meguri, initializes the current project, runs `meguri inspect`, and continues
 from the generated specification. Meguri still never launches a second model or
 agent process.
 
-Success means an operator can ask an AI agent to design verification for a new project and still see what happened, why a run passed or failed, which evidence supports that result, and whether the workflow stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose and implement changes while Meguri owns budgets, gates, artifacts, and success criteria.
+Success means an operator can ask an AI agent to design a loop for a new project and still see what happened, why a run passed or failed, which evidence supports that result, and whether the loop stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose and implement changes while Meguri owns budgets, gates, artifacts, and success criteria.
 
 ## Brand Personality
 

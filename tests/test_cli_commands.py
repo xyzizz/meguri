@@ -22,17 +22,20 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "commands" / "meguri.md").is_file()
     assert (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").is_file()
+    smoke = yaml.safe_load((tmp_path / ".meguri" / "scenarios" / "smoke.yaml").read_text(encoding="utf-8"))
+    assert smoke["metadata"]["kind"] == "loop"
+    assert smoke["metadata"]["loop_id"] == "smoke"
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     assert "Meguri inspect workflow" in codex_skill
-    assert "test-flow design" in codex_skill
+    assert "loop design" in codex_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
-    assert "Meguri verification workflow" in claude_command
+    assert "Meguri verification loop workflow" in claude_command
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:
@@ -71,8 +74,8 @@ def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, cap
     assert prompt_path.is_file()
     prompt = prompt_path.read_text(encoding="utf-8")
     assert "specification and harness layer" in prompt
-    assert "Use the\nactive AI session" in prompt
-    assert "understanding, test-flow design" in prompt
+    assert "Use the active AI session" in prompt
+    assert "understanding, loop design" in prompt
     assert ".meguri/project-inspect.json" in prompt
     assert "You are the current Codex / Claude Code agent" in output
     assert not (tmp_path / ".meguri" / "project-inspect.json").exists()
@@ -105,6 +108,8 @@ def test_add_writes_valid_scenario_when_required_fields_are_supplied(tmp_path: P
     raw = yaml.safe_load(scenario_path.read_text(encoding="utf-8"))
     assert raw["name"] == "login_flow"
     assert raw["adapter"] == "shell"
+    assert raw["metadata"]["kind"] == "loop"
+    assert raw["metadata"]["loop_id"] == "login_flow"
     assert raw["metadata"]["pass_criteria"] == "command exits with ok"
 
 

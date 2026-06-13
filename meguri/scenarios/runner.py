@@ -68,6 +68,7 @@ def run_scenario(scenario_path: Path, *, runs_dir: Path) -> RunReport:
         steps=steps,
         checks=all_checks,
         html_report_path=str(artifact_dir / "index.html"),
+        metadata=scenario.metadata,
     )
     store.write_json("run.json", report.to_dict())
     store.write_text("report.md", render_markdown_report(report), kind="markdown")
@@ -76,10 +77,12 @@ def run_scenario(scenario_path: Path, *, runs_dir: Path) -> RunReport:
 
 
 def render_markdown_report(report: RunReport) -> str:
+    loop_name = _loop_name(report)
     lines = [
-        f"# Meguri Run: {report.scenario_name}",
+        f"# Meguri Loop Run: {loop_name}",
         "",
         f"- run_id: `{report.run_id}`",
+        f"- loop: `{loop_name}`",
         f"- status: `{report.status}`",
         f"- project: `{report.project_path}`",
         f"- artifacts: `{report.artifact_dir}`",
@@ -109,6 +112,10 @@ def render_markdown_report(report: RunReport) -> str:
 
 def report_to_json(report: RunReport) -> str:
     return json.dumps(report.to_dict(), ensure_ascii=False, indent=2, default=str)
+
+
+def _loop_name(report: RunReport) -> str:
+    return str(report.metadata.get("loop_id") or report.scenario_name)
 
 
 def _overall_status(steps, checks):

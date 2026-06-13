@@ -50,7 +50,16 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
                 "project_path": "../..",
                 "mode": "dry_run",
                 "metadata": {
+                    "kind": "loop",
+                    "loop_id": "smoke",
                     "objective": "Verify the project can run a safe smoke command under Meguri.",
+                    "completion_chain": [
+                        "verify",
+                        "collect_evidence",
+                        "repair_when_safe",
+                        "rerun",
+                        "pass_block_or_ask",
+                    ],
                     "forbidden_side_effects": [
                         "submit",
                         "deploy",
@@ -144,6 +153,11 @@ def _pack_readme(project_name: str) -> str:
 
 This directory contains the Meguri project pack for `{project_name}`.
 
+Meguri's user-facing unit is a loop: a verification goal that can move from
+check, to evidence, to safe repair, to rerun, and finally pass, blocked, or
+needs-confirmation. Loops are currently stored as scenario YAML files for runner
+compatibility.
+
 ## AI terminal entrypoints
 
 - Claude Code: type `/`, search `meguri`, choose `/meguri`
@@ -155,31 +169,33 @@ This directory contains the Meguri project pack for `{project_name}`.
 ```text
 Use Meguri to inspect this project.
 Use Meguri to validate this project pack.
-Use Meguri to run the smoke scenario and open the report.
+Use Meguri to run the smoke loop and open the report.
 Use Meguri to open the latest report.
 ```
 
-Add new scenarios with:
+Add new loops with:
 
 ```text
-Use Meguri to add a dry-run verification flow for <describe the flow>.
+Use Meguri to add a dry-run loop for <describe the goal>.
 ```
 
-Keep scenarios deterministic. Do not treat an LLM's self-evaluation as a passing check.
+Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing check.
 """
 
 
 def _codex_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Codex to design, add, run, validate, inspect, or repair Meguri verification flows in this repository. Trigger for $meguri, test-flow design, project verification planning, scenario generation, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to design, add, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, run reports, artifacts, and evidence-driven agent repair.
 ---
 
 You are using the Meguri project workflow for Codex.
 
-Meguri is an agent-facing verification workflow. Meguri owns specification
-files, deterministic validation, scenario execution, and reports. Codex owns
-project understanding, test-flow design, and any code/test authoring.
+Meguri is an agent-facing verification workflow. Its user-facing unit is a
+loop: check evidence, repair when safe, rerun, then pass, block, or ask.
+Meguri owns specification files, deterministic validation, loop execution, and
+reports. Codex owns project understanding, loop design, and any code/test
+authoring.
 
 Use `$meguri` as the user-facing entrypoint in conversation.
 
@@ -188,17 +204,17 @@ Workflow:
 2. Start the Meguri inspect workflow to materialize and print the current
    Meguri inspect specification. Follow that spec yourself in this Codex session.
 3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
-   app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
+   app entrypoints, and existing Meguri loops before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
    evidence. If user goals, execution entries, pass criteria, credentials, data
    setup, or forbidden side effects are unclear, ask concrete questions and stop.
-5. When the user asks to design or add verification flows, produce deterministic
-   scenarios and any required test/helper code. Use `meguri add` only after the
-   required fields are clear.
+5. When the user asks to design or add verification, produce deterministic loops
+   and any required test/helper code. Use `meguri add` only after the required
+   fields are clear.
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
-7. Keep scenarios in `dry_run` unless the user explicitly approves execute mode.
-8. After edits, run `meguri validate` and then `meguri run <scenario> --open`
+7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+8. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
 9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
    stderr, and linked artifacts before proposing fixes.
@@ -209,28 +225,28 @@ Workflow:
 
 def _codex_slash_prompt() -> str:
     return """---
-description: Meguri verification workflow for the current project
+description: Meguri verification loop workflow for the current project
 argument-hint: inspect|add|run|validate|report [args]
 ---
 
 Use Meguri for this request: $ARGUMENTS
 
 Meguri is a specification and harness layer. Use this active Codex session for
-project understanding, test-flow design, and any code/test authoring.
+project understanding, loop design, and any code/test authoring.
 
 If the request is empty or starts with `inspect`, start the Meguri inspect
 workflow, follow the printed specification yourself, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
-If the request asks to add/design verification, first inspect existing docs,
+If the request asks to add/design a loop, first inspect existing docs,
 manifests, tests, scripts, CI, and entrypoints. Ask concrete questions when the
 goal, execution entry, pass criteria, credentials, data setup, or forbidden side
-effects are unclear. Then write deterministic scenarios and any needed
-test/helper code.
+effects are unclear. Then write deterministic loops and any needed test/helper
+code.
 
-Always prefer deterministic evidence over LLM self-evaluation. Keep scenarios in
+Always prefer deterministic evidence over LLM self-evaluation. Keep loops in
 `dry_run` unless the user explicitly approves execute mode. Before reporting
-completion, run `meguri validate` and the relevant `meguri run <scenario> --open`
+completion, run `meguri validate` and the relevant `meguri run <loop> --open`
 when safe.
 """
 
@@ -238,16 +254,18 @@ when safe.
 def _claude_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Claude Code to design, add, run, validate, inspect, or repair Meguri verification flows in this repository. Trigger for /meguri, test-flow design, project verification planning, scenario generation, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Claude Code to design, add, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, run reports, artifacts, and evidence-driven agent repair.
 argument-hint: inspect|add|run|validate|report [args]
 disable-model-invocation: true
 ---
 
 You are using the Meguri project workflow for Claude Code.
 
-Meguri is an agent-facing verification workflow. Meguri owns specification
-files, deterministic validation, scenario execution, and reports. Claude Code
-owns project understanding, test-flow design, and any code/test authoring.
+Meguri is an agent-facing verification workflow. Its user-facing unit is a
+loop: check evidence, repair when safe, rerun, then pass, block, or ask.
+Meguri owns specification files, deterministic validation, loop execution, and
+reports. Claude Code owns project understanding, loop design, and any code/test
+authoring.
 
 Use `/meguri` as the user-facing entrypoint in conversation.
 
@@ -260,17 +278,17 @@ Workflow:
    Meguri inspect specification. Follow that spec yourself in this Claude Code
    session.
 3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
-   app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
+   app entrypoints, and existing Meguri loops before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
    evidence. If user goals, execution entries, pass criteria, credentials, data
    setup, or forbidden side effects are unclear, ask concrete questions and stop.
-5. When the user asks to design or add verification flows, produce deterministic
-   scenarios and any required test/helper code. Use `meguri add` only after the
-   required fields are clear.
+5. When the user asks to design or add verification, produce deterministic loops
+   and any required test/helper code. Use `meguri add` only after the required
+   fields are clear.
 6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
    because the model says it passed.
-7. Keep scenarios in `dry_run` unless the user explicitly approves execute mode.
-8. After edits, run `meguri validate` and then `meguri run <scenario> --open`
+7. Keep loops in `dry_run` unless the user explicitly approves execute mode.
+8. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe.
 9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
    stderr, and linked artifacts before proposing fixes.
@@ -281,11 +299,11 @@ Workflow:
 
 def _claude_command() -> str:
     return """---
-description: Meguri verification workflow for the current project
+description: Meguri verification loop workflow for the current project
 argument-hint: inspect|add|run|validate|report [args]
 ---
 
-Use the Meguri project workflow in this Claude Code session.
+Use the Meguri loop workflow in this Claude Code session.
 
 Requested Meguri workflow:
 $ARGUMENTS
@@ -295,7 +313,7 @@ workflow, follow the printed specification, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
 For add, run, validate, or report requests, follow the project-local Meguri pack,
-prefer deterministic evidence, keep scenarios in `dry_run` unless explicitly
+prefer deterministic evidence, keep loops in `dry_run` unless explicitly
 approved, and ask before submit, deploy, payment, production writes, external
 sends, or data migrations.
 """
