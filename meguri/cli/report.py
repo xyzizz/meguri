@@ -34,6 +34,19 @@ def handle_report(args: Any) -> int:
 
     json_record = None
     try:
+        if getattr(args, "running", False):
+            if args.run_id or args.last or args.recent is not None or getattr(args, "runs", None):
+                raise FileNotFoundError("--running cannot be combined with run id, --last, --recent, or --runs")
+            running_record = running_reports(pack)
+            if getattr(args, "json", False):
+                print(json.dumps(running_record, ensure_ascii=False, indent=2, default=str))
+            else:
+                for path in running_record["html_report_paths"]:
+                    print(path)
+            if args.open and running_record["html_report_paths"]:
+                if not open_path(Path(running_record["html_report_paths"][0])):
+                    print(f"could not open report automatically: {running_record['html_report_paths'][0]}", file=sys.stderr)
+            return 0
         if args.recent is not None:
             if getattr(args, "runs", None):
                 raise FileNotFoundError("--recent and --runs cannot be combined")
@@ -72,6 +85,45 @@ def latest_report(pack: ProjectPack) -> Path:
     if not candidates:
         raise FileNotFoundError(f"no HTML reports found in {pack.pack_root}")
     return max(candidates, key=_report_sort_key) / "index.html"
+
+
+def running_reports(pack: ProjectPack) -> dict[str, Any]:
+    runs = []
+    for report_dir in [*_loop_report_dirs(pack), *_legacy_report_dirs(pack)]:
+        raw = _read_json(report_dir / "run.json")
+        if not isinstance(raw, dict) or raw.get("status") != "running":
+            continue
+        summary = {"kind": "run", **_run_summary_from_json(report_dir)}
+        current_step = _current_step_from_raw(raw)
+        if current_step:
+            summary["current_step"] = current_step
+        if raw.get("updated_at"):
+            summary["updated_at"] = str(raw["updated_at"])
+        runs.append(summary)
+    batches = []
+    for report_dir in _batch_report_dirs(pack):
+        raw = _read_json(report_dir / "batch.json")
+        if not isinstance(raw, dict) or raw.get("status") != "running":
+            continue
+        batches.append({
+            "kind": "batch",
+            "batch_id": str(raw.get("batch_id") or report_dir.name),
+            "status": "running",
+            "current_loop": str(raw.get("current_loop") or ""),
+            "remaining_loops": raw.get("remaining_loops") or [],
+            "updated_at": str(raw.get("updated_at") or ""),
+            "html_report_path": str(report_dir / "index.html"),
+        })
+    runs.sort(key=lambda item: str(item.get("updated_at") or ""))
+    batches.sort(key=lambda item: str(item.get("updated_at") or ""))
+    html_paths = [str(item["html_report_path"]) for item in [*runs, *batches]]
+    return {
+        "kind": "running_reports",
+        "count": len(runs) + len(batches),
+        "runs": runs,
+        "batches": batches,
+        "html_report_paths": html_paths,
+    }
 
 
 def recent_batch_report(pack: ProjectPack, limit: int) -> dict[str, Any]:
@@ -192,6 +244,16 @@ def _loop_report_dirs(pack: ProjectPack) -> list[Path]:
             if (run_dir / "index.html").is_file():
                 candidates.append(run_dir)
     return candidates
+
+
+def _legacy_report_dirs(pack: ProjectPack) -> list[Path]:
+    if not pack.runs_dir.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(child for child in pack.runs_dir.iterdir() if child.is_dir())
+        if (path / "index.html").is_file()
+    ]
 
 
 def _batch_report_dirs(pack: ProjectPack) -> list[Path]:
@@ -329,6 +391,18 @@ def _loop_name_from_raw(raw: dict[str, Any], report_dir: Path) -> str:
 def _mode_from_raw(raw: dict[str, Any]) -> str:
     metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
     return str(raw.get("mode") or metadata.get("mode") or "")
+
+
+def _current_step_from_raw(raw: dict[str, Any]) -> str:
+    steps = raw.get("steps")
+    if not isinstance(steps, list):
+        return ""
+    for step in reversed(steps):
+        if not isinstance(step, dict):
+            continue
+        if step.get("status") == "running":
+            return str(step.get("step_id") or "")
+    return ""
 
 
 def _evidence_files_from_raw(raw: dict[str, Any]) -> list[str]:

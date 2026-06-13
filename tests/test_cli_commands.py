@@ -66,6 +66,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run <loop1> <loop2>" in codex_skill
     assert "meguri run --all --exclude <loop>" in codex_skill
     assert "meguri run <loop> --allow-execute" in codex_skill
+    assert "meguri report --running --json" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "meguri report <run_id> --json" in codex_skill
@@ -91,6 +92,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "evidence crash-safe" in claude_skill
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "meguri run <loop> --allow-execute" in claude_skill
+    assert "meguri report --running --json" in claude_skill
     assert "live progress surface" in claude_skill
     assert "meguri report <run_id> --json" in claude_skill
     assert "meguri report --last --json" in claude_skill
@@ -470,6 +472,82 @@ def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path,
     assert [run["loop"] for run in batch_record["runs"]] == ["first_pass", "second_probe"]
 
 
+def test_run_batch_refreshes_record_when_current_loop_step_advances(tmp_path: Path, monkeypatch, capsys) -> None:
+    from meguri.core.models import RunReport, StepResult, utc_now
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    _write_loop(tmp_path, "first_running", [sys.executable, "-c", "print('first')"])
+    _write_loop(tmp_path, "second_later", [sys.executable, "-c", "print('second')"])
+    observed: dict[str, object] = {}
+
+    def fake_run_scenario(scenario_path, **kwargs):
+        loop_id = scenario_path.parent.name
+        on_snapshot = kwargs["on_snapshot"]
+        run_dir = tmp_path / ".meguri" / "loops" / loop_id / "20260613_121314"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "index.html").write_text(f"<html>{loop_id}</html>", encoding="utf-8")
+        now = utc_now()
+        running_report = RunReport(
+            run_id=run_dir.name,
+            scenario_name=loop_id,
+            status="running",
+            started_at=now,
+            finished_at="",
+            project_path=str(tmp_path),
+            artifact_dir=str(run_dir),
+            steps=[
+                StepResult(
+                    step_id="open_checkout",
+                    status="running",
+                    started_at=now,
+                    finished_at=now,
+                )
+            ],
+            checks=[],
+            html_report_path=str(run_dir / "index.html"),
+            metadata={"loop_id": loop_id},
+            updated_at=now,
+            mode="dry_run",
+        )
+        if loop_id == "first_running":
+            on_snapshot(running_report)
+            [batch_dir] = list((tmp_path / ".meguri" / "batches").iterdir())
+            observed["record"] = json.loads((batch_dir / "batch.json").read_text(encoding="utf-8"))
+            observed["html"] = (batch_dir / "index.html").read_text(encoding="utf-8")
+        return RunReport(
+            run_id=run_dir.name,
+            scenario_name=loop_id,
+            status="pass",
+            started_at=now,
+            finished_at=now,
+            project_path=str(tmp_path),
+            artifact_dir=str(run_dir),
+            steps=[],
+            checks=[],
+            html_report_path=str(run_dir / "index.html"),
+            metadata={"loop_id": loop_id},
+            updated_at=now,
+            mode="dry_run",
+        )
+
+    monkeypatch.setattr("meguri.cli.main.run_scenario", fake_run_scenario)
+
+    assert main(["run", "first_running", "second_later", "--json"]) == 0
+    record = observed["record"]
+
+    assert record["status"] == "running"
+    assert record["current_loop"] == "first_running"
+    assert record["current_run"]["loop"] == "first_running"
+    assert record["current_run"]["run_id"] == "20260613_121314"
+    assert record["current_run"]["status"] == "running"
+    assert record["current_run"]["current_step"] == "open_checkout"
+    assert record["current_run"]["html_report_path"].endswith("first_running/20260613_121314/index.html")
+    assert "Current Run" in observed["html"]
+    assert "open_checkout" in observed["html"]
+
+
 def test_run_multiple_loops_blocks_batch_when_interrupted(tmp_path: Path, monkeypatch, capsys) -> None:
     from meguri.core.models import RunReport, utc_now
 
@@ -627,6 +705,69 @@ def test_report_last_uses_batch_updated_at_for_running_batch(tmp_path: Path, mon
     output = capsys.readouterr().out.strip()
 
     assert output.endswith("batches/20260613_100000_000000/index.html")
+
+
+def test_report_running_json_lists_active_runs_and_batches(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    running_loop = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_110000"
+    finished_run = tmp_path / ".meguri" / "runs" / "run_20260613_100000_finished"
+    running_batch = tmp_path / ".meguri" / "batches" / "20260613_120000_000000"
+    running_loop.mkdir(parents=True)
+    finished_run.mkdir(parents=True)
+    running_batch.mkdir(parents=True)
+    (running_loop / "index.html").write_text("<html>loop</html>", encoding="utf-8")
+    (running_loop / "run.json").write_text(
+        json.dumps({
+            "run_id": running_loop.name,
+            "scenario_name": "checkout",
+            "status": "running",
+            "updated_at": "2026-06-13T11:01:00+00:00",
+            "artifact_dir": str(running_loop),
+            "metadata": {"loop_id": "checkout"},
+            "steps": [{"step_id": "open_cart", "status": "running"}],
+        }),
+        encoding="utf-8",
+    )
+    (finished_run / "index.html").write_text("<html>done</html>", encoding="utf-8")
+    (finished_run / "run.json").write_text(
+        json.dumps({
+            "run_id": finished_run.name,
+            "scenario_name": "finished",
+            "status": "pass",
+            "finished_at": "2026-06-13T10:00:00+00:00",
+            "steps": [],
+        }),
+        encoding="utf-8",
+    )
+    (running_batch / "index.html").write_text("<html>batch</html>", encoding="utf-8")
+    (running_batch / "batch.json").write_text(
+        json.dumps({
+            "batch_id": running_batch.name,
+            "status": "running",
+            "updated_at": "2026-06-13T12:00:00+00:00",
+            "current_loop": "checkout",
+            "runs": [{"loop": "smoke", "status": "pass"}],
+            "remaining_loops": ["checkout"],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--running", "--json"]) == 0
+    record = json.loads(capsys.readouterr().out)
+
+    assert record["kind"] == "running_reports"
+    assert record["count"] == 2
+    assert record["runs"][0]["kind"] == "run"
+    assert record["runs"][0]["loop"] == "checkout"
+    assert record["runs"][0]["run_id"] == "20260613_110000"
+    assert record["runs"][0]["current_step"] == "open_cart"
+    assert record["batches"][0]["kind"] == "batch"
+    assert record["batches"][0]["batch_id"] == "20260613_120000_000000"
+    assert record["batches"][0]["current_loop"] == "checkout"
+    assert str(finished_run) not in json.dumps(record)
 
 
 def test_report_recent_creates_batch_from_latest_standalone_runs(tmp_path: Path, monkeypatch, capsys) -> None:

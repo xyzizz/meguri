@@ -82,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     report.add_argument("--last", action="store_true", help="Select the newest run report.")
     report.add_argument("--recent", type=int, help="Create a batch report from the newest N standalone run reports.")
     report.add_argument("--runs", nargs="+", help="Create a batch report from explicit run ids or report paths.")
+    report.add_argument("--running", action="store_true", help="List run and batch reports that are currently marked running.")
     report.add_argument("--json", action="store_true", help="Print clean JSON when creating a batch report.")
     report.add_argument("--open", action="store_true", help="Open the report.")
 
@@ -145,7 +146,18 @@ def main(argv: list[str] | None = None) -> int:
         )
         try:
             for scenario_path in scenario_paths:
-                run_report = run_scenario(scenario_path, runs_dir=runs_dir, replay_file=replay_file, retry_of=args.retry_of)
+                run_report = run_scenario(
+                    scenario_path,
+                    runs_dir=runs_dir,
+                    replay_file=replay_file,
+                    retry_of=args.retry_of,
+                    on_snapshot=_batch_snapshot_writer(
+                        batch_context,
+                        run_reports,
+                        started_at=started_at,
+                        planned_loops=scenario_names,
+                    ) if batch_context else None,
+                )
                 run_reports.append(run_report)
                 if batch_context and len(run_reports) < len(scenario_paths):
                     batch = _write_batch_report(
@@ -270,6 +282,38 @@ def _run_summary(report) -> dict:
     return summary
 
 
+def _running_step_id(report) -> str:
+    for step in reversed(report.steps):
+        if step.status == "running":
+            return step.step_id
+    return ""
+
+
+def _batch_snapshot_writer(
+    batch_context: dict | None,
+    run_reports,
+    *,
+    started_at: str,
+    planned_loops: list[str],
+):
+    if not batch_context:
+        return None
+
+    def write_current_snapshot(report) -> None:
+        if report.status != "running":
+            return
+        _write_batch_report(
+            batch_context,
+            run_reports,
+            started_at=started_at,
+            planned_loops=planned_loops,
+            status="running",
+            current_run=report,
+        )
+
+    return write_current_snapshot
+
+
 def _failure_reasons(report) -> list[str]:
     if report.status == "pass":
         return []
@@ -366,6 +410,20 @@ def _create_batch_context(first_scenario_path: Path, *, allow_execute: bool = Fa
     return {"pack": pack, "batch_id": batch_id, "batch_dir": batch_dir, "allow_execute": allow_execute}
 
 
+def _batch_current_loop(
+    remaining_loops: list[str],
+    *,
+    status: str,
+    interruption: dict | None,
+    current_run_summary: dict | None,
+) -> str:
+    if current_run_summary is not None:
+        return str(current_run_summary["loop"])
+    if remaining_loops and (status == "running" or interruption):
+        return remaining_loops[0]
+    return ""
+
+
 def _write_batch_report(
     batch_context: dict,
     run_reports,
@@ -375,6 +433,7 @@ def _write_batch_report(
     status: str,
     finished_at: str | None = None,
     interruption: dict | None = None,
+    current_run=None,
 ) -> dict:
     pack = batch_context["pack"]
     batch_id = batch_context["batch_id"]
@@ -383,6 +442,11 @@ def _write_batch_report(
     completed = len(runs)
     remaining_loops = planned_loops[completed:]
     retry_loops = batch_retry_loops(runs, remaining_loops)
+    current_run_summary = _run_summary(current_run) if current_run is not None else None
+    if current_run_summary is not None:
+        current_step = _running_step_id(current_run)
+        if current_step:
+            current_run_summary["current_step"] = current_step
     record = {
         "batch_id": batch_id,
         "status": status,
@@ -394,7 +458,12 @@ def _write_batch_report(
         "planned_loops": planned_loops,
         "completed_loops": completed,
         "total_loops": len(planned_loops),
-        "current_loop": remaining_loops[0] if remaining_loops and (status == "running" or interruption) else "",
+        "current_loop": _batch_current_loop(
+            remaining_loops,
+            status=status,
+            interruption=interruption,
+            current_run_summary=current_run_summary,
+        ),
         "remaining_loops": remaining_loops,
         "status_counts": batch_status_counts(runs),
         "failed_loops": batch_failed_loops(runs),
@@ -407,6 +476,8 @@ def _write_batch_report(
         "failure_groups": failure_groups(runs),
         "runs": runs,
     }
+    if current_run_summary is not None:
+        record["current_run"] = current_run_summary
     if interruption:
         record["interrupted"] = True
         record["interruption"] = interruption

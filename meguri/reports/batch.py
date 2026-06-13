@@ -116,6 +116,20 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         )
     source = f"Source: {html.escape(str(record.get('source')))}<br>" if record.get("source") else ""
     current = f"<br>Current: {html.escape(str(record.get('current_loop') or '-'))}" if "current_loop" in record else ""
+    current_run = record.get("current_run") if isinstance(record.get("current_run"), dict) else None
+    current_run_html = ""
+    if current_run:
+        href = os.path.relpath(Path(str(current_run.get("html_report_path") or batch_dir / "index.html")), batch_dir)
+        current_run_html = (
+            "<section class=\"summary\">"
+            "<h2>Current Run</h2>"
+            f"<p>Loop: {html.escape(str(current_run.get('loop') or '-'))}</p>"
+            f"<p>Status: {html.escape(str(current_run.get('status') or '-'))}</p>"
+            f"<p>Step: {html.escape(str(current_run.get('current_step') or '-'))}</p>"
+            f"<p>Run: {html.escape(str(current_run.get('run_id') or '-'))}</p>"
+            f"<p><a href=\"{html.escape(href)}\">Open live report</a></p>"
+            "</section>"
+        )
     interruption = record.get("interruption") if isinstance(record.get("interruption"), dict) else None
     interruption_html = ""
     if interruption:
@@ -160,6 +174,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Started: {html.escape(str(record.get('started_at') or '-'))}"
         f"<br>Updated: {html.escape(str(record.get('updated_at') or '-'))}"
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
+        + current_run_html
         + summary_html
         + retry_html
         + groups_html

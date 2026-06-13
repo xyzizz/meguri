@@ -74,7 +74,7 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
       steps/<step_id>/result.json
 ```
 
-项目首页展示所有 loops 和多 loop batch 记录，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。多 loop 顺序运行会在 batch 开始时创建 `.meguri/batches/<batch_id>/batch.json` 和 `index.html`，每完成一个 loop 就刷新一次，并在最后写入最终状态；如果多 loop 运行被中断，batch 会收敛为 blocked，并记录 `interrupted` metadata 和剩余 loop 列表；batch 报告会按执行顺序链接到已完成的 loop 报告，从结构化证据中提取 turn 数、submitted、关闭状态校验、提交成功/失败数等指标，并在确定性证据可解析时聚合同类失败原因，也会展示每个 loop 的 mode，让 execute 风险在汇总里保持可见；同时会给出 `status_counts` 汇总 pass/fail/blocked 分布，给出 `failed_loops` 标记失败或阻塞的 loop，并给出 `retry_loops` 和一个从项目根目录执行的重试命令，用于修复后重跑失败、阻塞或未完成的 loop；如果原始 batch 已被明确批准执行 execute 模式，重试命令会保留 `--allow-execute`。`timeline.ndjson` 是追加写入的事件流水，会随着 loop 和每个 step 的推进持续落盘；`run.json`、`report.md`、`index.html` 会在 loop 开始时写入，并在每个 step 开始和完成时刷新；shell step 的 stdout/stderr artifact 会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。`run.json.updated_at` 会在每次快照刷新时变化，前端或 AI 可以用它安全判断当前记录是否已推进。如果 run 被中断，Meguri 会把最后一个活跃 step 收敛为 blocked，追加 `run_interrupted` timeline 事件，并保留可读报告。`run.json` 和命令 JSON 输出只保留 stdout/stderr 摘要与字符数，完整流仍保存在 step artifacts。如果 step 的结构化 stdout 声明了运行目录内的 `evidence_json` 或 `evidence_markdown` 文件，Meguri 会把它们提升成 step artifact 链接。Replay metadata 还会记录运行开始前的 git branch、commit、dirty 标记和 dirty 文件列表，方便把报告和当时的项目状态对应起来。每个 run 报告都会显示可从项目根目录直接执行的 Replay command，复用当前 run 的 `replay.json` 并带上 `--retry-of`，修复后无需凭记忆重拼命令即可复测。旧的 `.meguri/scenarios/*.yaml` loop 文件仍可运行，新的运行记录会写入 `.meguri/loops/<loop_id>/`；既有 `.meguri/runs/<run_id>/` 报告仍然可读。
+项目首页展示所有 loops 和多 loop batch 记录，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。多 loop 顺序运行会在 batch 开始时创建 `.meguri/batches/<batch_id>/batch.json` 和 `index.html`，当前 loop 每次写入运行中快照时都会刷新 batch，已完成 loop 结束后也会刷新，并在最后写入最终状态；loop 仍在运行时，batch 会通过 `current_run` 暴露 live report 路径和当前 step；如果多 loop 运行被中断，batch 会收敛为 blocked，并记录 `interrupted` metadata 和剩余 loop 列表；batch 报告会按执行顺序链接到已完成的 loop 报告，从结构化证据中提取 turn 数、submitted、关闭状态校验、提交成功/失败数等指标，并在确定性证据可解析时聚合同类失败原因，也会展示每个 loop 的 mode，让 execute 风险在汇总里保持可见；同时会给出 `status_counts` 汇总 pass/fail/blocked 分布，给出 `failed_loops` 标记失败或阻塞的 loop，并给出 `retry_loops` 和一个从项目根目录执行的重试命令，用于修复后重跑失败、阻塞或未完成的 loop；如果原始 batch 已被明确批准执行 execute 模式，重试命令会保留 `--allow-execute`。`timeline.ndjson` 是追加写入的事件流水，会随着 loop 和每个 step 的推进持续落盘；`run.json`、`report.md`、`index.html` 会在 loop 开始时写入，并在每个 step 开始和完成时刷新；shell step 的 stdout/stderr artifact 会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。`run.json.updated_at` 会在每次快照刷新时变化，前端或 AI 可以用它安全判断当前记录是否已推进。如果 run 被中断，Meguri 会把最后一个活跃 step 收敛为 blocked，追加 `run_interrupted` timeline 事件，并保留可读报告。`run.json` 和命令 JSON 输出只保留 stdout/stderr 摘要与字符数，完整流仍保存在 step artifacts。如果 step 的结构化 stdout 声明了运行目录内的 `evidence_json` 或 `evidence_markdown` 文件，Meguri 会把它们提升成 step artifact 链接。Replay metadata 还会记录运行开始前的 git branch、commit、dirty 标记和 dirty 文件列表，方便把报告和当时的项目状态对应起来。每个 run 报告都会显示可从项目根目录直接执行的 Replay command，复用当前 run 的 `replay.json` 并带上 `--retry-of`，修复后无需凭记忆重拼命令即可复测。旧的 `.meguri/scenarios/*.yaml` loop 文件仍可运行，新的运行记录会写入 `.meguri/loops/<loop_id>/`；既有 `.meguri/runs/<run_id>/` 报告仍然可读。
 
 ## Loop
 
@@ -98,7 +98,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
 | Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts；execute-mode loop 必须先获得明确批准。 |
-| Report | 打开报告、输出带 evidence/replay 指针的单 run JSON 摘要，或把最近多个散落 run、指定 run id/路径归并成一个 batch 报告。 |
+| Report | 打开报告、列出运行中报告、输出带 evidence/replay 指针的单 run JSON 摘要，或把最近多个散落 run、指定 run id/路径归并成一个 batch 报告。 |
 
 ```text
 示例：
@@ -109,6 +109,7 @@ $meguri inspect
 用 Meguri 删除 checkout loop。
 用 Meguri validate 并运行 smoke loop。
 用 Meguri 运行除 checkout 之外的所有 loop。
+用 Meguri 以 JSON 查看运行中的报告。
 用 Meguri 以 JSON 汇总这个 run id。
 用 Meguri 汇总最近 7 个 run 报告。
 用 Meguri 以 JSON 汇总最近 7 个 run 报告。

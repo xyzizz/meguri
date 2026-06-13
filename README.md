@@ -83,11 +83,13 @@ Meguri writes run records inside the target project:
 The project index lists loops and multi-loop batch records, the loop index
 lists historical run records, and each run report is self-contained with
 relative links. Multi-loop runs create `.meguri/batches/<batch_id>/batch.json`
-and `index.html` when the batch starts, refresh them after each loop completes,
-and finalize them at the end. If a multi-loop run is interrupted, the batch
-record is finalized as blocked with `interrupted` metadata and the remaining
-loop list. The batch report links to every completed loop report in execution
-order, extracts structured metrics such as turn count,
+and `index.html` when the batch starts, refresh them whenever the current loop
+writes a running snapshot, refresh again after each loop completes, and finalize
+them at the end. While a loop is still running, the batch record exposes
+`current_run` with the live report path and current step. If a multi-loop run is
+interrupted, the batch record is finalized as blocked with `interrupted`
+metadata and the remaining loop list. The batch report links to every completed
+loop report in execution order, extracts structured metrics such as turn count,
 submitted, closed-status verification, and submit success/failure counts, and
 groups repeated failure reasons across loops when deterministic evidence exposes
 them. Batch run summaries include each loop's mode, so execute risk stays visible
@@ -145,7 +147,7 @@ Ask Codex / Claude Code to use Meguri for:
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
 | Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. Execute-mode loops require explicit approval. |
-| Report | Opens reports, prints single-run JSON summaries with evidence/replay pointers, groups recent standalone runs, or groups explicit run ids/paths into a batch report. |
+| Report | Opens reports, lists running reports, prints single-run JSON summaries with evidence/replay pointers, groups recent standalone runs, or groups explicit run ids/paths into a batch report. |
 
 ```text
 Examples:
@@ -156,6 +158,7 @@ Use Meguri to list loops.
 Use Meguri to delete the checkout loop.
 Use Meguri to validate and run the smoke loop.
 Use Meguri to run all loops except checkout.
+Use Meguri to list running reports as JSON.
 Use Meguri to summarize this run id as JSON.
 Use Meguri to summarize the latest 7 run reports.
 Use Meguri to summarize the latest 7 run reports as JSON.

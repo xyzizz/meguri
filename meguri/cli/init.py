@@ -181,7 +181,9 @@ Batch reports include `status_counts` for the pass/fail/blocked distribution,
 `retry_command` that reruns failed, blocked, or unfinished loops from the
 project root after repair. When a batch was started with execute approval, the
 batch `retry_command` preserves `--allow-execute`. Batch run summaries include
-per-loop `mode` so execute risk remains visible during review.
+per-loop `mode` so execute risk remains visible during review. While a loop is
+still running, the batch record exposes `current_run` with the live report path
+and current step.
 
 ## AI terminal entrypoints
 
@@ -261,10 +263,14 @@ Workflow:
    of starting loops manually or concurrently. When the user asks to run all
    remaining user-added loops, use `meguri run --all --exclude <loop>` after
    confirming the exclusion list. Batch `batch.json` and `index.html` are
-   created when the batch starts and refreshed after each loop completes; use
-   them as the live progress surface. If the batch is interrupted, read the
-   blocked batch record's `interrupted` metadata and `remaining_loops` before
-   deciding whether to resume, repair, or ask.
+   created when the batch starts, refreshed whenever the current loop writes a
+   running snapshot, and refreshed again after each loop completes; use them as
+   the live progress surface. Read batch `current_run` for the live report path
+   and current step. While long loops are still running, use
+   `meguri report --running --json` to find active run/batch report paths and
+   current steps instead of guessing from the filesystem. If the batch is
+   interrupted, read the blocked batch record's `interrupted` metadata and
+   `remaining_loops` before deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For a single completed loop, use
@@ -380,10 +386,14 @@ Workflow:
    of starting loops manually or concurrently. When the user asks to run all
    remaining user-added loops, use `meguri run --all --exclude <loop>` after
    confirming the exclusion list. Batch `batch.json` and `index.html` are
-   created when the batch starts and refreshed after each loop completes; use
-   them as the live progress surface. If the batch is interrupted, read the
-   blocked batch record's `interrupted` metadata and `remaining_loops` before
-   deciding whether to resume, repair, or ask.
+   created when the batch starts, refreshed whenever the current loop writes a
+   running snapshot, and refreshed again after each loop completes; use them as
+   the live progress surface. Read batch `current_run` for the live report path
+   and current step. While long loops are still running, use
+   `meguri report --running --json` to find active run/batch report paths and
+   current steps instead of guessing from the filesystem. If the batch is
+   interrupted, read the blocked batch record's `interrupted` metadata and
+   `remaining_loops` before deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For a single completed loop, use

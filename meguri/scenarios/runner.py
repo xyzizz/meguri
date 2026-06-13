@@ -4,6 +4,7 @@ import json
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 from meguri.adapters.registry import get_adapter
 from meguri.core.artifacts import ArtifactStore
@@ -26,6 +27,7 @@ def run_scenario(
     runs_dir: Path | None = None,
     replay_file: Path | None = None,
     retry_of: str | None = None,
+    on_snapshot: Callable[[RunReport], None] | None = None,
 ) -> RunReport:
     scenario_path = scenario_path.resolve()
     scenario = load_scenario(scenario_path)
@@ -81,6 +83,7 @@ def run_scenario(
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
+        on_snapshot=on_snapshot,
     )
     setup_ok = False
     current_step: dict | None = None
@@ -114,6 +117,7 @@ def run_scenario(
                 replay_file=replay_file,
                 retry_of=retry_of,
                 runs_dir=runs_dir,
+                on_snapshot=on_snapshot,
             )
         if setup_ok:
             for step in scenario.steps:
@@ -138,6 +142,7 @@ def run_scenario(
                     replay_file=replay_file,
                     retry_of=retry_of,
                     runs_dir=runs_dir,
+                    on_snapshot=on_snapshot,
                 )
                 try:
                     result = adapter.run_step(step, ctx)
@@ -176,6 +181,7 @@ def run_scenario(
                     replay_file=replay_file,
                     retry_of=retry_of,
                     runs_dir=runs_dir,
+                    on_snapshot=on_snapshot,
                 )
                 if step.get("stop_on_fail", True) and not result.ok:
                     break
@@ -214,6 +220,7 @@ def run_scenario(
                 exc=interrupted_exc,
                 traceback_text=interrupted_traceback,
                 current_step=current_step,
+                on_snapshot=on_snapshot,
             )
     return _write_final_snapshot(
         store=store,
@@ -231,6 +238,7 @@ def run_scenario(
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
+        on_snapshot=on_snapshot,
     )
 
 
@@ -382,6 +390,7 @@ def _write_interrupted_snapshot(
     exc: BaseException,
     traceback_text: str,
     current_step: dict | None,
+    on_snapshot: Callable[[RunReport], None] | None,
 ) -> None:
     step_id = str(current_step.get("id")) if current_step else "run_interrupted"
     result = _exception_step_result(step_id, exc, traceback_text, "run interrupted", step=current_step)
@@ -422,6 +431,7 @@ def _write_interrupted_snapshot(
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
+        on_snapshot=on_snapshot,
     )
 
 
@@ -442,6 +452,7 @@ def _write_final_snapshot(
     replay_file: Path | None,
     retry_of: str | None,
     runs_dir: Path | None,
+    on_snapshot: Callable[[RunReport], None] | None,
 ) -> RunReport:
     status = _overall_status(steps, all_checks)
     _append_timeline_event(
@@ -469,6 +480,7 @@ def _write_final_snapshot(
         replay_file=replay_file,
         retry_of=retry_of,
         runs_dir=runs_dir,
+        on_snapshot=on_snapshot,
     )
 
 
@@ -490,6 +502,7 @@ def _write_run_snapshot(
     replay_file: Path | None,
     retry_of: str | None,
     runs_dir: Path | None,
+    on_snapshot: Callable[[RunReport], None] | None = None,
 ) -> RunReport:
     updated_at = utc_now()
     evidence = collect_evidence(
@@ -535,6 +548,8 @@ def _write_run_snapshot(
     store.write_text("report.md", render_markdown_report(report), kind="markdown")
     store.write_text("index.html", render_html_report(report), kind="html")
     _write_history_indexes(artifact_dir)
+    if on_snapshot:
+        on_snapshot(report)
     return report
 
 
