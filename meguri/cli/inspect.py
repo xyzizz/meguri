@@ -1,15 +1,10 @@
 from __future__ import annotations
 
-import shutil
-import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 from meguri.project.pack import ProjectPack, find_project_pack
-
-
-AgentName = Literal["auto", "codex", "claude", "prompt"]
 
 
 def handle_inspect(args: Any) -> int:
@@ -25,30 +20,21 @@ def handle_inspect(args: Any) -> int:
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt, encoding="utf-8")
 
-    agent = _resolve_agent(args.agent)
-    if agent == "prompt":
-        print(prompt)
-        print(f"\n# Prompt written to {prompt_path.relative_to(pack.project_root)}", file=sys.stderr)
-        return 0
-
-    command = _agent_command(agent, pack.project_root, prompt, args)
     print(f"meguri: wrote {prompt_path.relative_to(pack.project_root)}", file=sys.stderr)
-    print(f"meguri: invoking {agent} model for project inspection", file=sys.stderr)
-    result = subprocess.run(command, cwd=pack.project_root, check=False)  # noqa: S603
-    if result.returncode != 0:
-        print(f"meguri: {agent} inspect failed with exit code {result.returncode}", file=sys.stderr)
-    return result.returncode
+    print(prompt)
+    return 0
 
 
 def build_inspect_prompt(pack: ProjectPack) -> str:
     project_root = pack.project_root
     pack_root = pack.pack_root
-    return f"""You are running Meguri inspect for this repository.
+    return f"""You are the current Codex / Claude Code agent. You are running Meguri inspect for this repository.
 
-Meguri is an agent-facing verification harness. Meguri itself only owns the
-specification, file layout, deterministic validation, run execution, and reports.
-Project understanding, test-flow design, and any code/test authoring must be done
-by the AI agent in this session.
+Meguri is a specification and harness layer, not a model runner. It must not
+launch another AI agent for this task. Meguri owns the local specification, file
+layout, deterministic validation, scenario execution, and reports. Project
+understanding, test-flow design, and any code/test authoring must be done by you,
+the current AI agent in this session.
 
 Repository root:
 {project_root}
@@ -133,47 +119,3 @@ After writing the files:
 3. Do not run `meguri add`, write scenarios, or edit tests during inspect unless
    the user explicitly asked you to continue beyond inspection.
 """
-
-
-def _resolve_agent(requested: AgentName) -> Literal["codex", "claude", "prompt"]:
-    if requested == "prompt":
-        return "prompt"
-    if requested == "codex":
-        if shutil.which("codex"):
-            return "codex"
-        print("meguri: codex CLI not found; printing prompt instead", file=sys.stderr)
-        return "prompt"
-    if requested == "claude":
-        if shutil.which("claude"):
-            return "claude"
-        print("meguri: claude CLI not found; printing prompt instead", file=sys.stderr)
-        return "prompt"
-    if shutil.which("codex"):
-        return "codex"
-    if shutil.which("claude"):
-        return "claude"
-    print("meguri: no codex or claude CLI found; printing prompt instead", file=sys.stderr)
-    return "prompt"
-
-
-def _agent_command(agent: Literal["codex", "claude"], project_root: Path, prompt: str, args: Any) -> list[str]:
-    if agent == "codex":
-        command = [
-            "codex",
-            "exec",
-            "--sandbox",
-            args.sandbox,
-            "-C",
-            str(project_root),
-        ]
-        if args.skip_git_repo_check:
-            command.append("--skip-git-repo-check")
-        command.append(prompt)
-        return command
-    return [
-        "claude",
-        "-p",
-        "--permission-mode",
-        args.claude_permission_mode,
-        prompt,
-    ]

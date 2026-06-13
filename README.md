@@ -34,7 +34,9 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 .claude/skills/meguri/SKILL.md
 ```
 
-`meguri inspect` asks the AI agent to create:
+`meguri inspect` prints the Meguri inspection specification for the current
+Codex / Claude Code agent and writes the same specification to
+`.meguri/prompts/inspect.md`. The current AI agent should then create:
 
 ```text
 .meguri/
@@ -43,9 +45,7 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
   project-brief.md
 ```
 
-`meguri inspect` calls the installed AI agent CLI. By default it prefers
-`codex exec`, then `claude -p`, and falls back to printing the prompt if neither
-agent is available.
+Meguri does not launch another model from inside `meguri inspect`.
 
 Inside an active Codex conversation, use:
 
@@ -59,8 +59,8 @@ Inside Claude Code, use:
 /meguri 为当前项目设计测试流程。先 inspect，信息不够先问我，最后写入场景并验证。
 ```
 
-Skills run `meguri inspect --agent prompt` so the current agent follows the same
-Meguri specification without recursively launching another agent.
+Skills run `meguri inspect` so the current agent follows the same Meguri
+specification in the active Codex / Claude Code session.
 
 From this repository, you can still run the bundled dapper examples directly:
 
@@ -98,7 +98,7 @@ and confirm nodes without sending final submit.
 ## Commands
 
 ```bash
-meguri inspect [--agent auto|codex|claude|prompt]
+meguri inspect
 meguri init [--install-skills] [--force]
 meguri add "flow description" --command "safe command" --pass-criteria "deterministic evidence"
 meguri run [scenario-or-path] [--open] [--json]

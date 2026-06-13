@@ -23,12 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     init.add_argument("--install-skills", action="store_true", help="Install repo-local Codex and Claude Code skills.")
     init.add_argument("--force", action="store_true", help="Overwrite generated files.")
 
-    inspect = sub.add_parser("inspect", help="Ask Codex or Claude Code to inspect this project under Meguri rules.")
-    inspect.add_argument("--agent", choices=["auto", "codex", "claude", "prompt"], default="auto")
-    inspect.add_argument("--sandbox", default="workspace-write", choices=["read-only", "workspace-write", "danger-full-access"])
-    inspect.add_argument("--skip-git-repo-check", action="store_true", default=True)
-    inspect.add_argument("--no-skip-git-repo-check", action="store_false", dest="skip_git_repo_check")
-    inspect.add_argument("--claude-permission-mode", default="acceptEdits")
+    sub.add_parser("inspect", help="Print the Meguri inspection spec for the current Codex or Claude Code agent.")
 
     add = sub.add_parser("add", help="Add a scenario draft when enough deterministic information is provided.")
     add.add_argument("description", help="Natural-language description of the flow to verify.")

@@ -138,7 +138,7 @@ This directory contains the Meguri project pack for `{project_name}`.
 ## Common commands
 
 ```bash
-meguri inspect --agent prompt
+meguri inspect
 meguri validate
 meguri run smoke --open
 meguri report --last --open
@@ -171,10 +171,8 @@ local CLI with `meguri`.
 
 Workflow:
 1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Run `meguri inspect --agent prompt` to materialize the current Meguri inspect
-   specification. Follow that spec yourself in this Codex session instead of
-   recursively launching another agent, unless the user explicitly asks for an
-   autonomous terminal run.
+2. Run `meguri inspect` to materialize and print the current Meguri inspect
+   specification. Follow that spec yourself in this Codex session.
 3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
@@ -212,10 +210,8 @@ local CLI with `meguri`.
 
 Workflow:
 1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Run `meguri inspect --agent prompt` to materialize the current Meguri inspect
-   specification. Follow that spec yourself in this Claude Code session instead
-   of recursively launching another agent, unless the user explicitly asks for an
-   autonomous terminal run.
+2. Run `meguri inspect` to materialize and print the current Meguri inspect
+   specification. Follow that spec yourself in this Claude Code session.
 3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your

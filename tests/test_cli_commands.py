@@ -21,9 +21,9 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
     codex_skill = (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
-    assert "meguri inspect --agent prompt" in codex_skill
+    assert "meguri inspect" in codex_skill
     assert "test-flow design" in codex_skill
-    assert "meguri inspect --agent prompt" in claude_skill
+    assert "meguri inspect" in claude_skill
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:
@@ -50,21 +50,22 @@ def test_add_asks_for_clarification_without_required_information(tmp_path: Path,
     assert not (tmp_path / ".meguri" / "scenarios" / "login.yaml").exists()
 
 
-def test_inspect_prompt_mode_writes_agent_prompt_only(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
     capsys.readouterr()
 
-    assert main(["inspect", "--agent", "prompt"]) == 0
+    assert main(["inspect"]) == 0
     output = capsys.readouterr().out
 
     prompt_path = tmp_path / ".meguri" / "prompts" / "inspect.md"
     assert prompt_path.is_file()
     prompt = prompt_path.read_text(encoding="utf-8")
-    assert "Meguri itself only owns the" in prompt
-    assert "Project understanding, test-flow design" in prompt
+    assert "not a model runner" in prompt
+    assert "It must not\nlaunch another AI agent" in prompt
+    assert "understanding, test-flow design" in prompt
     assert ".meguri/project-inspect.json" in prompt
-    assert "You are running Meguri inspect" in output
+    assert "You are the current Codex / Claude Code agent" in output
     assert not (tmp_path / ".meguri" / "project-inspect.json").exists()
     assert not (tmp_path / ".meguri" / "project-brief.md").exists()
 
@@ -72,7 +73,7 @@ def test_inspect_prompt_mode_writes_agent_prompt_only(tmp_path: Path, monkeypatc
 def test_inspect_requires_project_pack(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 
-    assert main(["inspect", "--agent", "prompt"]) == 2
+    assert main(["inspect"]) == 2
     assert "meguri init --install-skills" in capsys.readouterr().err
 
 
