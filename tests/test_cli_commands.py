@@ -402,6 +402,43 @@ def test_report_last_prefers_run_json_time_over_directory_mtime(tmp_path: Path, 
     assert output.endswith("20260613_110000/index.html")
 
 
+def test_report_last_uses_batch_updated_at_for_running_batch(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    loop_run = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_110000"
+    batch_run = tmp_path / ".meguri" / "batches" / "20260613_100000_000000"
+    loop_run.mkdir(parents=True)
+    batch_run.mkdir(parents=True)
+    (loop_run / "index.html").write_text("<html>loop</html>", encoding="utf-8")
+    (loop_run / "run.json").write_text(
+        json.dumps({
+            "run_id": loop_run.name,
+            "status": "pass",
+            "finished_at": "2026-06-13T11:00:00+00:00",
+        }),
+        encoding="utf-8",
+    )
+    (batch_run / "index.html").write_text("<html>batch</html>", encoding="utf-8")
+    (batch_run / "batch.json").write_text(
+        json.dumps({
+            "batch_id": batch_run.name,
+            "status": "running",
+            "started_at": "2026-06-13T10:00:00+00:00",
+            "updated_at": "2026-06-13T12:00:00+00:00",
+            "finished_at": "",
+            "runs": [{"loop": "checkout", "status": "pass"}],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--last"]) == 0
+    output = capsys.readouterr().out.strip()
+
+    assert output.endswith("batches/20260613_100000_000000/index.html")
+
+
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))

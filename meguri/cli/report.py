@@ -109,7 +109,7 @@ def _recorded_json_time(path: Path) -> float | None:
         return None
     if not isinstance(raw, dict):
         return None
-    for key in ("finished_at", "started_at"):
+    for key in ("finished_at", "updated_at", "started_at"):
         value = raw.get(key)
         if not value:
             continue
