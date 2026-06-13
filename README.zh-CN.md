@@ -42,6 +42,7 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
 ```text
 .meguri/
   project.yaml
+  loops/smoke/_loop.yaml
   scenarios/smoke.yaml
   README.md
 .agents/skills/meguri/SKILL.md
@@ -53,16 +54,23 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
 运行记录会保存在目标项目内：
 
 ```text
-.meguri/runs/<run_id>/
-  run.json
-  report.md
+.meguri/
   index.html
-  steps/<step_id>/stdout.txt
-  steps/<step_id>/stderr.txt
-  steps/<step_id>/result.json
+  loops/<loop_id>/
+    _loop.yaml
+    index.html
+    <YYYYMMDD_HHMMSS>/
+      run.json
+      report.md
+      index.html
+      replay.json
+      evidence/
+      steps/<step_id>/stdout.txt
+      steps/<step_id>/stderr.txt
+      steps/<step_id>/result.json
 ```
 
-HTML 报告是自包含文件，并使用相对链接，因此整个 run 目录可以直接归档或分享。
+项目首页展示所有 loops，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。旧的 `.meguri/scenarios/*.yaml` loop 文件和 `.meguri/runs/<run_id>/` 报告仍然可读，用于兼容。
 
 ## Loop
 
@@ -72,7 +80,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 目标 -> 安全执行 -> 确定性检查 -> 证据 -> 安全时修复 -> 复测 -> 通过 / 阻塞 / 询问
 ```
 
-当前底层仍以 `.meguri/scenarios/*.yaml` 存储 loop，以兼容现有 runner。
+新 loop 存储在 `.meguri/loops/<loop_id>/_loop.yaml`。每次运行会创建一个带时间戳的 `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/` 记录。旧的 `.meguri/scenarios/*.yaml` 文件仍然可读。
 
 ## AI 工作流
 

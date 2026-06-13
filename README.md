@@ -48,6 +48,7 @@ The installer creates the project workflow files:
 ```text
 .meguri/
   project.yaml
+  loops/smoke/_loop.yaml
   scenarios/smoke.yaml
   README.md
 .agents/skills/meguri/SKILL.md
@@ -59,17 +60,26 @@ The installer creates the project workflow files:
 Meguri writes run records inside the target project:
 
 ```text
-.meguri/runs/<run_id>/
-  run.json
-  report.md
+.meguri/
   index.html
-  steps/<step_id>/stdout.txt
-  steps/<step_id>/stderr.txt
-  steps/<step_id>/result.json
+  loops/<loop_id>/
+    _loop.yaml
+    index.html
+    <YYYYMMDD_HHMMSS>/
+      run.json
+      report.md
+      index.html
+      replay.json
+      evidence/
+      steps/<step_id>/stdout.txt
+      steps/<step_id>/stderr.txt
+      steps/<step_id>/result.json
 ```
 
-The HTML report is self-contained and uses relative links, so the run directory
-can be archived or shared.
+The project index lists loops, the loop index lists historical run records, and
+each run report is self-contained with relative links. Legacy
+`.meguri/scenarios/*.yaml` loop files and `.meguri/runs/<run_id>/` reports remain
+readable for compatibility.
 
 ## Loop
 
@@ -80,8 +90,9 @@ completion chain:
 goal -> safe execution -> deterministic checks -> evidence -> repair when safe -> rerun -> pass / blocked / ask
 ```
 
-Loops are currently stored as `.meguri/scenarios/*.yaml` for runner
-compatibility.
+New loops live under `.meguri/loops/<loop_id>/_loop.yaml`. Each run creates a
+timestamped `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/` record. Legacy
+`.meguri/scenarios/*.yaml` files remain readable.
 
 ## AI Workflows
 
