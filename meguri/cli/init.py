@@ -189,7 +189,9 @@ and current step. Batch `attention_flags` surface incomplete agent chains such
 as short runs, missing final submit, or crash tracebacks. When structured
 execute evidence reports successful writes, batch records expose
 `created_resources` so partial side effects can be audited before retry or
-cleanup.
+cleanup. Batch `repair_hints` group stale or invalid test data, incomplete
+agent chains, unfinished loops, and partial execute-mode side effects into
+evidence-derived next steps before drilling into raw artifacts.
 
 ## AI terminal entrypoints
 
@@ -288,10 +290,10 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failure_groups`, and per-loop
-   summaries to prioritize shared repairs, identify incomplete agent chains,
-   and audit partial execute-mode side effects, then drill into each linked
-   loop report. If
+   `attention_flags`, `created_resources`, `repair_hints`, `failure_groups`,
+   and per-loop summaries to prioritize shared repairs, identify incomplete
+   agent chains, and audit partial execute-mode side effects, then drill into
+   each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use
@@ -420,10 +422,10 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failure_groups`, and per-loop
-   summaries to prioritize shared repairs, identify incomplete agent chains,
-   and audit partial execute-mode side effects, then drill into each linked
-   loop report. If
+   `attention_flags`, `created_resources`, `repair_hints`, `failure_groups`,
+   and per-loop summaries to prioritize shared repairs, identify incomplete
+   agent chains, and audit partial execute-mode side effects, then drill into
+   each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use

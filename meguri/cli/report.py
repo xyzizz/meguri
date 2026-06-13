@@ -16,6 +16,7 @@ from meguri.reports.batch import (
     batch_attention_flags,
     batch_created_resources,
     batch_failed_loops,
+    batch_repair_hints,
     batch_retry_command,
     batch_retry_loops,
     batch_status_counts,
@@ -192,6 +193,7 @@ def _write_selected_batch_report(
     allow_execute_retry = _retry_needs_execute_approval(runs, retry_loops)
     created_resources = batch_created_resources(runs)
     attention_flags = batch_attention_flags(runs)
+    repair_hints = batch_repair_hints(runs)
     record = {
         "batch_id": batch_id,
         "source": "recent_runs",
@@ -211,6 +213,7 @@ def _write_selected_batch_report(
         "retry_loops": retry_loops,
         "retry_command": batch_retry_command(runs, allow_execute=allow_execute_retry),
         "failure_groups": failure_groups(runs),
+        "repair_hints": repair_hints,
         "attention_flags": attention_flags,
         "attention_count": len(attention_flags),
         "created_resources": created_resources,

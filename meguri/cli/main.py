@@ -18,6 +18,7 @@ from meguri.reports.batch import (
     batch_attention_flags,
     batch_created_resources,
     batch_failed_loops,
+    batch_repair_hints,
     batch_retry_command,
     batch_retry_loops,
     batch_status_counts,
@@ -409,6 +410,7 @@ def _write_batch_report(
     retry_loops = batch_retry_loops(runs, remaining_loops)
     created_resources = batch_created_resources(runs)
     attention_flags = batch_attention_flags(runs)
+    repair_hints = batch_repair_hints(runs, remaining_loops)
     current_run_summary = _run_summary(current_run) if current_run is not None else None
     if current_run_summary is not None:
         current_step = _running_step_id(current_run)
@@ -441,6 +443,7 @@ def _write_batch_report(
             allow_execute=bool(batch_context.get("allow_execute")),
         ),
         "failure_groups": failure_groups(runs),
+        "repair_hints": repair_hints,
         "attention_flags": attention_flags,
         "attention_count": len(attention_flags),
         "created_resources": created_resources,

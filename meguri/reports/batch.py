@@ -107,6 +107,65 @@ def batch_attention_flags(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
     return flags
 
 
+def batch_repair_hints(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> list[dict[str, Any]]:
+    hints: list[dict[str, Any]] = []
+    data_loops: list[str] = []
+    data_reasons: list[str] = []
+    for group in failure_groups(runs):
+        reason = str(group.get("reason") or "")
+        loops = [str(loop) for loop in group.get("loops") or [] if loop]
+        if _looks_like_test_data_failure(reason):
+            data_loops.extend(loops)
+            data_reasons.append(reason)
+    if data_loops:
+        hints.append({
+            "code": "verify_test_data",
+            "severity": "error",
+            "loops": _dedupe(data_loops),
+            "reasons": _dedupe(data_reasons),
+            "action": "Verify or replace stale, invalid, or conflicting project data before rerun; keep pass criteria unchanged unless the user changes the goal.",
+        })
+
+    chain_loops: list[str] = []
+    chain_codes: list[str] = []
+    for flag in batch_attention_flags(runs):
+        code = str(flag.get("code") or "")
+        if code not in {"short_run", "not_submitted", "crash_traceback"}:
+            continue
+        loop = str(flag.get("loop") or "")
+        if loop:
+            chain_loops.append(loop)
+        chain_codes.append(code)
+    if chain_loops:
+        hints.append({
+            "code": "complete_agent_chain",
+            "severity": "warning",
+            "loops": _dedupe(chain_loops),
+            "attention_codes": _dedupe(chain_codes),
+            "action": "Repair the prompt, verifier, or agent flow so the loop reaches the required turns and final submit boundary before judging business writes.",
+        })
+
+    remaining = _dedupe([str(loop) for loop in (remaining_loops or []) if loop])
+    if remaining:
+        hints.append({
+            "code": "resume_unfinished_loops",
+            "severity": "warning",
+            "loops": remaining,
+            "action": "Resume or rerun these loops after reviewing interruption metadata; they have no final evidence in this batch.",
+        })
+
+    resources = batch_created_resources(runs)
+    if resources:
+        hints.append({
+            "code": "audit_execute_side_effects",
+            "severity": "warning",
+            "loops": _dedupe([str(resource.get("loop") or "") for resource in resources if resource.get("loop")]),
+            "resource_count": len(resources),
+            "action": "Audit partial execute-mode side effects before retrying or cleaning up created resources.",
+        })
+    return hints
+
+
 def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     grouped: dict[str, list[str]] = {}
     for run in runs:
@@ -122,6 +181,28 @@ def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for reason, loops in grouped.items()
     ]
     return sorted(groups, key=lambda group: (-int(group["count"]), str(group["reason"])))
+
+
+def _looks_like_test_data_failure(reason: str) -> bool:
+    lowered = reason.lower()
+    needles = [
+        "archived",
+        "not a valid",
+        "invalid",
+        "conflicting",
+        "location",
+        "targeting",
+        "video_id",
+        "campaign",
+        "adset",
+        "creative",
+        "material",
+        "素材",
+        "归档",
+        "冲突",
+        "无效",
+    ]
+    return any(needle in lowered for needle in needles)
 
 
 def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
@@ -195,6 +276,31 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + "".join(attention_rows)
         + "</tbody></table>"
     ) if attention_rows else ""
+    repair_rows = []
+    for hint in record.get("repair_hints") or []:
+        if not isinstance(hint, dict):
+            continue
+        loops = ", ".join(str(loop) for loop in hint.get("loops") or [])
+        details = "; ".join(str(reason) for reason in hint.get("reasons") or [])
+        if hint.get("attention_codes"):
+            details = "; ".join(str(code) for code in hint.get("attention_codes") or [])
+        if hint.get("resource_count") is not None:
+            details = f"{hint.get('resource_count')} resources"
+        repair_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(hint.get('severity') or 'info'))}</td>"
+            f"<td>{html.escape(str(hint.get('code') or '-'))}</td>"
+            f"<td>{html.escape(loops or '-')}</td>"
+            f"<td>{html.escape(details or '-')}</td>"
+            f"<td>{html.escape(str(hint.get('action') or '-'))}</td>"
+            "</tr>"
+        )
+    repair_html = (
+        "<h2>Repair Hints</h2>"
+        "<table><thead><tr><th>Severity</th><th>Code</th><th>Loops</th><th>Details</th><th>Action</th></tr></thead><tbody>"
+        + "".join(repair_rows)
+        + "</tbody></table>"
+    ) if repair_rows else ""
     counts = record.get("status_counts") if isinstance(record.get("status_counts"), dict) else {}
     status_summary = ", ".join(f"{key}: {value}" for key, value in counts.items())
     failed_loops = ", ".join(str(loop) for loop in record.get("failed_loops") or [])
@@ -271,6 +377,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + current_run_html
         + summary_html
         + retry_html
+        + repair_html
         + attention_html
         + created_html
         + groups_html

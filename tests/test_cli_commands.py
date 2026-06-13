@@ -85,6 +85,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "recovered running reports" in codex_skill
     assert "`attention_flags`" in codex_skill
     assert "`created_resources`" in codex_skill
+    assert "`repair_hints`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
     assert "recovered batch includes" in codex_skill
@@ -117,6 +118,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "recovered running reports" in claude_skill
     assert "`attention_flags`" in claude_skill
     assert "`created_resources`" in claude_skill
+    assert "`repair_hints`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
     assert "recovered batch includes" in claude_skill
@@ -1356,6 +1358,87 @@ def test_report_recent_extracts_attention_flags_for_incomplete_agent_chain(tmp_p
     assert "Attention Flags" in html
     assert "short_run" in html
     assert "turns=1/7" in html
+
+
+def test_report_recent_surfaces_repair_hints_for_failed_batch(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    runs_root = tmp_path / ".meguri" / "runs"
+    cases = [
+        (
+            "run_20260613_120000_video",
+            "material_reference",
+            {
+                "submitted": True,
+                "turn_count": 7,
+                "expected_turn_count": 7,
+                "submit_results": [{"ok": False, "error": "Param video_id is not a valid video_id ID"}],
+            },
+        ),
+        (
+            "run_20260613_121000_preview",
+            "preview_only",
+            {
+                "final_submit": True,
+                "submitted": False,
+                "turn_count": 1,
+                "expected_turn_count": 7,
+            },
+        ),
+        (
+            "run_20260613_122000_partial",
+            "reference_campaign",
+            {
+                "submitted": True,
+                "submit_results": [
+                    {"ok": True, "resource_type": "campaign", "campaign_id": "120250081016770683"},
+                    {"ok": False, "error": "please remove conflicting locations"},
+                ],
+            },
+        ),
+    ]
+    for run_id, loop, stdout_payload in cases:
+        run_dir = runs_root / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": "fail",
+                "mode": "execute",
+                "finished_at": "2026-06-13T12:00:00+00:00",
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": "fail",
+                        "stdout": json.dumps(stdout_payload),
+                        "checks": [{"id": "exit", "status": "fail", "message": "loop failed"}],
+                    }
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+    assert main(["report", "--recent", "3", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert [hint["code"] for hint in batch["repair_hints"]] == [
+        "verify_test_data",
+        "complete_agent_chain",
+        "audit_execute_side_effects",
+    ]
+    assert batch["repair_hints"][0]["loops"] == ["material_reference", "reference_campaign"]
+    assert batch["repair_hints"][1]["loops"] == ["preview_only"]
+    assert batch["repair_hints"][2]["resource_count"] == 1
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Repair Hints" in html
+    assert "verify_test_data" in html
+    assert "complete_agent_chain" in html
+    assert "audit_execute_side_effects" in html
 
 
 def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:
