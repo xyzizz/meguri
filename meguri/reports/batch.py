@@ -236,8 +236,9 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
     retry_html = ""
     if retry_command:
         retry_html = (
-            "<h2>Retry Failed Loops</h2>"
-            "<p class=\"meta\">Run from the project root after repair. Execute-mode loops still require explicit approval.</p>"
+            "<h2>Retry Failed or Unfinished Loops</h2>"
+            "<p class=\"meta\">Run from the project root after repair. "
+            "Recovered running reports are included. Execute-mode loops still require explicit approval.</p>"
             f"<pre>{html.escape(retry_command)}</pre>"
         )
     return (

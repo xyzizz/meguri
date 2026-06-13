@@ -433,7 +433,7 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
     assert "pass: 1" in html
     assert "video_id is not valid" in html
     assert "2 loops" in html
-    assert "Retry Failed Loops" in html
+    assert "Retry Failed or Unfinished Loops" in html
     assert "meguri run first_fail third_fail" in html
     assert "second_pass" in html
     assert marker_path.read_text(encoding="utf-8") == "ran"
@@ -966,6 +966,8 @@ def test_report_recent_retries_running_standalone_runs(tmp_path: Path, monkeypat
     assert batch["failed_loops"] == ["failed_loop"]
     assert batch["retry_loops"] == ["failed_loop", "running_loop"]
     assert batch["retry_command"] == "meguri run failed_loop running_loop --allow-execute"
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Retry Failed or Unfinished Loops" in html
 
 
 def test_report_runs_creates_batch_from_explicit_run_refs(tmp_path: Path, monkeypatch, capsys) -> None:
