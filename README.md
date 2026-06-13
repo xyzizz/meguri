@@ -1,11 +1,11 @@
 # Meguri
 
-Controlled self-iteration harness for AI coding and workflow agents.
+Agent-facing verification harness for Codex and Claude Code.
 
-This project runs scenarios against a target project, collects artifacts, checks
-deterministic assertions, and can later drive a supervised repair loop. The
-first target adapter is `dapper_assistant`, focused on validating every
-pre-submit workflow node up to, but not including, final confirmation submit.
+Meguri is not a standalone project-understanding engine. It provides the local
+specification, file layout, deterministic validation, run execution, and reports
+that keep Codex / Claude Code grounded while the AI designs project-specific
+test workflows.
 
 ## Quick Start
 
@@ -14,7 +14,7 @@ In a Codex terminal, install Meguri and initialize the current target project:
 ```bash
 cd /path/to/target-project
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
-meguri run smoke --open
+meguri inspect
 ```
 
 If you only want to install the CLI:
@@ -34,8 +34,33 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 .claude/skills/meguri/SKILL.md
 ```
 
-After that, Codex can use `$meguri ...` and Claude Code can use
-`/meguri ...` to follow the project-local Meguri workflow.
+`meguri inspect` asks the AI agent to create:
+
+```text
+.meguri/
+  prompts/inspect.md
+  project-inspect.json
+  project-brief.md
+```
+
+`meguri inspect` calls the installed AI agent CLI. By default it prefers
+`codex exec`, then `claude -p`, and falls back to printing the prompt if neither
+agent is available.
+
+Inside an active Codex conversation, use:
+
+```text
+$meguri 为当前项目设计测试流程。先 inspect，信息不够先问我，最后写入场景并验证。
+```
+
+Inside Claude Code, use:
+
+```text
+/meguri 为当前项目设计测试流程。先 inspect，信息不够先问我，最后写入场景并验证。
+```
+
+Skills run `meguri inspect --agent prompt` so the current agent follows the same
+Meguri specification without recursively launching another agent.
 
 From this repository, you can still run the bundled dapper examples directly:
 
@@ -73,6 +98,7 @@ and confirm nodes without sending final submit.
 ## Commands
 
 ```bash
+meguri inspect [--agent auto|codex|claude|prompt]
 meguri init [--install-skills] [--force]
 meguri add "flow description" --command "safe command" --pass-criteria "deterministic evidence"
 meguri run [scenario-or-path] [--open] [--json]

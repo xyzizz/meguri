@@ -131,7 +131,7 @@ cat <<EOF
 Meguri is ready.
 
 Next:
-  meguri run smoke --open
+  meguri inspect
 
 If your current shell cannot find meguri yet, open a new terminal or run:
   python3 -m pipx ensurepath

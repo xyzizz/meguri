@@ -6,15 +6,15 @@ product
 
 ## Users
 
-Meguri is for developers, agent harness operators, and engineers who need to verify AI-driven coding or workflow agents before trusting their output. They use it while building, adapting, or supervising agent loops, especially when a target project has real business rules, expensive side effects, or safety boundaries that cannot be left to an LLM's self-report.
+Meguri is for developers, agent harness operators, and engineers who use Codex or Claude Code to design project-specific verification flows. They want the AI to understand the current project, propose tests, write helper code when needed, and still leave a deterministic, auditable record.
 
-Their job is to turn an AI workflow into an observable, repeatable, inspectable run: define scenarios, execute steps, collect artifacts, evaluate deterministic checks, understand failures, and decide whether a repair loop can continue safely.
+Their job is not to hand-author every YAML scenario. Their job is to give the AI a controlled local workbench: inspect the project, ask when details are missing, design scenarios, execute steps, collect artifacts, evaluate deterministic checks, understand failures, and decide whether a repair loop can continue safely.
 
 ## Product Purpose
 
-Meguri provides a controlled verification layer around AI agents. It runs project-specific scenarios through thin adapters, records every step and artifact, evaluates deterministic assertions, and gives operators a clear view of pass, fail, warning, and blocked states.
+Meguri provides an agent-facing verification specification around Codex and Claude Code. The CLI owns local files, prompts, deterministic validation, scenario execution, and reports. The surrounding AI agent owns project understanding, test-flow design, and code/test authoring.
 
-Success means an operator can see what happened, why a run passed or failed, which evidence supports that result, and whether the workflow stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose changes while the harness owns budgets, gates, artifacts, and success criteria.
+Success means an operator can ask an AI agent to design verification for a new project and still see what happened, why a run passed or failed, which evidence supports that result, and whether the workflow stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose and implement changes while Meguri owns budgets, gates, artifacts, and success criteria.
 
 ## Brand Personality
 
@@ -29,6 +29,8 @@ Do not make this feel like an AI SaaS landing page, a flashy demo, or a generic 
 Avoid hiding raw evidence behind summaries. Avoid dashboards that optimize for vanity metrics over actionable run state. Avoid designs where pass/fail status depends only on color or where blocked states look like ordinary failures.
 
 ## Design Principles
+
+AI does understanding, Meguri does constraints: project analysis and code changes come from Codex or Claude Code; Meguri supplies prompts, schemas, safety rules, validation, execution, and reports.
 
 Evidence before assertion: every status should point to the artifact, check, log, or command result that supports it.
 

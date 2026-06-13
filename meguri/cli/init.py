@@ -138,6 +138,7 @@ This directory contains the Meguri project pack for `{project_name}`.
 ## Common commands
 
 ```bash
+meguri inspect --agent prompt
 meguri validate
 meguri run smoke --open
 meguri report --last --open
@@ -156,40 +157,80 @@ Keep scenarios deterministic. Do not treat an LLM's self-evaluation as a passing
 def _codex_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants to initialize, add, run, validate, inspect, or repair Meguri scenarios in this repository. Trigger for $meguri, harness validation, project pack setup, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to design, add, run, validate, inspect, or repair Meguri verification flows in this repository. Trigger for $meguri, test-flow design, project verification planning, scenario generation, run reports, artifacts, and evidence-driven agent repair.
 ---
 
 You are using the Meguri project workflow for Codex.
 
-Use `$meguri` as the user-facing command name in conversation, but execute the local CLI with `meguri`.
+Meguri is an agent-facing verification harness. The CLI owns specification files,
+deterministic validation, scenario execution, and reports. Codex owns project
+understanding, test-flow design, and any code/test authoring.
+
+Use `$meguri` as the user-facing command name in conversation, but execute the
+local CLI with `meguri`.
 
 Workflow:
-1. Inspect `.meguri/project.yaml`, existing scenarios, tests, scripts, README, and AGENTS.md before changing anything.
-2. For init/setup, run `meguri init --install-skills` when the pack is missing.
-3. For adding a scenario, clarify missing goal, execution entry, pass criteria, forbidden side effects, or required credentials before writing files.
-4. Prefer deterministic checks over LLM judgment. Never mark a run as passing because the model says it passed.
-5. After edits, run `meguri validate` and then `meguri run <scenario> --open` when safe.
-6. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout, stderr, and linked artifacts before proposing fixes.
-7. Stop and ask before enabling submit, deploy, payment, production writes, or external sends.
+1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
+2. Run `meguri inspect --agent prompt` to materialize the current Meguri inspect
+   specification. Follow that spec yourself in this Codex session instead of
+   recursively launching another agent, unless the user explicitly asks for an
+   autonomous terminal run.
+3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
+   app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
+4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
+   evidence. If user goals, execution entries, pass criteria, credentials, data
+   setup, or forbidden side effects are unclear, ask concrete questions and stop.
+5. When the user asks to design or add verification flows, produce deterministic
+   scenarios and any required test/helper code. Use `meguri add` only after the
+   required fields are clear.
+6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
+   because the model says it passed.
+7. Keep scenarios in `dry_run` unless the user explicitly approves execute mode.
+8. After edits, run `meguri validate` and then `meguri run <scenario> --open`
+   when safe.
+9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
+   stderr, and linked artifacts before proposing fixes.
+10. Stop and ask before enabling submit, deploy, payment, production writes,
+    external sends, or data migrations.
 """
 
 
 def _claude_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants to initialize, add, run, validate, inspect, or repair Meguri scenarios in this repository. Trigger for /meguri, harness validation, project pack setup, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Claude Code to design, add, run, validate, inspect, or repair Meguri verification flows in this repository. Trigger for /meguri, test-flow design, project verification planning, scenario generation, run reports, artifacts, and evidence-driven agent repair.
 ---
 
 You are using the Meguri project workflow for Claude Code.
 
-Use `/meguri` as the user-facing command name in conversation, but execute the local CLI with `meguri`.
+Meguri is an agent-facing verification harness. The CLI owns specification files,
+deterministic validation, scenario execution, and reports. Claude Code owns
+project understanding, test-flow design, and any code/test authoring.
+
+Use `/meguri` as the user-facing command name in conversation, but execute the
+local CLI with `meguri`.
 
 Workflow:
-1. Inspect `.meguri/project.yaml`, existing scenarios, tests, scripts, README, and CLAUDE.md before changing anything.
-2. For init/setup, run `meguri init --install-skills` when the pack is missing.
-3. For adding a scenario, clarify missing goal, execution entry, pass criteria, forbidden side effects, or required credentials before writing files.
-4. Prefer deterministic checks over LLM judgment. Never mark a run as passing because the model says it passed.
-5. After edits, run `meguri validate` and then `meguri run <scenario> --open` when safe.
-6. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout, stderr, and linked artifacts before proposing fixes.
-7. Stop and ask before enabling submit, deploy, payment, production writes, or external sends.
+1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
+2. Run `meguri inspect --agent prompt` to materialize the current Meguri inspect
+   specification. Follow that spec yourself in this Claude Code session instead
+   of recursively launching another agent, unless the user explicitly asks for an
+   autonomous terminal run.
+3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
+   app entrypoints, and existing `.meguri/scenarios/*.yaml` before editing.
+4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
+   evidence. If user goals, execution entries, pass criteria, credentials, data
+   setup, or forbidden side effects are unclear, ask concrete questions and stop.
+5. When the user asks to design or add verification flows, produce deterministic
+   scenarios and any required test/helper code. Use `meguri add` only after the
+   required fields are clear.
+6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
+   because the model says it passed.
+7. Keep scenarios in `dry_run` unless the user explicitly approves execute mode.
+8. After edits, run `meguri validate` and then `meguri run <scenario> --open`
+   when safe.
+9. Inspect `.meguri/runs/<run_id>/run.json`, `report.md`, `index.html`, stdout,
+   stderr, and linked artifacts before proposing fixes.
+10. Stop and ask before enabling submit, deploy, payment, production writes,
+    external sends, or data migrations.
 """

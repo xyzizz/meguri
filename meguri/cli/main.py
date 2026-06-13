@@ -7,6 +7,7 @@ from pathlib import Path
 
 from meguri.cli.add import handle_add
 from meguri.cli.init import handle_init
+from meguri.cli.inspect import handle_inspect
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import handle_validate
 from meguri.project.pack import default_runs_dir_for_scenario, resolve_scenario
@@ -21,6 +22,13 @@ def main(argv: list[str] | None = None) -> int:
     init = sub.add_parser("init", help="Initialize a Meguri project pack in the current project.")
     init.add_argument("--install-skills", action="store_true", help="Install repo-local Codex and Claude Code skills.")
     init.add_argument("--force", action="store_true", help="Overwrite generated files.")
+
+    inspect = sub.add_parser("inspect", help="Ask Codex or Claude Code to inspect this project under Meguri rules.")
+    inspect.add_argument("--agent", choices=["auto", "codex", "claude", "prompt"], default="auto")
+    inspect.add_argument("--sandbox", default="workspace-write", choices=["read-only", "workspace-write", "danger-full-access"])
+    inspect.add_argument("--skip-git-repo-check", action="store_true", default=True)
+    inspect.add_argument("--no-skip-git-repo-check", action="store_false", dest="skip_git_repo_check")
+    inspect.add_argument("--claude-permission-mode", default="acceptEdits")
 
     add = sub.add_parser("add", help="Add a scenario draft when enough deterministic information is provided.")
     add.add_argument("description", help="Natural-language description of the flow to verify.")
@@ -53,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.cmd == "init":
         return handle_init(args)
+    if args.cmd == "inspect":
+        return handle_inspect(args)
     if args.cmd == "add":
         return handle_add(args)
     if args.cmd == "validate":
