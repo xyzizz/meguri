@@ -314,6 +314,13 @@ def _artifact_dir_for(scenario_path: Path, *, loop_id: str, run_id: str, runs_di
         suffix = datetime.now().strftime("%f")[:4]
         return scenario_path.parent / f"{run_id}_{suffix}"
     pack = find_project_pack(scenario_path.parent)
+    if scenario_path.parent == pack.scenarios_dir:
+        loop_dir = pack.loop_dir(loop_id)
+        candidate = loop_dir / run_id
+        if not candidate.exists():
+            return candidate
+        suffix = datetime.now().strftime("%f")[:4]
+        return loop_dir / f"{run_id}_{suffix}"
     return pack.runs_dir / run_id
 
 

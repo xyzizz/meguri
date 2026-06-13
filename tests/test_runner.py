@@ -97,6 +97,45 @@ steps:
     assert replay["scenario_path"] == str(loop_file)
 
 
+def test_runner_writes_legacy_scenario_runs_under_loop_history(tmp_path: Path) -> None:
+    scenario_path = tmp_path / ".meguri" / "scenarios" / "legacy.yaml"
+    scenario_path.parent.mkdir(parents=True)
+    (tmp_path / ".meguri" / "project.yaml").write_text(
+        "version: 1\nname: legacy-project\nproject_path: .\nruns_dir: .meguri/runs\n",
+        encoding="utf-8",
+    )
+    scenario_path.write_text(
+        f"""
+name: legacy_shell
+adapter: shell
+project_path: "../.."
+mode: dry_run
+metadata:
+  loop_id: legacy_smoke
+steps:
+  - id: emit
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "print('legacy ok')"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=None)
+    artifact_dir = Path(report.artifact_dir)
+
+    assert report.status == "pass"
+    assert artifact_dir.parent == tmp_path / ".meguri" / "loops" / "legacy_smoke"
+    assert not (tmp_path / ".meguri" / "runs").exists()
+    assert (artifact_dir.parent / "index.html").is_file()
+    assert (tmp_path / ".meguri" / "index.html").is_file()
+
+
 def test_runner_refreshes_run_record_after_each_step(tmp_path: Path) -> None:
     scenario_path = tmp_path / "scenario.yaml"
     marker_path = tmp_path / "seen_incremental_record.txt"

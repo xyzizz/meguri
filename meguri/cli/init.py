@@ -164,8 +164,10 @@ This directory contains the Meguri project pack for `{project_name}`.
 
 Meguri's user-facing unit is a loop: a verification goal that can move from
 check, to evidence, to safe repair, to rerun, and finally pass, blocked, or
-needs-confirmation. Loops are currently stored as scenario YAML files for runner
-compatibility.
+needs-confirmation. New loops live under `.meguri/loops/<loop_id>/_loop.yaml`,
+and each run writes history under `.meguri/loops/<loop_id>/<run_id>/`. Legacy
+`.meguri/scenarios/*.yaml` files remain runnable, but new records are written
+into the loop history structure.
 
 ## AI terminal entrypoints
 

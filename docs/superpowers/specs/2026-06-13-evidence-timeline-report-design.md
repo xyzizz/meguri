@@ -81,10 +81,11 @@ This gives users the front-end flow:
 All loops -> one loop's test records -> one run's detailed timeline
 ```
 
-Existing `.meguri/scenarios/*.yaml` loop files and `.meguri/runs/<run_id>/`
-reports remain readable for compatibility. New loops should be created in
-`.meguri/loops/<loop_id>/_loop.yaml`, and new run records should default to the
-loop-local timestamp directory.
+Existing `.meguri/scenarios/*.yaml` loop files remain runnable for
+compatibility, and existing `.meguri/runs/<run_id>/` reports remain readable.
+When a legacy scenario is run without an explicit `--runs-dir`, the new run
+record is written under `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/`. New loops
+should be created in `.meguri/loops/<loop_id>/_loop.yaml`.
 
 ## Evidence File Protocol
 

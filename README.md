@@ -81,8 +81,9 @@ each run report is self-contained with relative links. Run records are written
 when a loop starts, refreshed when each step starts or completes, and shell step
 stdout/stderr artifacts are updated while the command is still running. Long
 runs can be inspected before the final step finishes. Legacy
-`.meguri/scenarios/*.yaml` loop files and `.meguri/runs/<run_id>/` reports remain
-readable for compatibility.
+`.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their
+new records are written under `.meguri/loops/<loop_id>/`. Existing
+`.meguri/runs/<run_id>/` reports remain readable.
 
 ## Loop
 
@@ -95,7 +96,8 @@ goal -> safe execution -> deterministic checks -> evidence -> repair when safe -
 
 New loops live under `.meguri/loops/<loop_id>/_loop.yaml`. Each run creates a
 timestamped `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/` record. Legacy
-`.meguri/scenarios/*.yaml` files remain readable.
+`.meguri/scenarios/*.yaml` files remain runnable and write new records into the
+loop history structure.
 
 ## AI Workflows
 

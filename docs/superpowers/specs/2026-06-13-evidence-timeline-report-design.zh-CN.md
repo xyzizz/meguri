@@ -73,9 +73,10 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 全部 loops -> 某个 loop 的测试记录 -> 某一次 run 的详细时间线
 ```
 
-现有 `.meguri/scenarios/*.yaml` loop 文件和 `.meguri/runs/<run_id>/` 报告继续可读，
-用于兼容。新 loop 应创建在 `.meguri/loops/<loop_id>/_loop.yaml`，新 run 记录默认写入
-loop-local 时间戳目录。
+现有 `.meguri/scenarios/*.yaml` loop 文件继续可运行，既有 `.meguri/runs/<run_id>/`
+报告继续可读，用于兼容。当 legacy scenario 在没有显式 `--runs-dir` 的情况下运行时，
+新的 run 记录写入 `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/`。新 loop 应创建在
+`.meguri/loops/<loop_id>/_loop.yaml`。
 
 ## Evidence 文件协议
 
