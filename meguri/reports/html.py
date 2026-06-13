@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import html
+import json
+from dataclasses import asdict, is_dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from meguri.core.evidence import redact_value
 from meguri.core.models import RunReport
 
 
 def render_html_report(report: RunReport) -> str:
     status_class = html.escape(report.status)
     loop_name = str(report.metadata.get("loop_id") or report.scenario_name)
+    evidence_attempts = _normalise_evidence_attempts(report.evidence)
     metadata = {
         "run_id": report.run_id,
         "loop": loop_name,
@@ -20,7 +24,10 @@ def render_html_report(report: RunReport) -> str:
         "finished_at": report.finished_at,
         "project_path": report.project_path,
         "artifact_dir": report.artifact_dir,
+        "evidence_warnings": report.evidence_warnings,
+        "replay": report.replay,
     }
+    main_view = _render_evidence_timeline(evidence_attempts) if evidence_attempts else _render_legacy_steps(report)
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -96,6 +103,54 @@ def render_html_report(report: RunReport) -> str:
     a {{ color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }}
     details {{ margin-top: 10px; background: var(--surface); border-radius: 8px; padding: 10px 12px; }}
     summary {{ cursor: pointer; font-weight: 650; }}
+    .notice {{ margin: 0 0 14px; padding: 10px 12px; background: var(--surface); border-left: 3px solid var(--warning); }}
+    .timeline-shell {{ display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start; }}
+    .attempts {{ display: grid; gap: 18px; min-width: 0; }}
+    .attempt {{ border: 1px solid var(--line); border-radius: 10px; padding: 14px; overflow-x: auto; }}
+    .attempt-head {{ display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 14px; }}
+    .event-chain {{ display: flex; align-items: flex-start; gap: 0; min-width: max-content; padding: 4px 0 2px; }}
+    .event-wrap {{ display: grid; grid-template-columns: 72px; justify-items: center; position: relative; }}
+    .event-wrap:not(:last-child)::after {{
+      content: "";
+      position: absolute;
+      top: 17px;
+      left: 48px;
+      width: 48px;
+      height: 2px;
+      background: var(--line);
+    }}
+    .event-node {{
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 2px solid var(--line);
+      background: white;
+      color: var(--ink);
+      font-weight: 750;
+      cursor: pointer;
+      position: relative;
+      z-index: 1;
+    }}
+    .event-node.pass {{ border-color: var(--pass); }}
+    .event-node.fail {{ border-color: var(--fail); color: var(--fail); }}
+    .event-node.blocked {{ border-color: var(--blocked); color: var(--blocked); }}
+    .event-node.warning {{ border-color: var(--warning); color: var(--ink); }}
+    .event-node.active {{ outline: 3px solid color-mix(in oklch, var(--accent), transparent 75%); }}
+    .event-label {{ margin-top: 7px; width: 70px; color: var(--muted); font-size: 0.72rem; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }}
+    .detail-panel {{
+      position: sticky;
+      top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px;
+      background: white;
+      min-width: 0;
+    }}
+    .detail-panel dl {{ display: grid; grid-template-columns: 80px 1fr; gap: 4px 10px; margin: 0 0 12px; }}
+    .detail-panel dt {{ color: var(--muted); }}
+    .detail-panel dd {{ margin: 0; overflow-wrap: anywhere; }}
+    .detail-panel h3 {{ margin-top: 14px; }}
+    .detail-list {{ margin: 8px 0 0; padding-left: 18px; }}
     pre {{
       max-height: 260px;
       overflow: auto;
@@ -112,6 +167,8 @@ def render_html_report(report: RunReport) -> str:
       header {{ display: block; }}
       header .status {{ margin-top: 14px; }}
       .step-head {{ display: block; }}
+      .timeline-shell {{ display: block; }}
+      .detail-panel {{ position: static; margin-top: 16px; }}
     }}
   </style>
 </head>
@@ -132,10 +189,7 @@ def render_html_report(report: RunReport) -> str:
       {_metric("Finished", report.finished_at)}
     </section>
     <section>
-      <h2>Steps</h2>
-      <div class="steps">
-        {''.join(_render_step(step) for step in report.steps)}
-      </div>
+      {main_view}
     </section>
     <section>
       <h2>Metadata</h2>
@@ -195,6 +249,206 @@ def _render_step(step: Any) -> str:
   </details>
 </article>
 """
+
+
+def _render_legacy_steps(report: RunReport) -> str:
+    warning = '<p class="notice">No structured evidence file found.</p>'
+    return f"""
+      <h2>Steps</h2>
+      {warning}
+      <div class="steps">
+        {''.join(_render_step(step) for step in report.steps)}
+      </div>
+"""
+
+
+def _render_evidence_timeline(attempts: list[dict[str, Any]]) -> str:
+    events = _flatten_events(attempts)
+    selected = _initial_event_index(events)
+    event_json = _safe_json(events)
+    attempt_html = "".join(_render_attempt(attempt, start_index=_attempt_start_index(attempts, attempt)) for attempt in attempts)
+    return f"""
+      <h2>Attempt Timeline</h2>
+      <div class="timeline-shell">
+        <div class="attempts">
+          {attempt_html}
+        </div>
+        <aside class="detail-panel" id="detail-panel" aria-live="polite">
+          <h2 id="detail-title">Select an event</h2>
+          <dl id="detail-meta"></dl>
+          <section><h3>Input</h3><pre id="detail-input"></pre></section>
+          <section><h3>Output</h3><pre id="detail-output"></pre></section>
+          <section id="detail-checks"></section>
+          <section id="detail-artifacts"></section>
+        </aside>
+      </div>
+      <script id="evidence-data" type="application/json">{event_json}</script>
+      <script>
+        (() => {{
+          const events = JSON.parse(document.getElementById("evidence-data").textContent || "[]");
+          const title = document.getElementById("detail-title");
+          const meta = document.getElementById("detail-meta");
+          const input = document.getElementById("detail-input");
+          const output = document.getElementById("detail-output");
+          const checks = document.getElementById("detail-checks");
+          const artifacts = document.getElementById("detail-artifacts");
+          const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({{"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","'":"&#39;"}}[ch]));
+          function render(index) {{
+            const event = events[index];
+            if (!event) return;
+            document.querySelectorAll(".event-node").forEach((node) => node.classList.toggle("active", node.dataset.eventIndex === String(index)));
+            title.textContent = event.title || event.id || "Event";
+            meta.innerHTML = `
+              <dt>Type</dt><dd>${{esc(event.type)}}</dd>
+              <dt>Status</dt><dd>${{esc(event.status)}}</dd>
+              <dt>Time</dt><dd>${{esc(event.time || "-")}}</dd>
+              <dt>Attempt</dt><dd>${{esc(event.attempt_title || event.attempt_id || "-")}}</dd>
+            `;
+            input.textContent = event.input || "";
+            output.textContent = event.output || "";
+            checks.innerHTML = "<h3>Checks</h3>" + (event.checks || []).map((check) => `<li><strong>${{esc(check.status)}}</strong> ${{esc(check.id)}}: ${{esc(check.message)}}</li>`).join("");
+            if (event.checks && event.checks.length) checks.innerHTML = `<h3>Checks</h3><ul class="detail-list">${{(event.checks || []).map((check) => `<li><strong>${{esc(check.status)}}</strong> ${{esc(check.id)}}: ${{esc(check.message)}}</li>`).join("")}}</ul>`;
+            else checks.innerHTML = "<h3>Checks</h3><p>No checks</p>";
+            if (event.artifacts && event.artifacts.length) artifacts.innerHTML = `<h3>Artifacts</h3><ul class="detail-list">${{event.artifacts.map((artifact) => `<li><a href="${{esc(artifact.path)}}">${{esc(artifact.label || artifact.path)}}</a></li>`).join("")}}</ul>`;
+            else artifacts.innerHTML = "<h3>Artifacts</h3><p>No artifacts</p>";
+          }}
+          document.querySelectorAll(".event-node").forEach((node) => node.addEventListener("click", () => render(Number(node.dataset.eventIndex))));
+          render({selected});
+        }})();
+      </script>
+"""
+
+
+def _render_attempt(attempt: dict[str, Any], *, start_index: int) -> str:
+    events = list(attempt.get("events") or [])
+    nodes = []
+    for offset, event in enumerate(events):
+        index = start_index + offset
+        status = html.escape(str(event.get("status") or "warning"))
+        label = html.escape(_short_event_label(event))
+        title = html.escape(str(event.get("title") or event.get("id") or f"Event {offset + 1}"))
+        nodes.append(
+            "<div class=\"event-wrap\">"
+            f"<button class=\"event-node {status}\" data-event-index=\"{index}\" title=\"{title}\" aria-label=\"{title}\">{offset + 1}</button>"
+            f"<div class=\"event-label\">{label}</div>"
+            "</div>"
+        )
+    return f"""
+<article class="attempt">
+  <div class="attempt-head">
+    <h3>{html.escape(str(attempt.get("title") or attempt.get("id") or "Attempt"))}</h3>
+    <span class="status {html.escape(str(attempt.get("status") or "warning"))}">{html.escape(str(attempt.get("status") or "warning"))}</span>
+  </div>
+  <div class="event-chain">{''.join(nodes)}</div>
+</article>
+"""
+
+
+def _normalise_evidence_attempts(evidence: list[Any]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for bundle in evidence or []:
+        raw_bundle = _plain(bundle)
+        for attempt in list(raw_bundle.get("attempts") or []):
+            raw_attempt = _plain(attempt)
+            attempt_id = str(raw_attempt.get("id") or f"attempt_{len(attempts) + 1}")
+            attempt_title = str(raw_attempt.get("title") or attempt_id)
+            events = []
+            for event in list(raw_attempt.get("events") or []):
+                raw_event = _plain(event)
+                checks = [_plain(check) for check in list(raw_event.get("checks") or [])]
+                artifacts = [_plain(artifact) for artifact in list(raw_event.get("artifacts") or [])]
+                events.append({
+                    "id": str(raw_event.get("id") or f"event_{len(events) + 1}"),
+                    "type": str(raw_event.get("type") or "note"),
+                    "title": str(raw_event.get("title") or raw_event.get("id") or "Event"),
+                    "status": str(raw_event.get("status") or "warning"),
+                    "time": raw_event.get("time"),
+                    "input": redact_value(raw_event.get("input")),
+                    "output": redact_value(raw_event.get("output")),
+                    "checks": [
+                        {
+                            "id": str(check.get("id") or "check"),
+                            "status": str(check.get("status") or "blocked"),
+                            "message": str(check.get("message") or ""),
+                        }
+                        for check in checks
+                    ],
+                    "artifacts": [
+                        {
+                            "label": str(artifact.get("label") or artifact.get("name") or artifact.get("path") or "artifact"),
+                            "path": str(artifact.get("path") or artifact.get("name") or ""),
+                        }
+                        for artifact in artifacts
+                    ],
+                    "attempt_id": attempt_id,
+                    "attempt_title": attempt_title,
+                })
+            attempts.append({
+                "id": attempt_id,
+                "title": attempt_title,
+                "status": str(raw_attempt.get("status") or _status_from_events(events)),
+                "events": events,
+            })
+    return attempts
+
+
+def _plain(value: Any) -> dict[str, Any]:
+    if is_dataclass(value):
+        value = asdict(value)
+    return value if isinstance(value, dict) else {}
+
+
+def _flatten_events(attempts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for attempt in attempts:
+        events.extend(list(attempt.get("events") or []))
+    return events
+
+
+def _attempt_start_index(attempts: list[dict[str, Any]], attempt: dict[str, Any]) -> int:
+    index = 0
+    for candidate in attempts:
+        if candidate is attempt:
+            return index
+        index += len(list(candidate.get("events") or []))
+    return index
+
+
+def _initial_event_index(events: list[dict[str, Any]]) -> int:
+    for index, event in enumerate(events):
+        if event.get("status") in {"fail", "blocked"}:
+            return index
+    return 0
+
+
+def _short_event_label(event: dict[str, Any]) -> str:
+    event_type = str(event.get("type") or "event")
+    mapping = {
+        "user_input": "User",
+        "model_output": "Model",
+        "tool_call": "Tool",
+        "check": "Check",
+        "repair": "Repair",
+        "rerun": "Rerun",
+        "artifact": "Artifact",
+        "note": "Note",
+    }
+    return mapping.get(event_type, event_type[:10])
+
+
+def _status_from_events(events: list[dict[str, Any]]) -> str:
+    statuses = [str(event.get("status") or "") for event in events]
+    if "fail" in statuses:
+        return "fail"
+    if "blocked" in statuses:
+        return "blocked"
+    if "warning" in statuses:
+        return "warning"
+    return "pass"
+
+
+def _safe_json(value: Any) -> str:
+    return html.escape(json.dumps(value, ensure_ascii=False, default=str).replace("</", "<\\/"))
 
 
 def _artifact_href(name: str) -> str:
