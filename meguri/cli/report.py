@@ -30,27 +30,30 @@ def handle_report(args: Any) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
+    json_record = None
     try:
         if args.recent is not None:
             if getattr(args, "runs", None):
                 raise FileNotFoundError("--recent and --runs cannot be combined")
             batch_record = recent_batch_report(pack, args.recent)
             html_path = Path(batch_record["html_report_path"])
+            json_record = batch_record
         elif getattr(args, "runs", None):
             if args.run_id:
                 raise FileNotFoundError("run id positional cannot be combined with --runs")
             batch_record = selected_batch_report(pack, list(args.runs))
             html_path = Path(batch_record["html_report_path"])
+            json_record = batch_record
         else:
-            if getattr(args, "json", False):
-                raise FileNotFoundError("--json is only supported with --recent or --runs")
             html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
+            if getattr(args, "json", False):
+                json_record = report_record_for_html(html_path)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
 
     if getattr(args, "json", False):
-        print(json.dumps(batch_record, ensure_ascii=False, indent=2, default=str))
+        print(json.dumps(json_record, ensure_ascii=False, indent=2, default=str))
     else:
         print(html_path)
     if args.open:
@@ -166,6 +169,16 @@ def report_for_run(pack: ProjectPack, run_id: str) -> Path:
     if len(matches) > 1:
         raise FileNotFoundError(f"run id is ambiguous; use <loop_id>/{run_id}")
     raise FileNotFoundError(f"report not found for run: {run_id}")
+
+
+def report_record_for_html(html_path: Path) -> dict[str, Any]:
+    report_dir = html_path.parent
+    batch_record = _read_json(report_dir / "batch.json")
+    if isinstance(batch_record, dict):
+        return {"kind": "batch", **batch_record}
+    if (report_dir / "run.json").is_file():
+        return {"kind": "run", **_run_summary_from_json(report_dir)}
+    raise FileNotFoundError(f"JSON report data not found for: {html_path}")
 
 
 def _loop_report_dirs(pack: ProjectPack) -> list[Path]:

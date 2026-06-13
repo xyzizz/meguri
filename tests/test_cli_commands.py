@@ -68,6 +68,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run <loop> --allow-execute" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
+    assert "meguri report <run_id> --json" in codex_skill
+    assert "meguri report --last --json" in codex_skill
     assert "meguri report --recent <N>" in codex_skill
     assert "meguri report --recent <N> --json" in codex_skill
     assert "meguri report --runs <run_id-or-path> ..." in codex_skill
@@ -88,6 +90,8 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "meguri run <loop> --allow-execute" in claude_skill
     assert "live progress surface" in claude_skill
+    assert "meguri report <run_id> --json" in claude_skill
+    assert "meguri report --last --json" in claude_skill
     assert "meguri report --recent <N>" in claude_skill
     assert "meguri report --recent <N> --json" in claude_skill
     assert "meguri report --runs <run_id-or-path> ..." in claude_skill
@@ -817,6 +821,90 @@ def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatc
     assert record["planned_loops"] == ["json_loop"]
     assert record["runs"][0]["run_id"] == "run_20260613_120000_json"
     assert Path(record["html_report_path"]).is_file()
+
+
+def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_single"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>single</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps({
+            "run_id": run_dir.name,
+            "scenario_name": "single_loop",
+            "status": "fail",
+            "mode": "execute",
+            "finished_at": "2026-06-13T12:00:00+00:00",
+            "artifact_dir": str(run_dir),
+            "metadata": {"loop_id": "single_loop"},
+            "steps": [
+                {
+                    "step_id": "run",
+                    "status": "fail",
+                    "stdout": json.dumps({
+                        "turn_count": 7,
+                        "submitted": True,
+                        "closed_status_verified": True,
+                        "submit_results": [{"ok": False, "error": "archived campaign"}],
+                    }),
+                    "checks": [],
+                }
+            ],
+        }),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "run_20260613_120000_single", "--json"]) == 0
+    record = json.loads(capsys.readouterr().out)
+
+    assert record["kind"] == "run"
+    assert record["loop"] == "single_loop"
+    assert record["run_id"] == "run_20260613_120000_single"
+    assert record["status"] == "fail"
+    assert record["mode"] == "execute"
+    assert record["failure_reasons"] == ["archived campaign"]
+    assert record["metrics"] == {
+        "closed_status_verified": True,
+        "submit_failed_count": 1,
+        "submit_success_count": 0,
+        "submitted": True,
+        "turn_count": 7,
+    }
+    assert record["html_report_path"] == str(run_dir / "index.html")
+
+
+def test_report_last_json_selects_newest_single_run(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    for run_id, loop, finished_at in [
+        ("run_20260613_100000_old", "old_loop", "2026-06-13T10:00:00+00:00"),
+        ("run_20260613_120000_new", "new_loop", "2026-06-13T12:00:00+00:00"),
+    ]:
+        run_dir = tmp_path / ".meguri" / "runs" / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "index.html").write_text(f"<html>{loop}</html>", encoding="utf-8")
+        (run_dir / "run.json").write_text(
+            json.dumps({
+                "run_id": run_id,
+                "scenario_name": loop,
+                "status": "pass",
+                "finished_at": finished_at,
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": loop},
+                "steps": [],
+            }),
+            encoding="utf-8",
+        )
+
+    assert main(["report", "--last", "--json"]) == 0
+    record = json.loads(capsys.readouterr().out)
+
+    assert record["kind"] == "run"
+    assert record["loop"] == "new_loop"
+    assert record["run_id"] == "run_20260613_120000_new"
 
 
 def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -267,7 +267,10 @@ Workflow:
    deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes. For multi-loop runs, inspect
+   linked artifacts before proposing fixes. For a single completed loop, use
+   `meguri report <run_id> --json` or `meguri report --last --json` to get the
+   structured run summary, metrics, and failure reasons before drilling into
+   raw artifacts. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `failure_groups`, and per-loop summaries to prioritize shared repairs, then
@@ -382,7 +385,10 @@ Workflow:
    deciding whether to resume, repair, or ask.
 11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes. For multi-loop runs, inspect
+   linked artifacts before proposing fixes. For a single completed loop, use
+   `meguri report <run_id> --json` or `meguri report --last --json` to get the
+   structured run summary, metrics, and failure reasons before drilling into
+   raw artifacts. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
    `failure_groups`, and per-loop summaries to prioritize shared repairs, then
