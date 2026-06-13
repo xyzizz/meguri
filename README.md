@@ -82,7 +82,10 @@ Meguri writes run records inside the target project:
 
 The project index lists loops and multi-loop batch records, the loop index
 lists historical run records, and each run report is self-contained with
-relative links. Multi-loop runs create `.meguri/batches/<batch_id>/batch.json`
+relative links. Single-run HTML reports surface structured failure reasons,
+attention flags, and created resources near the top before the timeline, so
+partial execute side effects and incomplete agent chains are visible without
+digging through raw stdout. Multi-loop runs create `.meguri/batches/<batch_id>/batch.json`
 and `index.html` when the batch starts, refresh them whenever the current loop
 writes a running snapshot, refresh again after each loop completes, and finalize
 them at the end. While a loop is still running, the batch record exposes

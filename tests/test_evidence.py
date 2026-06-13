@@ -205,6 +205,104 @@ def test_html_report_renders_step_timeline_when_evidence_is_absent(tmp_path: Pat
     assert "invalid UUID in operation_log_id" in html
 
 
+def test_html_report_surfaces_failure_reasons_and_created_resources(tmp_path: Path) -> None:
+    now = utc_now()
+    report = RunReport(
+        run_id="20260613_185125",
+        scenario_name="reference_campaign_new_campaign",
+        status="fail",
+        started_at=now,
+        finished_at=now,
+        project_path=str(tmp_path),
+        artifact_dir=str(tmp_path),
+        steps=[
+            StepResult(
+                step_id="agent_submit",
+                status="fail",
+                started_at=now,
+                finished_at=now,
+                exit_code=1,
+                stdout="""
+{
+  "submitted": true,
+  "turns": [
+    {
+      "id": "submit",
+      "events": [
+        {
+          "tool_result": {
+            "items": [
+              {
+                "id": "120250081240970683",
+                "name": "copy_facebook_campaign_to_account",
+                "status": "success"
+              },
+              {
+                "name": "copy_facebook_adset_to_campaign",
+                "status": "error",
+                "error": "请移除有冲突的地点以继续。"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
+""",
+            )
+        ],
+        checks=[],
+    )
+
+    html = render_html_report(report)
+
+    assert "Failure Reasons" in html
+    assert "请移除有冲突的地点以继续。" in html
+    assert "Created Resources" in html
+    assert "campaign" in html
+    assert "120250081240970683" in html
+
+
+def test_html_report_surfaces_attention_flags(tmp_path: Path) -> None:
+    now = utc_now()
+    report = RunReport(
+        run_id="20260613_184458",
+        scenario_name="agent_chain_preview_only",
+        status="fail",
+        started_at=now,
+        finished_at=now,
+        project_path=str(tmp_path),
+        artifact_dir=str(tmp_path),
+        steps=[
+            StepResult(
+                step_id="agent_submit",
+                status="fail",
+                started_at=now,
+                finished_at=now,
+                exit_code=1,
+                stdout="""
+{
+  "final_submit": true,
+  "submitted": false,
+  "turn_count": 1,
+  "expected_turn_count": 7,
+  "crash_tracebacks": ["Traceback... AgentResponseParseError: missing reply"]
+}
+""",
+            )
+        ],
+        checks=[],
+    )
+
+    html = render_html_report(report)
+
+    assert "Attention Flags" in html
+    assert "short_run" in html
+    assert "not_submitted" in html
+    assert "crash_traceback" in html
+
+
 def test_html_report_renders_replay_command(tmp_path: Path) -> None:
     now = utc_now()
     artifact_dir = tmp_path / ".meguri" / "loops" / "agent_loop" / "20260613_152717"

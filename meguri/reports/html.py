@@ -11,6 +11,11 @@ from typing import Any
 
 from meguri.core.evidence import redact_value
 from meguri.core.models import RunReport
+from meguri.reports.metrics import (
+    extract_attention_flags_from_steps,
+    extract_created_resources_from_steps,
+    extract_failure_reasons_from_steps,
+)
 
 
 def render_html_report(report: RunReport) -> str:
@@ -31,6 +36,7 @@ def render_html_report(report: RunReport) -> str:
         "evidence_warnings": report.evidence_warnings,
         "replay": report.replay,
     }
+    run_insights = _render_run_insights(report)
     main_view = _render_evidence_timeline(
         evidence_attempts,
         notice="" if report.evidence else "No structured evidence file found; showing step-level timeline.",
@@ -200,6 +206,7 @@ def render_html_report(report: RunReport) -> str:
       {_metric("Finished", report.finished_at or "-")}
     </section>
     {_render_replay(report, loop_name)}
+    {run_insights}
     <section>
       {main_view}
     </section>
@@ -241,7 +248,77 @@ def _render_replay(report: RunReport, loop_name: str) -> str:
       <p class="notice">Status: {html.escape(replay_status)}. Re-run after repair with:</p>
       <pre>{html.escape(command)}</pre>
     </section>
-"""
+    """
+
+
+def _render_run_insights(report: RunReport) -> str:
+    failure_reasons = extract_failure_reasons_from_steps(report.steps) if report.status != "pass" else []
+    created_resources = extract_created_resources_from_steps(report.steps)
+    attention_flags = extract_attention_flags_from_steps(report.steps)
+    sections = [
+        _render_failure_reasons(failure_reasons),
+        _render_created_resources(created_resources),
+        _render_attention_flags(attention_flags),
+    ]
+    return "".join(section for section in sections if section)
+
+
+def _render_failure_reasons(reasons: list[str]) -> str:
+    if not reasons:
+        return ""
+    rows = "".join(f"<li>{html.escape(reason)}</li>" for reason in reasons)
+    return f"""
+    <section>
+      <h2>Failure Reasons</h2>
+      <ul class="detail-list">{rows}</ul>
+    </section>
+    """
+
+
+def _render_created_resources(resources: list[dict[str, str]]) -> str:
+    if not resources:
+        return ""
+    rows = []
+    for resource in resources:
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(resource.get('type') or '-'))}</td>"
+            f"<td>{html.escape(str(resource.get('id') or '-'))}</td>"
+            f"<td>{html.escape(str(resource.get('source') or '-'))}</td>"
+            "</tr>"
+        )
+    return f"""
+    <section>
+      <h2>Created Resources</h2>
+      <table>
+        <thead><tr><th>Type</th><th>ID</th><th>Source</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </section>
+    """
+
+
+def _render_attention_flags(flags: list[dict[str, str]]) -> str:
+    if not flags:
+        return ""
+    rows = []
+    for flag in flags:
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(flag.get('severity') or '-'))}</td>"
+            f"<td>{html.escape(str(flag.get('code') or '-'))}</td>"
+            f"<td>{html.escape(str(flag.get('message') or '-'))}</td>"
+            "</tr>"
+        )
+    return f"""
+    <section>
+      <h2>Attention Flags</h2>
+      <table>
+        <thead><tr><th>Severity</th><th>Code</th><th>Message</th></tr></thead>
+        <tbody>{''.join(rows)}</tbody>
+      </table>
+    </section>
+    """
 
 
 def _replay_path_for_command(report: RunReport) -> str:
