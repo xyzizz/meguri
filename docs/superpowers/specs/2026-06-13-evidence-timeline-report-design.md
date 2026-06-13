@@ -31,7 +31,7 @@ the generated HTML report. The feature stays local-first and self-contained.
 - Do not make the HTML page execute local commands.
 - Do not require all project scripts to stream JSON through stdout.
 - Do not replace existing `run.json`, `report.md`, or step/check reporting.
-- Do not build live report updates in this phase.
+- Do not build browser-side auto-refresh or websocket updates in this phase.
 
 ## File Structure and History Navigation
 
@@ -203,15 +203,20 @@ During `run_scenario`, Meguri should:
 1. Resolve the loop id and create a loop-local timestamp run directory.
 2. Immediately write initial `run.json`, `report.md`, `index.html`, and
    `replay.json` with status `running`.
-3. Execute each step through the configured adapter.
-4. Persist stdout, stderr, and result artifacts as it does today.
-5. Refresh `run.json`, `report.md`, `index.html`, and `replay.json` after every
-   completed step, so long runs have inspectable partial records before the
-   final step finishes.
-6. Scan evidence inputs after each step and again before final report rendering.
-7. Copy project-level evidence files into the current run directory's
+3. Before each step starts, write a `running` step snapshot with live stdout and
+   stderr artifact links.
+4. Execute each step through the configured adapter.
+5. For shell steps, stream subprocess stdout and stderr into
+   `steps/<step_id>/stdout.txt` and `steps/<step_id>/stderr.txt` while the
+   command is still running.
+6. Persist final stdout, stderr, and result artifacts after the step exits.
+7. Refresh `run.json`, `report.md`, `index.html`, and `replay.json` when each
+   step starts and after every completed step, so long runs have inspectable
+   partial records before the final step finishes.
+8. Scan evidence inputs after each step and again before final report rendering.
+9. Copy project-level evidence files into the current run directory's
    `evidence/` folder.
-8. Ignore project-level evidence that does not match the current loop or run
+10. Ignore project-level evidence that does not match the current loop or run
    window, and record a warning when skipped files look related.
 9. Parse valid evidence files into `RunReport.evidence`.
 10. Record parse, schema, and missing-artifact problems as warnings rather than
@@ -474,6 +479,7 @@ Add focused tests for:
 - Each loop is a folder, and each trigger creates a timestamped run folder under
   that loop.
 - Evidence is collected from files, not stdout.
+- Shell stdout/stderr are live artifacts; structured evidence remains file-based.
 - Attempts are grouped, not rendered as one flat global timeline.
 - Event details use a fixed right-side panel on desktop.
 - Details show input/output, checks, and artifact links.

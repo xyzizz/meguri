@@ -133,3 +133,36 @@ steps:
 
     assert report.status == "pass"
     assert marker_path.read_text(encoding="utf-8") == "first"
+
+
+def test_runner_writes_running_step_snapshot_and_live_stdout(tmp_path: Path) -> None:
+    scenario_path = tmp_path / "scenario.yaml"
+    running_marker = tmp_path / "saw_running_snapshot.txt"
+    live_stdout_marker = tmp_path / "saw_live_stdout.txt"
+    scenario_path.write_text(
+        f"""
+name: live_shell
+adapter: shell
+project_path: "."
+mode: dry_run
+steps:
+  - id: long
+    command:
+      - "{sys.executable}"
+      - "-c"
+      - "import json, os, pathlib, sys, time; run_dir=pathlib.Path(os.environ['MEGURI_RUN_DIR']); data=json.loads((run_dir / 'run.json').read_text()); pathlib.Path(r'{running_marker}').write_text(data['steps'][0]['status']); print('live hello', flush=True); stdout_path=run_dir / 'steps' / 'long' / 'stdout.txt'; deadline=time.time()+2;\\nwhile time.time() < deadline:\\n    if stdout_path.exists() and 'live hello' in stdout_path.read_text():\\n        pathlib.Path(r'{live_stdout_marker}').write_text('seen'); break\\n    time.sleep(0.02)\\nelse:\\n    sys.exit(7)"
+    checks:
+      - id: exit
+        type: exit_code
+        equals: 0
+""",
+        encoding="utf-8",
+    )
+
+    report = run_scenario(scenario_path, runs_dir=tmp_path / "runs")
+
+    assert report.status == "pass"
+    assert running_marker.read_text(encoding="utf-8") == "running"
+    assert live_stdout_marker.read_text(encoding="utf-8") == "seen"
+    stdout_path = Path(report.artifact_dir) / "steps" / "long" / "stdout.txt"
+    assert "live hello" in stdout_path.read_text(encoding="utf-8")

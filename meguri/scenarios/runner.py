@@ -7,7 +7,7 @@ from pathlib import Path
 from meguri.adapters.registry import get_adapter
 from meguri.core.artifacts import ArtifactStore
 from meguri.core.evidence import collect_evidence
-from meguri.core.models import CheckResult, RunContext, RunReport, utc_now
+from meguri.core.models import Artifact, CheckResult, RunContext, RunReport, StepResult, utc_now
 from meguri.core.replay import build_replay_bundle
 from meguri.evaluators.deterministic import evaluate_step_checks
 from meguri.project.pack import find_project_pack
@@ -71,6 +71,25 @@ def run_scenario(
     try:
         adapter.setup(ctx)
         for step in scenario.steps:
+            running = _running_step_result(step, artifact_dir)
+            steps.append(running)
+            _write_run_snapshot(
+                store=store,
+                scenario=scenario,
+                scenario_path=scenario_path,
+                artifact_dir=artifact_dir,
+                evidence_dir=evidence_dir,
+                loop_id=loop_id,
+                run_id=run_id,
+                started=started,
+                started_dt=started_dt,
+                steps=steps,
+                all_checks=all_checks,
+                status="running",
+                replay_file=replay_file,
+                retry_of=retry_of,
+                runs_dir=runs_dir,
+            )
             result = adapter.run_step(step, ctx)
             result.artifacts.extend([
                 store.write_text(f"steps/{result.step_id}/stdout.txt", result.stdout, kind="stdout"),
@@ -92,7 +111,7 @@ def run_scenario(
             else:
                 result.checks = evaluate_step_checks(result, list(step.get("checks") or []))
             all_checks.extend(result.checks)
-            steps.append(result)
+            steps[-1] = result
             _write_run_snapshot(
                 store=store,
                 scenario=scenario,
@@ -244,6 +263,40 @@ def _overall_status(steps, checks):
     if any(step.status == "blocked" for step in steps) or any(check.status == "blocked" for check in checks):
         return "blocked"
     return "pass"
+
+
+def _running_step_result(step: dict, artifact_dir: Path) -> StepResult:
+    step_id = str(step["id"])
+    started = utc_now()
+    command = step.get("command")
+    data = {"command": [str(part) for part in command]} if isinstance(command, list) else {}
+    step_dir = artifact_dir / "steps" / step_id
+    step_dir.mkdir(parents=True, exist_ok=True)
+    stdout_path = step_dir / "stdout.txt"
+    stderr_path = step_dir / "stderr.txt"
+    stdout_path.touch(exist_ok=True)
+    stderr_path.touch(exist_ok=True)
+    return StepResult(
+        step_id=step_id,
+        status="running",
+        started_at=started,
+        finished_at=started,
+        data=data,
+        artifacts=[
+            Artifact(
+                name=f"steps/{step_id}/stdout.txt",
+                path=str(stdout_path),
+                kind="stdout",
+                metadata={"live": True},
+            ),
+            Artifact(
+                name=f"steps/{step_id}/stderr.txt",
+                path=str(stderr_path),
+                kind="stderr",
+                metadata={"live": True},
+            ),
+        ],
+    )
 
 
 def _new_loop_run_id() -> str:

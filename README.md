@@ -78,8 +78,9 @@ Meguri writes run records inside the target project:
 
 The project index lists loops, the loop index lists historical run records, and
 each run report is self-contained with relative links. Run records are written
-when a loop starts and refreshed after each completed step, so long runs can be
-inspected before the final step finishes. Legacy
+when a loop starts, refreshed when each step starts or completes, and shell step
+stdout/stderr artifacts are updated while the command is still running. Long
+runs can be inspected before the final step finishes. Legacy
 `.meguri/scenarios/*.yaml` loop files and `.meguri/runs/<run_id>/` reports remain
 readable for compatibility.
 
@@ -107,7 +108,7 @@ Ask Codex / Claude Code to use Meguri for:
 | List loops | Shows how many user-added loops exist in the current project. |
 | Delete loop | Removes a named user-added loop. |
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
-| Run | Executes the selected loop and continuously refreshes `run.json`, `report.md`, and `index.html`. |
+| Run | Executes the selected loop, writes running snapshots, and keeps shell stdout/stderr artifacts live. |
 | Report | Opens or summarizes the newest local HTML report. |
 
 ```text

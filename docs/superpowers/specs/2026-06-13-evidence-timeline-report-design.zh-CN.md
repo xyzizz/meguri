@@ -26,7 +26,7 @@ Meguri 现在已经会为每次 loop run 写入 `run.json`、`report.md` 和
 - 不让 HTML 页面直接执行本地命令。
 - 不要求所有项目脚本都通过 stdout 输出 JSON。
 - 不替换现有 `run.json`、`report.md` 或 step/check 报告。
-- 本阶段不做实时报告刷新。
+- 本阶段不做浏览器自动刷新或 websocket 式实时页面。
 
 ## 文件结构和历史记录导航
 
@@ -192,16 +192,19 @@ replay: dict[str, Any] | None
 1. 解析 loop id，并创建 loop-local 时间戳 run 目录。
 2. 立即写入初始 `run.json`、`report.md`、`index.html` 和 `replay.json`，
    状态为 `running`。
-3. 通过配置的 adapter 执行每个 step。
-4. 像现在一样保存 stdout、stderr 和 result artifacts。
-5. 每个 step 完成后刷新 `run.json`、`report.md`、`index.html` 和
+3. 每个 step 开始前，写入该 step 的 `running` 快照，并提供 live stdout/stderr artifact 链接。
+4. 通过配置的 adapter 执行每个 step。
+5. shell step 运行中，把子进程 stdout/stderr 持续写入
+   `steps/<step_id>/stdout.txt` 和 `steps/<step_id>/stderr.txt`。
+6. step 退出后保存最终 stdout、stderr 和 result artifacts。
+7. 每个 step 开始和完成后都刷新 `run.json`、`report.md`、`index.html` 和
    `replay.json`，让长时间运行的 loop 在最终结束前也有可检查的部分记录。
-6. 每个 step 完成后扫描 evidence 输入，并在最终渲染报告前再次扫描。
-7. 把符合条件的项目级 evidence 文件复制到当前 run 目录的 `evidence/` 文件夹。
-8. 忽略不匹配当前 loop 或当前 run 窗口的项目级 evidence；如果被跳过的文件看起来相关，
+8. 每个 step 完成后扫描 evidence 输入，并在最终渲染报告前再次扫描。
+9. 把符合条件的项目级 evidence 文件复制到当前 run 目录的 `evidence/` 文件夹。
+10. 忽略不匹配当前 loop 或当前 run 窗口的项目级 evidence；如果被跳过的文件看起来相关，
    记录 warning。
-9. 把有效 evidence 文件解析进 `RunReport.evidence`。
-10. 对解析错误、schema 问题和缺失 artifact 记录 warning，而不是让本来有效的 run 失败。
+11. 把有效 evidence 文件解析进 `RunReport.evidence`。
+12. 对解析错误、schema 问题和缺失 artifact 记录 warning，而不是让本来有效的 run 失败。
 11. 在 run 目录写入最终 `replay.json`。
 12. 有 evidence 时，最终详细 run HTML 优先使用 evidence 渲染。
 13. 重新生成 loop index 页面和 project index 页面。
@@ -438,6 +441,7 @@ none       没有结构化 evidence 或 replay 入口
 - 时间线粒度是完整事件流，不只是 Meguri step。
 - 每个 loop 都是一个文件夹；每次触发在该 loop 下创建时间戳 run 文件夹。
 - Evidence 从文件收集，不从 stdout 收集。
+- Shell stdout/stderr 是运行中持续更新的 artifact；结构化 evidence 仍然从文件收集。
 - Attempts 分组展示，不做一条全局扁平时间线。
 - 事件详情在桌面端使用右侧固定详情面板。
 - 详情展示 input/output、checks 和 artifact links。

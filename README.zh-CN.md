@@ -70,7 +70,7 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
       steps/<step_id>/result.json
 ```
 
-项目首页展示所有 loops，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。运行记录会在 loop 开始时写入，并在每个 step 完成后刷新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。旧的 `.meguri/scenarios/*.yaml` loop 文件和 `.meguri/runs/<run_id>/` 报告仍然可读，用于兼容。
+项目首页展示所有 loops，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。运行记录会在 loop 开始时写入，在每个 step 开始和完成时刷新；shell step 的 stdout/stderr artifact 会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。旧的 `.meguri/scenarios/*.yaml` loop 文件和 `.meguri/runs/<run_id>/` 报告仍然可读，用于兼容。
 
 ## Loop
 
@@ -93,7 +93,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
 | Delete loop | 删除指定命名的用户 loop。 |
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
-| Run | 执行指定 loop，并持续刷新 `run.json`、`report.md` 和 `index.html`。 |
+| Run | 执行指定 loop，写入运行中快照，并持续更新 shell stdout/stderr artifacts。 |
 | Report | 打开或总结最新的本地 HTML 报告。 |
 
 ```text
