@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from meguri.evaluators.deterministic import extract_last_json
@@ -58,6 +59,33 @@ def extract_failed_items_from_steps(steps: list[Any]) -> list[dict[str, str]]:
             seen.add(key)
             items.append(item)
     return items
+
+
+def extract_validation_issues_from_steps(steps: list[Any]) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str, str, str, str]] = set()
+    for step in steps:
+        stdout = _get_value(step, "stdout")
+        if not isinstance(stdout, str) or not stdout:
+            continue
+        try:
+            value = extract_last_json(stdout)
+        except ValueError:
+            continue
+        for issue in _validation_issues(value):
+            key = (
+                issue["code"],
+                issue["object"],
+                issue["count"],
+                issue["path"],
+                issue["types"],
+                issue["source"],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append(issue)
+    return issues
 
 
 def extract_attention_flags_from_steps(steps: list[Any]) -> list[dict[str, str]]:
@@ -222,6 +250,119 @@ def _attention_flags(value: Any) -> list[dict[str, str]]:
             "message": _compact_message(_first_nonempty(crash_tracebacks)),
         })
     return flags
+
+
+def _validation_issues(value: Any) -> list[dict[str, str]]:
+    if not isinstance(value, (dict, list)):
+        return []
+    issues: list[dict[str, str]] = []
+    if isinstance(value, dict):
+        for source in ("errors", "crash_tracebacks", "failure_reasons"):
+            for text in _string_list(value.get(source)):
+                issues.extend(_validation_issues_from_text(text, source=source))
+        if isinstance(value.get("error"), str):
+            issues.extend(_validation_issues_from_text(value["error"], source="error"))
+        for child in value.values():
+            issues.extend(_validation_issues(child))
+    else:
+        for child in value:
+            issues.extend(_validation_issues(child))
+    return issues
+
+
+def _validation_issues_from_text(text: str, *, source: str) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    if _looks_like_schema_validation(text):
+        issues.append(_schema_validation_issue(text, source=source))
+    if _looks_like_agent_response_parse_error(text):
+        issues.append(_agent_response_parse_issue(text, source=source))
+    return issues
+
+
+def _looks_like_schema_validation(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "ValidationError",
+            "validation errors for",
+            "extra_forbidden",
+            "literal_error",
+            "type=missing",
+        )
+    )
+
+
+def _looks_like_agent_response_parse_error(text: str) -> bool:
+    return any(
+        marker in text
+        for marker in (
+            "AgentResponseParseError",
+            "没有完整 AgentResponse",
+            "missing complete AgentResponse",
+            "顶层必须包含 reply 和 plan",
+        )
+    )
+
+
+def _schema_validation_issue(text: str, *, source: str) -> dict[str, str]:
+    match = re.search(r"(\d+)\s+validation errors?\s+for\s+([A-Za-z_][\w.]*)", text)
+    count = match.group(1) if match else ""
+    object_name = match.group(2) if match else ("AgentResponse" if "AgentResponse" in text else "")
+    path = _first_validation_path(text)
+    types = ",".join(_validation_types(text))
+    message_parts = [f"{object_name or 'schema'} validation failed"]
+    if count:
+        message_parts.append(f"with {count} errors")
+    if path:
+        message_parts.append(f"at {path}")
+    if types:
+        message_parts.append(f"({types})")
+    return {
+        "code": "schema_validation",
+        "severity": "error",
+        "object": object_name,
+        "count": count,
+        "path": path,
+        "types": types,
+        "message": " ".join(message_parts),
+        "source": source,
+    }
+
+
+def _agent_response_parse_issue(text: str, *, source: str) -> dict[str, str]:
+    if "没有完整 AgentResponse" in text or "missing complete AgentResponse" in text:
+        message = "AgentResponse parse failed: missing complete AgentResponse"
+    else:
+        message = "AgentResponse parse failed"
+    return {
+        "code": "agent_response_parse",
+        "severity": "error",
+        "object": "AgentResponse",
+        "count": "",
+        "path": "",
+        "types": "parse_error",
+        "message": message,
+        "source": source,
+    }
+
+
+def _first_validation_path(text: str) -> str:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if re.match(r"^[A-Za-z_][\w]*(?:\.[A-Za-z0-9_]+)+$", stripped):
+            return stripped
+    return ""
+
+
+def _validation_types(text: str) -> list[str]:
+    types: list[str] = []
+    seen: set[str] = set()
+    for value in re.findall(r"\[type=([a-zA-Z_]+)", text):
+        if value in seen:
+            continue
+        seen.add(value)
+        types.append(value)
+    return types
 
 
 def _json_failure_reason_groups(value: Any) -> tuple[list[str], list[str]]:

@@ -91,6 +91,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`attention_flags`" in codex_skill
     assert "`created_resources`" in codex_skill
     assert "`failed_items`" in codex_skill
+    assert "`validation_issues`" in codex_skill
     assert "`repair_hints`" in codex_skill
     assert "per-loop `mode`" in codex_skill
     assert "preserves `--allow-execute`" in codex_skill
@@ -130,6 +131,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "`attention_flags`" in claude_skill
     assert "`created_resources`" in claude_skill
     assert "`failed_items`" in claude_skill
+    assert "`validation_issues`" in claude_skill
     assert "`repair_hints`" in claude_skill
     assert "per-loop `mode`" in claude_skill
     assert "preserves `--allow-execute`" in claude_skill
@@ -1658,6 +1660,80 @@ def test_report_recent_surfaces_failed_items_for_prompt_repair(tmp_path: Path, m
     assert "Failed Items" in html
     assert "120246917768180090" in html
     assert "image could not be loaded" in html
+
+
+def test_report_recent_surfaces_validation_issues_for_schema_failures(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+    run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_validation"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>validation</html>", encoding="utf-8")
+    stdout_payload = {
+        "passed": False,
+        "turn_count": 5,
+        "expected_turn_count": 7,
+        "errors": [
+            "confirm_3: exception ValidationError: 11 validation errors for AgentResponse\n"
+            "plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle\n"
+            "  Extra inputs are not permitted [type=extra_forbidden, input_value='19 条源广告复制到 2 个目标 Campaign', input_type=str]\n"
+            "plan.panel.DRAFTING.display.BatchEditConfirm.display_schema\n"
+            "  Input should be 'batch_edit_confirm' [type=literal_error, input_value='copy_ad_confirm', input_type=str]\n"
+        ],
+        "crash_tracebacks": [
+            "AgentResponseParseError: 模型输出中只找到 panel/display/notices/draft 等内部 JSON 片段，没有完整 AgentResponse；顶层必须包含 reply 和 plan。"
+        ],
+    }
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_dir.name,
+                "scenario_name": "wide_3d_copy",
+                "status": "fail",
+                "mode": "execute",
+                "finished_at": "2026-06-13T12:00:00+00:00",
+                "artifact_dir": str(run_dir),
+                "metadata": {"loop_id": "wide_3d_copy"},
+                "steps": [
+                    {
+                        "step_id": "run",
+                        "status": "fail",
+                        "stdout": json.dumps(stdout_payload, ensure_ascii=False),
+                        "checks": [{"id": "exit", "status": "fail", "message": "schema failed"}],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    assert main(["report", "--recent", "1", "--json"]) == 0
+    batch = json.loads(capsys.readouterr().out)
+
+    assert batch["validation_issue_count"] == 2
+    assert [hint["code"] for hint in batch["repair_hints"]] == [
+        "fix_schema_output",
+        "complete_agent_chain",
+    ]
+    assert batch["repair_hints"][0]["issue_count"] == 2
+    assert batch["validation_issues"][0] == {
+        "loop": "wide_3d_copy",
+        "run_id": "run_20260613_120000_validation",
+        "code": "schema_validation",
+        "severity": "error",
+        "object": "AgentResponse",
+        "count": "11",
+        "path": "plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle",
+        "types": "extra_forbidden,literal_error",
+        "message": "AgentResponse validation failed with 11 errors at plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle (extra_forbidden,literal_error)",
+        "source": "errors",
+    }
+    assert batch["runs"][0]["validation_issue_count"] == 2
+    html = Path(batch["html_report_path"]).read_text(encoding="utf-8")
+    assert "Validation Issues" in html
+    assert "schema_validation" in html
+    assert "plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle" in html
 
 
 def test_report_recent_json_prints_clean_batch_record(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -21,6 +21,7 @@ from meguri.reports.batch import (
     batch_retry_command,
     batch_retry_loops,
     batch_status_counts,
+    batch_validation_issues,
     failure_groups,
     render_batch_html,
 )
@@ -31,6 +32,7 @@ from meguri.reports.metrics import (
     extract_failed_items_from_steps,
     extract_failure_reasons_from_steps,
     extract_run_metrics_from_steps,
+    extract_validation_issues_from_steps,
 )
 from meguri.reports.html import render_html_report
 from meguri.reports.markdown import render_markdown_report
@@ -195,6 +197,7 @@ def _write_selected_batch_report(
     allow_execute_retry = _retry_needs_execute_approval(runs, retry_loops)
     created_resources = batch_created_resources(runs)
     failed_items = batch_failed_items(runs)
+    validation_issues = batch_validation_issues(runs)
     attention_flags = batch_attention_flags(runs)
     repair_hints = batch_repair_hints(runs)
     record = {
@@ -223,6 +226,8 @@ def _write_selected_batch_report(
         "created_resource_count": len(created_resources),
         "failed_items": failed_items,
         "failed_item_count": len(failed_items),
+        "validation_issues": validation_issues,
+        "validation_issue_count": len(validation_issues),
         "runs": runs,
     }
     record["source"] = source
@@ -448,6 +453,10 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     if failed_items:
         summary["failed_items"] = failed_items
         summary["failed_item_count"] = len(failed_items)
+    validation_issues = extract_validation_issues_from_steps(raw.get("steps") or [])
+    if validation_issues:
+        summary["validation_issues"] = validation_issues
+        summary["validation_issue_count"] = len(validation_issues)
     attention_flags = extract_attention_flags_from_steps(raw.get("steps") or [])
     if attention_flags:
         summary["attention_flags"] = attention_flags

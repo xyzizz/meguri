@@ -200,7 +200,10 @@ cleanup. Batch `repair_hints` group stale or invalid test data, incomplete
 agent chains, unfinished loops, and partial execute-mode side effects into
 evidence-derived next steps before drilling into raw artifacts. Batch
 `failed_items` expose failed execute item type, id, name, error, and source so
-prompt or fixture repairs can target the bad object directly.
+prompt or fixture repairs can target the bad object directly. Batch
+`validation_issues` expose agent schema and parser failures with object, count,
+field path, validation types, and source so broad prompts or output-shape
+regressions are visible before reading raw tracebacks.
 
 ## AI terminal entrypoints
 
@@ -306,10 +309,11 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failed_items`, `repair_hints`,
-   `failure_groups`, and per-loop summaries to prioritize shared repairs,
-   identify bad source objects, identify incomplete agent chains, and audit
-   partial execute-mode side effects, then drill into each linked loop report. If
+   `attention_flags`, `created_resources`, `failed_items`, `validation_issues`,
+   `repair_hints`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs, identify bad source objects, identify schema/output-shape
+   failures, identify incomplete agent chains, and audit partial execute-mode
+   side effects, then drill into each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use
@@ -445,10 +449,11 @@ Workflow:
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
    `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
    `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failed_items`, `repair_hints`,
-   `failure_groups`, and per-loop summaries to prioritize shared repairs,
-   identify bad source objects, identify incomplete agent chains, and audit
-   partial execute-mode side effects, then drill into each linked loop report. If
+   `attention_flags`, `created_resources`, `failed_items`, `validation_issues`,
+   `repair_hints`, `failure_groups`, and per-loop summaries to prioritize
+   shared repairs, identify bad source objects, identify schema/output-shape
+   failures, identify incomplete agent chains, and audit partial execute-mode
+   side effects, then drill into each linked loop report. If
    earlier runs were started separately and you know the loop names, use
    `meguri report --loops <loop> ...` to group the newest run for each named
    loop before summarizing. If you only know the count, use

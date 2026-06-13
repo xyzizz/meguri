@@ -1,7 +1,11 @@
 import json
 
 from meguri.reports import metrics
-from meguri.reports.metrics import extract_created_resources_from_steps, extract_failure_reasons_from_steps
+from meguri.reports.metrics import (
+    extract_created_resources_from_steps,
+    extract_failure_reasons_from_steps,
+    extract_validation_issues_from_steps,
+)
 
 
 def test_created_resources_are_found_inside_nested_agent_items() -> None:
@@ -156,5 +160,49 @@ def test_failed_items_are_found_inside_nested_agent_items() -> None:
             "name": "copy_facebook_ad_to_adset",
             "error": "image could not be loaded",
             "source": "items",
+        },
+    ]
+
+
+def test_validation_issues_are_extracted_from_agent_schema_errors() -> None:
+    validation_text = """confirm_3: exception ValidationError: 11 validation errors for AgentResponse
+plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle
+  Extra inputs are not permitted [type=extra_forbidden, input_value='19 条源广告复制到 2 个目标 Campaign', input_type=str]
+plan.panel.DRAFTING.display.BatchEditConfirm.display_schema
+  Input should be 'batch_edit_confirm' [type=literal_error, input_value='copy_ad_confirm', input_type=str]
+"""
+    stdout = json.dumps(
+        {
+            "passed": False,
+            "errors": [validation_text, "submit: flexible_submit_begin was not called"],
+            "crash_tracebacks": [
+                "AgentResponseParseError: 模型输出中只找到 panel/display/notices/draft 等内部 JSON 片段，没有完整 AgentResponse；顶层必须包含 reply 和 plan。"
+            ],
+        },
+        ensure_ascii=False,
+    )
+
+    issues = extract_validation_issues_from_steps([{"stdout": stdout}])
+
+    assert issues == [
+        {
+            "code": "schema_validation",
+            "severity": "error",
+            "object": "AgentResponse",
+            "count": "11",
+            "path": "plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle",
+            "types": "extra_forbidden,literal_error",
+            "message": "AgentResponse validation failed with 11 errors at plan.panel.DRAFTING.display.CopyAdConfirm.cards.0.subtitle (extra_forbidden,literal_error)",
+            "source": "errors",
+        },
+        {
+            "code": "agent_response_parse",
+            "severity": "error",
+            "object": "AgentResponse",
+            "count": "",
+            "path": "",
+            "types": "parse_error",
+            "message": "AgentResponse parse failed: missing complete AgentResponse",
+            "source": "crash_tracebacks",
         },
     ]

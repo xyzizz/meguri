@@ -113,6 +113,42 @@ def batch_failed_items(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
     return items
 
 
+def batch_validation_issues(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
+    issues: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str, str, str, str, str]] = set()
+    for run in runs:
+        loop = str(run.get("loop") or "")
+        run_id = str(run.get("run_id") or "")
+        for issue in run.get("validation_issues") or []:
+            if not isinstance(issue, dict):
+                continue
+            code = str(issue.get("code") or "")
+            object_name = str(issue.get("object") or "")
+            path = str(issue.get("path") or "")
+            types = str(issue.get("types") or "")
+            message = str(issue.get("message") or "")
+            source = str(issue.get("source") or "")
+            if not any((code, object_name, path, types, message)):
+                continue
+            key = (loop, run_id, code, object_name, path, types, source)
+            if key in seen:
+                continue
+            seen.add(key)
+            issues.append({
+                "loop": loop,
+                "run_id": run_id,
+                "code": code,
+                "severity": str(issue.get("severity") or "error"),
+                "object": object_name,
+                "count": str(issue.get("count") or ""),
+                "path": path,
+                "types": types,
+                "message": message,
+                "source": source,
+            })
+    return issues
+
+
 def batch_attention_flags(runs: list[dict[str, Any]]) -> list[dict[str, str]]:
     flags: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
@@ -156,6 +192,17 @@ def batch_repair_hints(runs: list[dict[str, Any]], remaining_loops: list[str] | 
             "loops": _dedupe(data_loops),
             "reasons": _dedupe(data_reasons),
             "action": "Verify or replace stale, invalid, or conflicting project data before rerun; keep pass criteria unchanged unless the user changes the goal.",
+        })
+
+    validation_issues = batch_validation_issues(runs)
+    if validation_issues:
+        hints.append({
+            "code": "fix_schema_output",
+            "severity": "error",
+            "loops": _dedupe([str(issue.get("loop") or "") for issue in validation_issues if issue.get("loop")]),
+            "issue_count": len(validation_issues),
+            "issue_codes": _dedupe([str(issue.get("code") or "") for issue in validation_issues if issue.get("code")]),
+            "action": "Narrow overly broad prompts, split large batches, or repair the agent output schema before rerun.",
         })
 
     chain_loops: list[str] = []
@@ -217,6 +264,17 @@ def failure_groups(runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def _looks_like_test_data_failure(reason: str) -> bool:
     lowered = reason.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "validationerror",
+            "validation errors for",
+            "extra_forbidden",
+            "literal_error",
+            "agentresponseparseerror",
+        )
+    ):
+        return False
     needles = [
         "archived",
         "not a valid",
@@ -311,6 +369,30 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + "".join(failed_item_rows)
         + "</tbody></table>"
     ) if failed_item_rows else ""
+    validation_rows = []
+    for issue in record.get("validation_issues") or []:
+        if not isinstance(issue, dict):
+            continue
+        validation_rows.append(
+            "<tr>"
+            f"<td>{html.escape(str(issue.get('loop') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('run_id') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('code') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('object') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('count') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('types') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('path') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('message') or '-'))}</td>"
+            f"<td>{html.escape(str(issue.get('source') or '-'))}</td>"
+            "</tr>"
+        )
+    validation_html = (
+        "<h2>Validation Issues</h2>"
+        "<p class=\"meta\">Schema and parser failures usually need prompt narrowing, output-shape fixes, or smaller execution batches before rerun.</p>"
+        "<table><thead><tr><th>Loop</th><th>Run</th><th>Code</th><th>Object</th><th>Count</th><th>Types</th><th>Path</th><th>Message</th><th>Source</th></tr></thead><tbody>"
+        + "".join(validation_rows)
+        + "</tbody></table>"
+    ) if validation_rows else ""
     attention_rows = []
     for flag in record.get("attention_flags") or []:
         if not isinstance(flag, dict):
@@ -433,6 +515,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         + retry_html
         + repair_html
         + attention_html
+        + validation_html
         + failed_items_html
         + created_html
         + groups_html

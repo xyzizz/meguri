@@ -103,7 +103,10 @@ reports successful writes, batch reports expose `created_resources` with loop,
 run, type, id, and source so partial side effects can be audited before retry or
 cleanup. Failed execute items are promoted into `failed_items` with loop, run,
 type, id, name, error, and source so prompt or fixture repairs can target the
-bad object directly. Batch reports also include `status_counts` for the overall
+bad object directly. Agent schema and parser failures are promoted into
+`validation_issues` with loop, run, object, error count, field path, validation
+types, and source so broad prompts or output-shape regressions are visible
+without drilling into raw tracebacks. Batch reports also include `status_counts` for the overall
 pass/fail/blocked distribution, `failed_loops` for failed or blocked loops,
 `repair_hints` for evidence-derived next steps, and `retry_loops` plus a
 project-root retry command for failed, blocked, or unfinished loops, including
