@@ -27,7 +27,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri inspect" in codex_skill
     assert "test-flow design" in codex_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in codex_prompt
-    assert "Do not launch another Codex or Claude process" in codex_prompt
+    assert "Use this active Codex session" in codex_prompt
     assert "meguri inspect" in claude_skill
     assert "argument-hint: inspect|add|run|validate|report [args]" in claude_skill
 
@@ -67,8 +67,8 @@ def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, cap
     prompt_path = tmp_path / ".meguri" / "prompts" / "inspect.md"
     assert prompt_path.is_file()
     prompt = prompt_path.read_text(encoding="utf-8")
-    assert "not a model runner" in prompt
-    assert "It must not\nlaunch another AI agent" in prompt
+    assert "specification and harness layer" in prompt
+    assert "Use the\nactive AI session" in prompt
     assert "understanding, test-flow design" in prompt
     assert ".meguri/project-inspect.json" in prompt
     assert "You are the current Codex / Claude Code agent" in output

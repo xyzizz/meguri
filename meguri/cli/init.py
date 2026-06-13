@@ -215,9 +215,8 @@ argument-hint: inspect|add|run|validate|report [args]
 
 Use Meguri for this request: $ARGUMENTS
 
-Meguri is a specification and harness layer, not a model runner. You are the
-current Codex agent. Do not launch another Codex or Claude process to understand
-the project.
+Meguri is a specification and harness layer. Use this active Codex session for
+project understanding, test-flow design, and any code/test authoring.
 
 If the request is empty or starts with `inspect`, run `meguri inspect`, follow
 the printed specification yourself, and write `.meguri/project-inspect.json` plus

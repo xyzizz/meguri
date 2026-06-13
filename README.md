@@ -14,8 +14,7 @@ Open Codex or Claude Code in the target project, then paste this prompt:
 ```text
 Install Meguri in this current project and continue in this same AI session.
 
-You are the current Codex / Claude Code agent. Do not launch another Codex or
-Claude process.
+Use the active Codex / Claude Code session to finish setup and inspection.
 
 From the current project root, run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills

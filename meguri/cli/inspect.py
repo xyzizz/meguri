@@ -30,11 +30,10 @@ def build_inspect_prompt(pack: ProjectPack) -> str:
     pack_root = pack.pack_root
     return f"""You are the current Codex / Claude Code agent. You are running Meguri inspect for this repository.
 
-Meguri is a specification and harness layer, not a model runner. It must not
-launch another AI agent for this task. Meguri owns the local specification, file
-layout, deterministic validation, scenario execution, and reports. Project
-understanding, test-flow design, and any code/test authoring must be done by you,
-the current AI agent in this session.
+Meguri is a specification and harness layer. It owns the local specification,
+file layout, deterministic validation, scenario execution, and reports. Use the
+active AI session for project understanding, test-flow design, and any code/test
+authoring.
 
 Repository root:
 {project_root}
