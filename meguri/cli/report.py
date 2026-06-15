@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import json
-import os
 import platform
-import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -18,7 +16,6 @@ from meguri.reports.batch import (
     batch_failed_items,
     batch_failed_loops,
     batch_repair_hints,
-    batch_retry_command,
     batch_retry_loops,
     batch_status_counts,
     batch_validation_issues,
@@ -194,7 +191,6 @@ def _write_selected_batch_report(
     batch_dir = pack.pack_root / "batches" / batch_id
     batch_dir.mkdir(parents=True, exist_ok=True)
     retry_loops = batch_retry_loops(runs)
-    allow_execute_retry = _retry_needs_execute_approval(runs, retry_loops)
     created_resources = batch_created_resources(runs)
     failed_items = batch_failed_items(runs)
     validation_issues = batch_validation_issues(runs)
@@ -217,7 +213,6 @@ def _write_selected_batch_report(
         "status_counts": batch_status_counts(runs),
         "failed_loops": batch_failed_loops(runs),
         "retry_loops": retry_loops,
-        "retry_command": batch_retry_command(runs, allow_execute=allow_execute_retry),
         "failure_groups": failure_groups(runs),
         "repair_hints": repair_hints,
         "attention_flags": attention_flags,
@@ -239,14 +234,6 @@ def _write_selected_batch_report(
     batch_dir.joinpath("index.html").write_text(render_batch_html(record, batch_dir), encoding="utf-8")
     pack.pack_root.joinpath("index.html").write_text(render_project_index(pack.pack_root), encoding="utf-8")
     return record
-
-
-def _retry_needs_execute_approval(runs: list[dict[str, Any]], retry_loops: list[str]) -> bool:
-    retry_set = set(retry_loops)
-    return any(
-        str(run.get("loop") or "") in retry_set and str(run.get("mode") or "") == "execute"
-        for run in runs
-    )
 
 
 def _report_dir_for_ref(pack: ProjectPack, ref: str) -> Path:
@@ -475,9 +462,6 @@ def _run_summary_from_json(report_dir: Path) -> dict[str, Any]:
     replay_missing = _replay_missing_from_raw(raw)
     if replay_missing:
         summary["replay_missing"] = replay_missing
-    replay_command = _replay_command_from_raw(raw, report_dir=report_dir, loop=loop)
-    if replay_command:
-        summary["replay_command"] = replay_command
     return summary
 
 
@@ -608,22 +592,6 @@ def _replay_missing_from_raw(raw: dict[str, Any]) -> list[str]:
     if not isinstance(missing, list):
         return []
     return [str(item) for item in missing if item]
-
-
-def _replay_command_from_raw(raw: dict[str, Any], *, report_dir: Path, loop: str) -> str:
-    replay = raw.get("replay") if isinstance(raw.get("replay"), dict) else {}
-    if not replay:
-        return ""
-    replay_path = report_dir / "replay.json"
-    project_path = Path(str(raw.get("project_path"))) if raw.get("project_path") else None
-    replay_arg = replay_path.as_posix()
-    if project_path is not None:
-        try:
-            replay_arg = Path(os.path.relpath(replay_path, project_path)).as_posix()
-        except (OSError, ValueError):
-            pass
-    source_run_id = str(replay.get("source_run_id") or raw.get("run_id") or report_dir.name)
-    return shlex.join(["meguri", "run", loop, "--replay", replay_arg, "--retry-of", source_run_id])
 
 
 def _failure_reasons_from_raw(raw: dict[str, Any]) -> list[str]:

@@ -2,26 +2,10 @@ from __future__ import annotations
 
 import html
 import os
-import shlex
 from pathlib import Path
 from typing import Any
 
 from meguri.reports.metrics import format_metrics
-
-
-def batch_retry_command(
-    runs: list[dict[str, Any]],
-    remaining_loops: list[str] | None = None,
-    *,
-    allow_execute: bool = False,
-) -> str:
-    targets = batch_retry_loops(runs, remaining_loops)
-    if not targets:
-        return ""
-    command = ["meguri", "run", *targets]
-    if allow_execute:
-        command.append("--allow-execute")
-    return shlex.join(command)
 
 
 def batch_retry_loops(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> list[str]:
@@ -297,12 +281,14 @@ def _looks_like_test_data_failure(reason: str) -> bool:
 
 def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
     rows = []
-    for index, run in enumerate(record["runs"], start=1):
-        report_path = Path(run["html_report_path"])
-        href = os.path.relpath(report_path, batch_dir)
+    runs = list(record["runs"])
+    attempt_marks = _loop_attempt_marks(runs)
+    for index, run in enumerate(runs, start=1):
+        href = _run_report_href(run, batch_dir)
         rows.append(
             "<tr>"
             f"<td>{index}</td>"
+            f"<td>{html.escape(attempt_marks[index - 1])}</td>"
             f"<td>{html.escape(str(run['loop']))}</td>"
             f"<td>{html.escape(str(run['status']))}</td>"
             f"<td>{html.escape(str(run.get('mode') or '-'))}</td>"
@@ -312,6 +298,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
             f"<td><a href=\"{html.escape(href)}\">Open report</a></td>"
             "</tr>"
         )
+    loop_attempts_html = _render_loop_attempts(runs, batch_dir)
     group_rows = []
     for group in record.get("failure_groups") or []:
         group_rows.append(
@@ -474,15 +461,6 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
             f"{': ' + html.escape(str(interruption.get('message'))) if interruption.get('message') else ''}"
             "</p>"
         )
-    retry_command = str(record.get("retry_command") or "")
-    retry_html = ""
-    if retry_command:
-        retry_html = (
-            "<h2>Retry Failed or Unfinished Loops</h2>"
-            "<p class=\"meta\">Run from the project root after repair. "
-            "Recovered running reports are included. Execute-mode loops still require explicit approval.</p>"
-            f"<pre>{html.escape(retry_command)}</pre>"
-        )
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
@@ -512,17 +490,82 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         f"<br>Finished: {html.escape(str(record.get('finished_at') or '-'))}</p>"
         + current_run_html
         + summary_html
-        + retry_html
+        + loop_attempts_html
         + repair_html
         + attention_html
         + validation_html
         + failed_items_html
         + created_html
         + groups_html
-        + "<table><thead><tr><th>#</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
+        + "<table><thead><tr><th>#</th><th>Attempt</th><th>Loop</th><th>Status</th><th>Mode</th><th>Run</th><th>Metrics</th><th>Summary</th><th>Report</th></tr></thead><tbody>"
         + "".join(rows)
         + "</tbody></table></main></body></html>"
     )
+
+
+def _render_loop_attempts(runs: list[dict[str, Any]], batch_dir: Path) -> str:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    order: list[str] = []
+    for run in runs:
+        loop = str(run.get("loop") or "-")
+        if loop not in groups:
+            groups[loop] = []
+            order.append(loop)
+        groups[loop].append(run)
+    rows = []
+    for loop in order:
+        attempts = groups[loop]
+        if len(attempts) <= 1:
+            continue
+        items = []
+        for attempt_index, run in enumerate(attempts, start=1):
+            href = _run_report_href(run, batch_dir)
+            run_id = str(run.get("run_id") or "-")
+            status = str(run.get("status") or "-")
+            summary = str(run.get("summary") or "-")
+            items.append(
+                "<li>"
+                f"<a href=\"{html.escape(href)}\">Attempt {attempt_index}</a>"
+                f"<span class=\"meta\">run {html.escape(run_id)} - {html.escape(status)} - {html.escape(summary)}</span>"
+                "</li>"
+            )
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(loop)}</td>"
+            f"<td>{len(attempts)}</td>"
+            f"<td>{html.escape(str(attempts[-1].get('status') or '-'))}</td>"
+            f"<td><ol class=\"attempt-list\">{''.join(items)}</ol></td>"
+            "</tr>"
+        )
+    if not rows:
+        return ""
+    return (
+        "<h2>Loop Attempts</h2>"
+        "<p class=\"meta\">Loops with retries inside this batch are grouped here; each attempt keeps its own run report.</p>"
+        "<table><thead><tr><th>Loop</th><th>Attempts</th><th>Latest status</th><th>Records</th></tr></thead><tbody>"
+        + "".join(rows)
+        + "</tbody></table>"
+    )
+
+
+def _loop_attempt_marks(runs: list[dict[str, Any]]) -> list[str]:
+    totals: dict[str, int] = {}
+    for run in runs:
+        loop = str(run.get("loop") or "-")
+        totals[loop] = totals.get(loop, 0) + 1
+    seen: dict[str, int] = {}
+    marks = []
+    for run in runs:
+        loop = str(run.get("loop") or "-")
+        seen[loop] = seen.get(loop, 0) + 1
+        total = totals.get(loop, 1)
+        marks.append(f"{seen[loop]} / {total}" if total > 1 else "-")
+    return marks
+
+
+def _run_report_href(run: dict[str, Any], batch_dir: Path) -> str:
+    report_path = Path(str(run.get("html_report_path") or batch_dir / "index.html"))
+    return os.path.relpath(report_path, batch_dir)
 
 
 def _dedupe(values: list[str]) -> list[str]:

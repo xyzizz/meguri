@@ -175,21 +175,19 @@ when a step starts, when shell stdout/stderr advances, on silent-step
 heartbeats, and when a step finishes. `run.json.updated_at` changes on every
 snapshot refresh. If a run is interrupted, Meguri records the active step as
 blocked, appends a
-`run_interrupted` timeline event, and leaves the report readable. Each run
-report includes a project-root Replay command that uses the run-local
-`replay.json` plus `--retry-of <run_id>` for repair-and-rerun loops.
+`run_interrupted` timeline event, and leaves the report readable. Replay
+metadata records the run-local `replay.json` status and pre-run project state;
+after repair, rerun the named loop directly instead of copying a generated
+replay command.
 In normal text mode, `meguri run` prints `live_report=...`,
 `live_artifact_dir=...`, `live_updated_at=...`, the current step, and live
 stdout/stderr artifact paths plus character counts as soon as running snapshots
 exist, output advances, or silent heartbeats refresh the run; `--json` stays
 clean final JSON only.
 Batch reports include `status_counts` for the pass/fail/blocked distribution,
-`failed_loops` for failed or blocked loops, plus batch `retry_loops` and batch
-`retry_command` that reruns failed, blocked, or unfinished loops from the
-project root after repair, including `running` reports recovered from separate
-runs. When a batch was started with execute approval or a recovered batch has
-execute-mode retry targets, the batch `retry_command` preserves
-`--allow-execute`. Batch run summaries include per-loop `mode` so execute risk
+`failed_loops` for failed or blocked loops, plus batch `retry_loops` for failed,
+blocked, or unfinished loops, including `running` reports recovered from
+separate runs. Batch run summaries include per-loop `mode` so execute risk
 remains visible during review. While a loop is
 still running, the batch record exposes `current_run` with the live report path
 and current step. Batch `attention_flags` surface incomplete agent chains such
@@ -303,7 +301,7 @@ Workflow:
    linked artifacts before proposing fixes. For a single completed loop, use
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
    structured run summary, metrics, failure reasons, `evidence_files`,
-   `evidence_warnings`, `replay_status`, and `replay_command` before drilling
+   `evidence_warnings`, `replay_status`, and `replay_missing` before drilling
    into raw artifacts. If an older single-run `index.html` or `report.md`
    predates the current Meguri renderer, use `meguri report <run_id> --refresh`
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
@@ -323,14 +321,9 @@ Workflow:
    included. Use `meguri report --loops <loop> ... --json`,
    `meguri report --recent <N> --json`, or
    `meguri report --runs <run_id-or-path> ... --json` when you need clean
-   structured data for a written summary. After making a repair, use the batch `retry_loops` list
-   to understand exactly which loops will run, including failed, blocked, and
-   recovered running reports, then use batch `retry_command` for grouped
-   failures; it preserves `--allow-execute` when the original batch was
-   explicitly approved for execute mode or when a recovered batch includes
-   execute-mode retry targets. Use the run
-   report's project-root Replay command for a single loop
-   instead of rebuilding the command from memory.
+   structured data for a written summary. After making a repair, use the batch
+   `retry_loops` list to understand which failed, blocked, or recovered running
+   loops need another pass, then rerun only the named loop(s) intentionally.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
@@ -443,7 +436,7 @@ Workflow:
    linked artifacts before proposing fixes. For a single completed loop, use
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
    structured run summary, metrics, failure reasons, `evidence_files`,
-   `evidence_warnings`, `replay_status`, and `replay_command` before drilling
+   `evidence_warnings`, `replay_status`, and `replay_missing` before drilling
    into raw artifacts. If an older single-run `index.html` or `report.md`
    predates the current Meguri renderer, use `meguri report <run_id> --refresh`
    to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
@@ -463,14 +456,9 @@ Workflow:
    included. Use `meguri report --loops <loop> ... --json`,
    `meguri report --recent <N> --json`, or
    `meguri report --runs <run_id-or-path> ... --json` when you need clean
-   structured data for a written summary. After making a repair, use the batch `retry_loops` list
-   to understand exactly which loops will run, including failed, blocked, and
-   recovered running reports, then use batch `retry_command` for grouped
-   failures; it preserves `--allow-execute` when the original batch was
-   explicitly approved for execute mode or when a recovered batch includes
-   execute-mode retry targets. Use the run
-   report's project-root Replay command for a single loop
-   instead of rebuilding the command from memory.
+   structured data for a written summary. After making a repair, use the batch
+   `retry_loops` list to understand which failed, blocked, or recovered running
+   loops need another pass, then rerun only the named loop(s) intentionally.
 12. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """

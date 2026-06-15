@@ -303,7 +303,7 @@ def test_html_report_surfaces_attention_flags(tmp_path: Path) -> None:
     assert "crash_traceback" in html
 
 
-def test_html_report_renders_replay_command(tmp_path: Path) -> None:
+def test_html_report_renders_replay_status_without_command(tmp_path: Path) -> None:
     now = utc_now()
     artifact_dir = tmp_path / ".meguri" / "loops" / "agent_loop" / "20260613_152717"
     report = RunReport(
@@ -327,7 +327,7 @@ def test_html_report_renders_replay_command(tmp_path: Path) -> None:
     html = render_html_report(report)
 
     assert "Replay" in html
-    assert (
-        "meguri run agent_loop --replay .meguri/loops/agent_loop/20260613_152717/replay.json "
-        "--retry-of 20260613_152717"
-    ) in html
+    assert "full" in html
+    assert "meguri run agent_loop" not in html
+    assert "--replay" not in html
+    assert "--retry-of" not in html

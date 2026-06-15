@@ -108,14 +108,11 @@ bad object directly. Agent schema and parser failures are promoted into
 types, and source so broad prompts or output-shape regressions are visible
 without drilling into raw tracebacks. Batch reports also include `status_counts` for the overall
 pass/fail/blocked distribution, `failed_loops` for failed or blocked loops,
-`repair_hints` for evidence-derived next steps, and `retry_loops` plus a
-project-root retry command for failed, blocked, or unfinished loops, including
-`running` reports recovered from prior separate runs. Repair hints group stale
-or invalid test data, incomplete agent chains, unfinished loops, and partial
-execute-mode side effects so repair work can start from the batch summary
-before drilling into raw artifacts. If the original batch was explicitly
-approved for execute mode, or if a recovered batch includes execute-mode retry
-targets, the retry command preserves `--allow-execute`.
+`repair_hints` for evidence-derived next steps, and `retry_loops` for failed,
+blocked, or unfinished loops, including `running` reports recovered from prior
+separate runs. Repair hints group stale or invalid test data, incomplete agent
+chains, unfinished loops, and partial execute-mode side effects so repair work
+can start from the batch summary before drilling into raw artifacts.
 `timeline.ndjson` is an append-only event stream written as the loop and each
 step progress. `run.json`, `report.md`, and `index.html` are written when a loop
 starts and refreshed when each step starts, when shell stdout/stderr advances,
@@ -136,10 +133,8 @@ the step artifacts. If a step's structured stdout declares `evidence_json` or
 `evidence_markdown` files under the run directory, Meguri links them as step
 artifacts. Replay metadata also captures the pre-run git branch,
 commit, dirty flag, and dirty file list so a report can be audited against the
-exact project state that produced it. Each run report shows a Replay command
-that is runnable from the project root, reuses the run-local `replay.json`, and
-marks the retry with `--retry-of`, so repairs can be rerun without
-reconstructing the command from memory. Legacy
+exact project state that produced it. After repair, rerun the named loop
+directly instead of copying a generated replay command. Legacy
 `.meguri/scenarios/*.yaml` loop files remain runnable for compatibility; their
 new records are written under `.meguri/loops/<loop_id>/`. Existing
 `.meguri/runs/<run_id>/` reports remain readable.

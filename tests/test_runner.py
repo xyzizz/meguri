@@ -103,10 +103,9 @@ steps:
     assert replay["scenario_path"] == str(loop_file)
     html = (artifact_dir / "index.html").read_text(encoding="utf-8")
     assert "Replay" in html
-    assert (
-        f"meguri run shell_smoke --replay .meguri/loops/shell_smoke/{report.run_id}/replay.json "
-        f"--retry-of {report.run_id}"
-    ) in html
+    assert "meguri run shell_smoke" not in html
+    assert "--replay" not in html
+    assert "--retry-of" not in html
 
 
 def test_runner_writes_legacy_scenario_runs_under_loop_history(tmp_path: Path) -> None:
