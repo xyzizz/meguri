@@ -21,10 +21,10 @@ Open Codex or Claude Code in the target project, then paste:
 Install Meguri in this project and enable the Codex / Claude Code slash entrypoint.
 
 Run:
-curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
 
 After installation, run:
-/meguri inspect
+/meguri init
 ```
 
 A fuller copyable install prompt lives in
@@ -35,7 +35,7 @@ After setup, use Meguri from the AI terminal:
 ```text
 Claude Code: type `/`, search `meguri`, choose `/meguri`
 Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
-Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
+Codex alternatives: `/skills` -> `meguri`, or `$meguri init`
 ```
 
 If the newly installed entrypoint does not appear, restart Codex / Claude Code
@@ -56,6 +56,7 @@ The installer creates the project workflow files:
 ```text
 .meguri/
   project.yaml
+  generated/inspect.md
   loops/smoke/_loop.yaml
   scenarios/smoke.yaml
   README.md
@@ -167,7 +168,7 @@ Ask Codex / Claude Code to use Meguri for:
 
 | Workflow | What the active AI does |
 | --- | --- |
-| Inspect | Reads the project and creates the inspection artifacts. |
+| Init | Prepares Meguri, reads the project, and creates the inspection artifacts. |
 | Add loop | Designs a deterministic loop only after the goal, safe execution entry, and pass criteria are clear. |
 | List loops | Shows how many user-added loops exist in the current project. |
 | Delete loop | Removes a named user-added loop. |
@@ -178,8 +179,8 @@ Ask Codex / Claude Code to use Meguri for:
 
 ```text
 Examples:
-/meguri inspect
-$meguri inspect
+/meguri init
+$meguri init
 Use Meguri to add a loop for checkout.
 Use Meguri to list loops.
 Use Meguri to delete the checkout loop.

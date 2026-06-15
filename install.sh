@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_URL="${MEGURI_REPO_URL:-https://github.com/xyzizz/meguri.git}"
 PACKAGE_SPEC="${MEGURI_PACKAGE_SPEC:-git+${REPO_URL}}"
-RUN_INIT=false
+RUN_INIT=true
 INSTALL_SKILLS=false
 FORCE=false
 
@@ -13,16 +13,15 @@ Install Meguri for Codex and Claude Code.
 
 Usage:
   curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
-  curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
 
 Agent-first install:
   Paste the prompt from prompts/install.md into Codex or Claude Code while the
   target project is open. The current AI agent will run this installer and then
-  continue with the Meguri inspect workflow.
+  continue with the Meguri init workflow.
 
 Options:
-  --init             Initialize the current project after install.
-  --install-skills   Install project-local Codex and Claude Code entrypoints. Implies --init.
+  --init             Compatibility no-op; project initialization runs by default.
+  --install-skills   Compatibility no-op; slash entrypoints are installed by default.
   --force            Overwrite generated Meguri files during initialization.
   --repo-url URL     Install from a different Git repository URL.
   --package-spec S   Install an explicit pip package spec.
@@ -141,12 +140,12 @@ cat <<EOF
 Meguri is ready.
 
 Run from the AI terminal:
-  /meguri inspect
+  /meguri init
 
 If slash entrypoints need selection:
   Claude Code: type /, search meguri, choose /meguri
   Codex: restart/open a new session, type /, search meguri, choose prompts:meguri
-  Codex alternatives: /skills -> meguri, or \$meguri inspect
+  Codex alternatives: /skills -> meguri, or \$meguri init
 
 If a newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in this project.

@@ -11,6 +11,11 @@ import yaml
 from meguri.cli.main import main
 
 
+@pytest.fixture(autouse=True)
+def _isolate_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+
 def _write_loop(tmp_path: Path, name: str, command: list[str]) -> None:
     loop_dir = tmp_path / ".meguri" / "loops" / name
     loop_dir.mkdir(parents=True, exist_ok=True)
@@ -40,12 +45,13 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
-    assert main(["init", "--install-skills"]) == 0
+    assert main(["init"]) == 0
 
     assert (tmp_path / ".meguri" / "project.yaml").is_file()
     assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()
     assert (tmp_path / ".meguri" / "scenarios" / "smoke.yaml").is_file()
     assert (tmp_path / ".meguri" / "README.md").is_file()
+    assert (tmp_path / ".meguri" / "generated" / "inspect.md").is_file()
     assert (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").is_file()
     assert (tmp_path / ".claude" / "commands" / "meguri.md").is_file()
@@ -58,7 +64,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
-    assert "Meguri inspect workflow" in codex_skill
+    assert "Meguri init workflow" in codex_skill
     assert "loop design" in codex_skill
     assert "evidence crash-safe" in codex_skill
     assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
@@ -95,12 +101,12 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "per-loop `mode`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" not in codex_skill
-    assert "argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]" in codex_prompt
+    assert "argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
     assert "meguri upgrade --skills --refresh-index" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
     assert "--allow-execute" in codex_prompt
-    assert "Meguri inspect workflow" in claude_skill
+    assert "Meguri init workflow" in claude_skill
     assert "evidence crash-safe" in claude_skill
     assert "meguri run --all --exclude <loop>" in claude_skill
     assert "live_report=..." in claude_skill
@@ -132,7 +138,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "per-loop `mode`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" not in claude_skill
-    assert "argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]" in claude_skill
+    assert "argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
     assert "upgrade" in claude_command
@@ -151,7 +157,7 @@ def test_upgrade_requires_an_action(tmp_path: Path, monkeypatch, capsys) -> None
 def test_upgrade_skills_overwrites_project_entrypoints(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    assert main(["init", "--install-skills"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
 
     skill_paths = [
@@ -169,8 +175,8 @@ def test_upgrade_skills_overwrites_project_entrypoints(tmp_path: Path, monkeypat
     for path in skill_paths:
         text = path.read_text(encoding="utf-8")
         assert "stale entrypoint" not in text
-    assert "Meguri inspect workflow" in skill_paths[0].read_text(encoding="utf-8")
-    assert "Meguri inspect workflow" in skill_paths[1].read_text(encoding="utf-8")
+    assert "Meguri init workflow" in skill_paths[0].read_text(encoding="utf-8")
+    assert "Meguri init workflow" in skill_paths[1].read_text(encoding="utf-8")
     assert "Meguri verification loop workflow" in skill_paths[2].read_text(encoding="utf-8")
     assert "Use this active Codex session" in skill_paths[3].read_text(encoding="utf-8")
     assert "updated .agents/skills/meguri/SKILL.md" in output
@@ -238,6 +244,31 @@ def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch
     assert project_yaml.read_text(encoding="utf-8") == "custom: true\n"
 
 
+def test_init_preserves_existing_loops_and_user_prompts(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    smoke_loop = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
+    user_prompt = tmp_path / ".meguri" / "prompts" / "inspect.md"
+    codex_prompt = tmp_path / "home" / ".codex" / "prompts" / "meguri.md"
+    smoke_loop.parent.mkdir(parents=True)
+    user_prompt.parent.mkdir(parents=True)
+    codex_prompt.parent.mkdir(parents=True)
+    smoke_loop.write_text("custom loop\n", encoding="utf-8")
+    user_prompt.write_text("custom project prompt\n", encoding="utf-8")
+    codex_prompt.write_text("custom slash prompt\n", encoding="utf-8")
+
+    assert main(["init"]) == 0
+    output = capsys.readouterr().out
+
+    assert smoke_loop.read_text(encoding="utf-8") == "custom loop\n"
+    assert user_prompt.read_text(encoding="utf-8") == "custom project prompt\n"
+    assert codex_prompt.read_text(encoding="utf-8") == "custom slash prompt\n"
+    generated_prompt = tmp_path / ".meguri" / "generated" / "inspect.md"
+    assert generated_prompt.is_file()
+    assert ".meguri/project-inspect.json" in generated_prompt.read_text(encoding="utf-8")
+    assert "You are the current Codex / Claude Code agent" in output
+
+
 def test_add_asks_for_clarification_without_required_information(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init"]) == 0
@@ -251,15 +282,13 @@ def test_add_asks_for_clarification_without_required_information(tmp_path: Path,
     assert not (tmp_path / ".meguri" / "scenarios" / "login.yaml").exists()
 
 
-def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_inspect_compatibility_alias_runs_init_workflow(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init"]) == 0
-    capsys.readouterr()
 
     assert main(["inspect"]) == 0
     output = capsys.readouterr().out
 
-    prompt_path = tmp_path / ".meguri" / "prompts" / "inspect.md"
+    prompt_path = tmp_path / ".meguri" / "generated" / "inspect.md"
     assert prompt_path.is_file()
     prompt = prompt_path.read_text(encoding="utf-8")
     assert "specification and harness layer" in prompt
@@ -271,13 +300,6 @@ def test_inspect_writes_current_agent_spec_only(tmp_path: Path, monkeypatch, cap
     assert "You are the current Codex / Claude Code agent" in output
     assert not (tmp_path / ".meguri" / "project-inspect.json").exists()
     assert not (tmp_path / ".meguri" / "project-brief.md").exists()
-
-
-def test_inspect_requires_project_pack(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    assert main(["inspect"]) == 2
-    assert "meguri init --install-skills" in capsys.readouterr().err
 
 
 def test_add_writes_valid_scenario_when_required_fields_are_supplied(tmp_path: Path, monkeypatch) -> None:

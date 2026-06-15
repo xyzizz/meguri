@@ -7,7 +7,8 @@ from typing import Any
 
 import yaml
 
-from meguri.project.pack import pack_root_for
+from meguri.cli.inspect import write_inspect_spec
+from meguri.project.pack import load_project_pack, pack_root_for
 
 
 def handle_init(args: Any) -> int:
@@ -15,10 +16,12 @@ def handle_init(args: Any) -> int:
     pack_root = pack_root_for(project_root)
     created: list[Path] = []
     skipped: list[Path] = []
+    force = bool(getattr(args, "force", False))
 
-    created.extend(_write_pack(project_root, pack_root, force=bool(args.force), skipped=skipped))
-    if args.install_skills:
-        created.extend(write_skills(project_root, force=bool(args.force), skipped=skipped))
+    created.extend(_write_pack(project_root, pack_root, force=force, skipped=skipped))
+    created.extend(write_skills(project_root, force=force, skipped=skipped))
+    pack = load_project_pack(project_root)
+    prompt_path, prompt = write_inspect_spec(pack)
 
     for path in created:
         print(f"created {_display_path(project_root, path)}")
@@ -26,6 +29,8 @@ def handle_init(args: Any) -> int:
         print(f"exists  {_display_path(project_root, path)}")
     if not created and skipped:
         print("no changes; pass --force to overwrite generated files")
+    print(f"meguri: wrote {_display_path(project_root, prompt_path)}", file=sys.stderr)
+    print(prompt)
     return 0
 
 
@@ -207,12 +212,12 @@ regressions are visible before reading raw tracebacks.
 
 - Claude Code: type `/`, search `meguri`, choose `/meguri`
 - Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
-- Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
+- Codex alternatives: `/skills` -> `meguri`, or `$meguri init`
 
 ## Common AI requests
 
 ```text
-Use Meguri to inspect this project.
+Use Meguri to initialize and inspect this project.
 Use Meguri to validate this project pack.
 Use Meguri to list loops.
 Use Meguri to delete the <name> loop.
@@ -238,10 +243,10 @@ loops must be run with `meguri run <loop> --allow-execute`.
 def _codex_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Codex to design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
 ---
 
-You are using the Meguri project workflow for Codex.
+You are using the Meguri init workflow for Codex.
 
 Meguri is an agent-facing verification workflow. Its user-facing unit is a
 loop: check evidence, repair when safe, rerun, then pass, block, or ask.
@@ -252,9 +257,9 @@ authoring.
 Use `$meguri` as the user-facing entrypoint in conversation.
 
 Workflow:
-1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Start the Meguri inspect workflow to materialize and print the current
-   Meguri inspect specification. Follow that spec yourself in this Codex session.
+1. If the request is empty, starts with `init`, or `.meguri/project.yaml` is
+   missing, run `meguri init`.
+2. Follow the printed Meguri init specification yourself in this Codex session.
 3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing Meguri loops before editing.
 4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
@@ -334,7 +339,7 @@ Workflow:
 def _codex_slash_prompt() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
+argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
 ---
 
 Use Meguri for this request: $ARGUMENTS
@@ -342,8 +347,8 @@ Use Meguri for this request: $ARGUMENTS
 Meguri is a specification and harness layer. Use this active Codex session for
 project understanding, loop design, and any code/test authoring.
 
-If the request is empty or starts with `inspect`, start the Meguri inspect
-workflow, follow the printed specification yourself, and write
+If the request is empty or starts with `init`, run `meguri init`, follow the
+printed specification yourself, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
 If the request asks to add/design a loop, first inspect existing docs,
@@ -372,12 +377,12 @@ run `meguri validate` and the relevant `meguri run <loop> --open` when safe.
 def _claude_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Claude Code to design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
-argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
+description: Use when the user wants Claude Code to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
+argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
 disable-model-invocation: true
 ---
 
-You are using the Meguri project workflow for Claude Code.
+You are using the Meguri init workflow for Claude Code.
 
 Meguri is an agent-facing verification workflow. Its user-facing unit is a
 loop: check evidence, repair when safe, rerun, then pass, block, or ask.
@@ -391,9 +396,9 @@ Requested Meguri workflow:
 $ARGUMENTS
 
 Workflow:
-1. If `.meguri/project.yaml` is missing, run `meguri init --install-skills`.
-2. Start the Meguri inspect workflow to materialize and print the current
-   Meguri inspect specification. Follow that spec yourself in this Claude Code
+1. If the request is empty, starts with `init`, or `.meguri/project.yaml` is
+   missing, run `meguri init`.
+2. Follow the printed Meguri init specification yourself in this Claude Code
    session.
 3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
    app entrypoints, and existing Meguri loops before editing.
@@ -474,7 +479,7 @@ Workflow:
 def _claude_command() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
+argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
 ---
 
 Use the Meguri loop workflow in this Claude Code session.
@@ -482,8 +487,8 @@ Use the Meguri loop workflow in this Claude Code session.
 Requested Meguri workflow:
 $ARGUMENTS
 
-If the request is empty or starts with `inspect`, start the Meguri inspect
-workflow, follow the printed specification, and write
+If the request is empty or starts with `init`, run `meguri init`, follow the
+printed specification, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
 For add, loops, delete, run, validate, report, or upgrade requests, follow the

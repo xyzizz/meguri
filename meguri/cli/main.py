@@ -44,11 +44,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="meguri")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    init = sub.add_parser("init", help="Initialize a Meguri project pack in the current project.")
-    init.add_argument("--install-skills", action="store_true", help="Install repo-local Codex and Claude Code skills.")
+    init = sub.add_parser("init", help="Initialize Meguri and print the project inspection workflow.")
+    init.add_argument("--install-skills", action="store_true", help="Compatibility no-op; init writes entrypoints by default.")
     init.add_argument("--force", action="store_true", help="Overwrite generated files.")
 
-    sub.add_parser("inspect", help="Print the Meguri inspection spec for the current Codex or Claude Code agent.")
+    sub.add_parser("inspect", help="Compatibility alias for init.")
 
     add = sub.add_parser("add", help="Add a verification loop when enough deterministic information is provided.")
     add.add_argument("description", help="Natural-language description of the loop to close.")

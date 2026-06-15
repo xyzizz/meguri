@@ -17,10 +17,10 @@ Meguri 不会自己理解你的项目。项目理解、测试流程设计、测�
 请在当前项目安装 Meguri，并启用 Codex / Claude Code 的 slash 入口。
 
 运行：
-curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash -s -- --init --install-skills
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
 
 安装完成后，执行：
-/meguri inspect
+/meguri init
 ```
 
 更完整的可复制安装提示词在 [`prompts/install.md`](prompts/install.md)。
@@ -30,7 +30,7 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 ```text
 Claude Code: 输入 `/`，搜索 `meguri`，选择 `/meguri`
 Codex: 重启/新开会话后输入 `/`，搜索 `meguri`，选择 `prompts:meguri`
-Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
+Codex 备选：`/skills` -> `meguri`，或 `$meguri init`
 ```
 
 如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话。
@@ -49,6 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 ```text
 .meguri/
   project.yaml
+  generated/inspect.md
   loops/smoke/_loop.yaml
   scenarios/smoke.yaml
   README.md
@@ -99,7 +100,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 
 | 工作流 | 当前 AI 会做什么 |
 | --- | --- |
-| Inspect | 阅读项目，并创建项目检查产物。 |
+| Init | 准备 Meguri、阅读项目，并创建项目检查产物。 |
 | Add loop | 在目标、安全执行入口、通过标准都清楚后，设计确定性的 loop。 |
 | List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
 | Delete loop | 删除指定命名的用户 loop。 |
@@ -110,8 +111,8 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 
 ```text
 示例：
-/meguri inspect
-$meguri inspect
+/meguri init
+$meguri init
 用 Meguri 增加一个下单 loop。
 用 Meguri 查看当前有多少 loop。
 用 Meguri 删除 checkout loop。

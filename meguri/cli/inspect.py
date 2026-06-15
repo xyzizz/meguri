@@ -1,34 +1,29 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import Any
 
-from meguri.project.pack import ProjectPack, find_project_pack
+from meguri.project.pack import ProjectPack
 
 
 def handle_inspect(args: Any) -> int:
-    try:
-        pack = find_project_pack(Path.cwd())
-    except FileNotFoundError:
-        print("Cannot inspect this project yet: no .meguri/ pack found.", file=sys.stderr)
-        print("Run meguri init --install-skills first, then retry meguri inspect.", file=sys.stderr)
-        return 2
+    from meguri.cli.init import handle_init
 
+    return handle_init(args)
+
+
+def write_inspect_spec(pack: ProjectPack) -> tuple[Path, str]:
     prompt = build_inspect_prompt(pack)
-    prompt_path = pack.pack_root / "prompts" / "inspect.md"
+    prompt_path = pack.pack_root / "generated" / "inspect.md"
     prompt_path.parent.mkdir(parents=True, exist_ok=True)
     prompt_path.write_text(prompt, encoding="utf-8")
-
-    print(f"meguri: wrote {prompt_path.relative_to(pack.project_root)}", file=sys.stderr)
-    print(prompt)
-    return 0
+    return prompt_path, prompt
 
 
 def build_inspect_prompt(pack: ProjectPack) -> str:
     project_root = pack.project_root
     pack_root = pack.pack_root
-    return f"""You are the current Codex / Claude Code agent. You are running Meguri inspect for this repository.
+    return f"""You are the current Codex / Claude Code agent. You are running Meguri init for this repository.
 
 Meguri is a specification and harness layer. Its user-facing unit is a loop:
 check evidence, repair when safe, rerun, then pass, block, or ask. Meguri owns
