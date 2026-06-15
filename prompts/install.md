@@ -21,3 +21,16 @@ Claude Code: type `/`, search `meguri`, choose `/meguri`
 Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
 Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
 ```
+
+For an existing project update, keep the same installer and then refresh the
+generated project entrypoints and indexes from the AI terminal:
+
+```text
+Update Meguri in this project.
+
+Run:
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
+
+After the installer finishes, run:
+/meguri upgrade --skills --refresh-index
+```

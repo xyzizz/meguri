@@ -47,6 +47,9 @@ def test_batch_html_groups_repeated_loop_attempts(tmp_path: Path) -> None:
     )
 
     assert "Loop Attempts" in html
+    assert "--glow-primary" in html
+    assert "glow-bg" in html
+    assert "color-scheme: dark" in html
     assert "Attempt 1" in html
     assert "Attempt 2" in html
     assert "1 / 2" in html

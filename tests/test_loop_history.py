@@ -59,8 +59,12 @@ def test_render_loop_and_project_indexes_link_to_run_reports(tmp_path: Path) -> 
 
     assert "20260613_152717" in loop_html
     assert "20260613_152717/index.html" in loop_html
+    assert "--glow-primary" in loop_html
+    assert "glow-bg" in loop_html
     assert "checkout" in project_html
     assert "loops/checkout/index.html" in project_html
+    assert "--glow-primary" in project_html
+    assert "glow-bg" in project_html
     assert "Batch Runs" in project_html
     assert "20260613_160000_123456" in project_html
     assert "batches/20260613_160000_123456/index.html" in project_html

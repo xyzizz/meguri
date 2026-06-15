@@ -170,6 +170,12 @@ def test_html_report_renders_evidence_timeline_and_detail_panel(tmp_path: Path) 
     assert "detail-panel" in html
     assert "User input" in html
     assert "hello" in html
+    evidence_script = html.split('<script id="evidence-data" type="application/json">', 1)[1].split("</script>", 1)[0]
+    assert "&quot;" not in evidence_script
+    assert '"title": "User input"' in evidence_script
+    assert "--glow-primary" in html
+    assert "glow-bg" in html
+    assert "color-scheme: dark" in html
 
 
 def test_html_report_renders_step_timeline_when_evidence_is_absent(tmp_path: Path) -> None:

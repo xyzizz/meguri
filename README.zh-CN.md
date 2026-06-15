@@ -35,6 +35,13 @@ Codex 备选：`/skills` -> `meguri`，或 `$meguri inspect`
 
 如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话。
 
+后续更新已有项目时，仍然使用同一个 curl 安装方式，然后在 AI 终端里刷新生成的入口和报告索引：
+
+```text
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
+/meguri upgrade --skills --refresh-index
+```
+
 ## 创建内容
 
 安装器会创建项目工作流文件：
@@ -99,6 +106,7 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 | Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
 | Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts；execute-mode loop 必须先获得明确批准。 |
 | Report | 打开报告、从 `run.json` 刷新旧的单 run HTML/Markdown、列出运行中报告、输出带 evidence/replay 指针的单 run JSON 摘要，或把最近多个散落 run、指定 run id/路径、指定 loop 的最新 run 归并成一个 batch 报告。 |
+| Upgrade | 安装新版本后，刷新生成的 slash 入口和项目/loop 索引页。 |
 
 ```text
 示例：
@@ -116,6 +124,7 @@ $meguri inspect
 用 Meguri 以 JSON 汇总这些指定的 run 报告路径。
 用 Meguri 以 JSON 汇总这些 loop 名称各自最新的 run。
 用 Meguri 打开最新报告。
+/meguri upgrade --skills --refresh-index
 ```
 
 新增 loop 会保持保守。如果请求语义不清、缺少安全执行入口，或缺少确定性的通过标准，Meguri 会要求澄清，并且不写入文件。

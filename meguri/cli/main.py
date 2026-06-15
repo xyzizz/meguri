@@ -11,6 +11,7 @@ from meguri.cli.init import handle_init
 from meguri.cli.inspect import handle_inspect
 from meguri.cli.loops import handle_delete, handle_loops, read_loops
 from meguri.cli.report import handle_report, open_path
+from meguri.cli.upgrade import handle_upgrade
 from meguri.cli.validate import handle_validate
 from meguri.core.models import utc_now
 from meguri.project.pack import find_project_pack, resolve_scenario, slugify
@@ -75,6 +76,10 @@ def main(argv: list[str] | None = None) -> int:
     validate_scenario = sub.add_parser("validate-scenario", help="Compatibility alias: load and validate a scenario file.")
     validate_scenario.add_argument("scenario")
 
+    upgrade = sub.add_parser("upgrade", help="Refresh generated Meguri files in the current project.")
+    upgrade.add_argument("--skills", action="store_true", help="Refresh Codex and Claude Code entrypoints.")
+    upgrade.add_argument("--refresh-index", action="store_true", help="Regenerate project and loop index pages.")
+
     run = sub.add_parser("run", help="Run one or more loops.")
     run.add_argument("scenarios", nargs="*", help="Loop aliases/paths. Defaults to smoke.")
     run.add_argument("--all", dest="run_all", action="store_true", help="Run all user-added loops sequentially.")
@@ -121,6 +126,8 @@ def main(argv: list[str] | None = None) -> int:
             "steps": len(scenario.steps),
         }, ensure_ascii=False, indent=2))
         return 0
+    if args.cmd == "upgrade":
+        return handle_upgrade(args)
     if args.cmd == "run":
         try:
             scenario_names = _select_run_targets(args)

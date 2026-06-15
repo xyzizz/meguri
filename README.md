@@ -41,6 +41,14 @@ Codex alternatives: `/skills` -> `meguri`, or `$meguri inspect`
 If the newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in the same project.
 
+To update an existing project later, keep the same curl installer, then refresh
+the generated AI entrypoints and report indexes from the AI terminal:
+
+```text
+curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
+/meguri upgrade --skills --refresh-index
+```
+
 ## What It Creates
 
 The installer creates the project workflow files:
@@ -166,6 +174,7 @@ Ask Codex / Claude Code to use Meguri for:
 | Validate | Checks the project pack, loops, adapter references, skill files, and run configuration. |
 | Run | Executes one loop, several named loops, or all user-added loops with exclusions; writes running snapshots and keeps shell stdout/stderr artifacts live. Execute-mode loops require explicit approval. |
 | Report | Opens reports, refreshes old single-run HTML/Markdown from `run.json`, lists running reports, prints single-run JSON summaries with evidence/replay pointers, groups recent standalone runs, groups explicit run ids/paths, or groups the newest run for each named loop into a batch report. |
+| Upgrade | Refreshes generated slash entrypoints and project/loop index pages after installing a newer Meguri version. |
 
 ```text
 Examples:
@@ -183,6 +192,7 @@ Use Meguri to summarize the latest 7 run reports as JSON.
 Use Meguri to summarize these exact run report paths as JSON.
 Use Meguri to summarize the latest runs for these loop names as JSON.
 Use Meguri to open the latest report.
+/meguri upgrade --skills --refresh-index
 ```
 
 Adding a loop is intentionally conservative. If the request is ambiguous

@@ -14,6 +14,124 @@ from meguri.reports.metrics import (
     extract_created_resources_from_steps,
     extract_failure_reasons_from_steps,
 )
+from meguri.reports.theme import GLOW_BACKGROUND_HTML, GLOW_BASE_CSS
+
+
+REPORT_GLOW_CSS = GLOW_BASE_CSS + """
+header,
+.metric,
+.step,
+.attempt,
+.detail-panel,
+details {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+header {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.status {
+  border: 1px solid rgba(160, 196, 255, 0.32);
+  color: var(--accent);
+  background: rgba(160, 196, 255, 0.12);
+  box-shadow: 0 0 18px rgba(160, 196, 255, 0.16), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.status.pass {
+  color: var(--pass);
+  background: rgba(124, 255, 189, 0.12);
+  border-color: rgba(124, 255, 189, 0.36);
+  box-shadow: 0 0 20px rgba(124, 255, 189, 0.18);
+}
+.status.fail {
+  color: var(--fail);
+  background: rgba(255, 111, 145, 0.13);
+  border-color: rgba(255, 111, 145, 0.38);
+  box-shadow: 0 0 20px rgba(255, 111, 145, 0.2);
+}
+.status.blocked {
+  color: var(--blocked);
+  background: rgba(255, 216, 155, 0.13);
+  border-color: rgba(255, 216, 155, 0.38);
+  box-shadow: 0 0 20px rgba(255, 216, 155, 0.18);
+}
+.status.warning {
+  color: var(--warning);
+  background: rgba(255, 229, 180, 0.12);
+  border-color: rgba(255, 229, 180, 0.34);
+}
+.status.running {
+  color: var(--glow-secondary);
+  background: rgba(212, 181, 255, 0.13);
+  border-color: rgba(212, 181, 255, 0.38);
+  box-shadow: 0 0 20px rgba(212, 181, 255, 0.2);
+}
+.metric,
+.step,
+.attempt,
+.detail-panel {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.metric:hover,
+.step:hover,
+.attempt:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-panel), var(--shadow-glow);
+}
+table {
+  background: rgba(7, 10, 18, 0.32);
+}
+th,
+td {
+  border-bottom-color: var(--line);
+}
+details,
+.notice {
+  background: rgba(160, 196, 255, 0.08);
+  border-left-color: var(--glow-warm);
+}
+pre {
+  border-radius: 8px;
+}
+.event-wrap:not(:last-child)::after {
+  background: linear-gradient(90deg, rgba(160,196,255,0.12), rgba(160,196,255,0.72), rgba(180,255,219,0.22));
+  box-shadow: 0 0 12px rgba(160, 196, 255, 0.28);
+}
+.event-node {
+  border: 1px solid var(--line-strong);
+  background: rgba(7, 10, 18, 0.86);
+  color: var(--ink);
+  box-shadow: 0 0 14px rgba(160, 196, 255, 0.16), inset 0 0 12px rgba(160, 196, 255, 0.06);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+.event-node:hover,
+.event-node.active {
+  transform: translateY(-2px);
+  outline: 0;
+  border-color: var(--node-color, var(--glow-primary));
+  box-shadow:
+    0 0 0 3px rgba(160, 196, 255, 0.12),
+    0 0 22px color-mix(in srgb, var(--node-color, var(--glow-primary)) 38%, transparent),
+    inset 0 0 14px rgba(255, 255, 255, 0.08);
+}
+.event-node.pass { --node-color: var(--pass); border-color: rgba(124,255,189,0.5); color: var(--pass); }
+.event-node.fail { --node-color: var(--fail); border-color: rgba(255,111,145,0.55); color: var(--fail); }
+.event-node.blocked { --node-color: var(--blocked); border-color: rgba(255,216,155,0.55); color: var(--blocked); }
+.event-node.warning { --node-color: var(--warning); border-color: rgba(255,229,180,0.5); color: var(--warning); }
+.event-node.running { --node-color: var(--glow-secondary); border-color: rgba(212,181,255,0.55); color: var(--glow-secondary); }
+.detail-panel {
+  background: rgba(10, 15, 28, 0.88);
+}
+.detail-panel section {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+"""
 
 
 def render_html_report(report: RunReport) -> str:
@@ -185,9 +303,11 @@ def render_html_report(report: RunReport) -> str:
       .timeline-shell {{ display: block; }}
       .detail-panel {{ position: static; margin-top: 16px; }}
     }}
+    {REPORT_GLOW_CSS}
   </style>
 </head>
 <body>
+  {GLOW_BACKGROUND_HTML}
   <main>
     <header>
       <div>
@@ -608,7 +728,14 @@ def _status_from_events(events: list[dict[str, Any]]) -> str:
 
 
 def _safe_json(value: Any) -> str:
-    return html.escape(json.dumps(value, ensure_ascii=False, default=str).replace("</", "<\\/"))
+    return (
+        json.dumps(value, ensure_ascii=False, default=str)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 def _artifact_href(name: str) -> str:

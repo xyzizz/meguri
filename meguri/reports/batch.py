@@ -6,6 +6,113 @@ from pathlib import Path
 from typing import Any
 
 from meguri.reports.metrics import format_metrics
+from meguri.reports.theme import GLOW_BACKGROUND_HTML, GLOW_BASE_CSS
+
+
+BATCH_GLOW_CSS = GLOW_BASE_CSS + """
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 24px 54px;
+}
+h1 {
+  margin: 0 0 10px;
+  font-size: 1.85rem;
+  line-height: 1.18;
+}
+h2 {
+  margin: 26px 0 12px;
+  font-size: 1rem;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 9px;
+  border: 1px solid rgba(160, 196, 255, 0.32);
+  border-radius: 999px;
+  color: var(--accent);
+  background: rgba(160, 196, 255, 0.12);
+  font-weight: 800;
+  text-transform: uppercase;
+  box-shadow: 0 0 18px rgba(160, 196, 255, 0.16);
+}
+.summary,
+.notice,
+table {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.summary {
+  padding: 14px;
+  margin: 18px 0;
+}
+.summary h2 {
+  margin: 0 0 8px;
+}
+.summary p {
+  margin: 4px 0;
+}
+.meta {
+  color: var(--muted);
+}
+.notice {
+  border-left: 3px solid var(--glow-warm);
+  padding: 10px 12px;
+  color: var(--warning);
+  background: rgba(255, 216, 155, 0.1);
+}
+table {
+  width: 100%;
+  margin-top: 18px;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+}
+th,
+td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+th {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+tr:hover td {
+  background: rgba(160, 196, 255, 0.045);
+}
+pre {
+  border-radius: 8px;
+  padding: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.attempt-list {
+  margin: 0;
+  padding-left: 18px;
+}
+.attempt-list li {
+  margin: 5px 0;
+}
+.attempt-list .meta {
+  display: block;
+}
+@media (max-width: 720px) {
+  main { padding: 22px 14px 40px; }
+  table { display: block; overflow-x: auto; }
+}
+"""
 
 
 def batch_retry_loops(runs: list[dict[str, Any]], remaining_loops: list[str] | None = None) -> list[str]:
@@ -465,20 +572,7 @@ def render_batch_html(record: dict[str, Any], batch_dir: Path) -> str:
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>Meguri Batch {html.escape(str(record['batch_id']))}</title>"
-        "<style>"
-        "body{font:14px/1.5 system-ui,sans-serif;margin:32px;color:#1d2430}"
-        "main{max-width:980px;margin:0 auto}"
-        ".status{font-weight:700;text-transform:uppercase}"
-        ".summary{border:1px solid #ddd;border-radius:6px;padding:12px;margin:18px 0}"
-        ".summary h2{margin:0 0 8px;font-size:16px}"
-        ".summary p{margin:4px 0}"
-        ".meta{color:#5d6778}"
-        ".notice{background:#fff4df;border-left:3px solid #b06a00;padding:10px 12px}"
-        "pre{background:#f5f6f8;border:1px solid #ddd;border-radius:6px;padding:10px;white-space:pre-wrap;overflow-wrap:anywhere}"
-        "table{border-collapse:collapse;width:100%;margin-top:18px}"
-        "th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}"
-        "a{color:#8a3b12;text-underline-offset:3px}"
-        "</style></head><body><main>"
+        f"<style>{BATCH_GLOW_CSS}</style></head><body>{GLOW_BACKGROUND_HTML}<main>"
         f"<h1>Meguri Batch {html.escape(str(record['batch_id']))}</h1>"
         f"<p>Status: <span class=\"status\">{html.escape(str(record['status']))}</span></p>"
         f"{interruption_html}"

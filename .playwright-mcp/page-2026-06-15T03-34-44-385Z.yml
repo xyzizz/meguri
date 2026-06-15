@@ -1,0 +1,74 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - heading "checkout_loop" [level=1] [ref=e5]
+      - paragraph [ref=e6]: 20260615_102000 · 9.0s
+    - generic [ref=e7]: fail
+  - region "Run summary" [ref=e8]:
+    - generic [ref=e9]:
+      - generic [ref=e10]: Project
+      - strong [ref=e11]: /tmp/demo
+    - generic [ref=e12]:
+      - generic [ref=e13]: Loop
+      - strong [ref=e14]: checkout_loop
+    - generic [ref=e15]:
+      - generic [ref=e16]: Mode
+      - strong [ref=e17]: dry_run
+    - generic [ref=e18]:
+      - generic [ref=e19]: Artifacts
+      - strong [ref=e20]: /tmp/demo/.meguri/loops/checkout_loop/20260615_102000
+    - generic [ref=e21]:
+      - generic [ref=e22]: Started
+      - strong [ref=e23]: 2026-06-15T10:20:00+00:00
+    - generic [ref=e24]:
+      - generic [ref=e25]: Updated
+      - strong [ref=e26]: 2026-06-15T10:20:09+00:00
+    - generic [ref=e27]:
+      - generic [ref=e28]: Finished
+      - strong [ref=e29]: 2026-06-15T10:20:09+00:00
+  - generic [ref=e30]:
+    - heading "Attempt Timeline" [level=2] [ref=e31]
+    - generic [ref=e32]:
+      - article [ref=e34]:
+        - generic [ref=e35]:
+          - heading "Attempt 1" [level=3] [ref=e36]
+          - generic [ref=e37]: fail
+        - generic [ref=e38]:
+          - generic [ref=e39]:
+            - button "User request" [ref=e40] [cursor=pointer]: "1"
+            - generic [ref=e41]: User
+          - generic [ref=e42]:
+            - button "Submit order" [ref=e43] [cursor=pointer]: "2"
+            - generic [ref=e44]: Tool
+      - complementary [ref=e45]:
+        - heading "Submit order" [level=2] [ref=e46]
+        - generic [ref=e47]:
+          - term [ref=e48]: Type
+          - definition [ref=e49]: tool_call
+          - term [ref=e50]: Status
+          - definition [ref=e51]: fail
+          - term [ref=e52]: Time
+          - definition [ref=e53]: "-"
+          - term [ref=e54]: Attempt
+          - definition [ref=e55]: Attempt 1
+        - generic [ref=e56]:
+          - heading "Input" [level=3] [ref=e57]
+          - generic [ref=e58]: python verify_checkout.py
+        - generic [ref=e59]:
+          - heading "Output" [level=3] [ref=e60]
+          - generic [ref=e61]: payment sandbox missing
+        - generic [ref=e62]:
+          - heading "Checks" [level=3] [ref=e63]
+          - list [ref=e64]:
+            - listitem [ref=e65]:
+              - strong [ref=e66]: fail
+              - text: "deterministic_exit: exit code 1"
+        - generic [ref=e67]:
+          - heading "Artifacts" [level=3] [ref=e68]
+          - list [ref=e69]:
+            - listitem [ref=e70]:
+              - link "stdout" [ref=e71] [cursor=pointer]:
+                - /url: steps/submit_order/stdout.txt
+  - generic [ref=e72]:
+    - heading "Metadata" [level=2] [ref=e73]
+    - generic [ref=e74]: "{ \"run_id\": \"20260615_102000\", \"loop\": \"checkout_loop\", \"scenario_file_name\": \"checkout_loop\", \"status\": \"fail\", \"mode\": \"dry_run\", \"started_at\": \"2026-06-15T10:20:00+00:00\", \"finished_at\": \"2026-06-15T10:20:09+00:00\", \"project_path\": \"/tmp/demo\", \"artifact_dir\": \"/tmp/demo/.meguri/loops/checkout_loop/20260615_102000\", \"evidence_warnings\": [], \"replay\": null }"

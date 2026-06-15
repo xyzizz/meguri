@@ -18,7 +18,7 @@ def handle_init(args: Any) -> int:
 
     created.extend(_write_pack(project_root, pack_root, force=bool(args.force), skipped=skipped))
     if args.install_skills:
-        created.extend(_write_skills(project_root, force=bool(args.force), skipped=skipped))
+        created.extend(write_skills(project_root, force=bool(args.force), skipped=skipped))
 
     for path in created:
         print(f"created {_display_path(project_root, path)}")
@@ -99,7 +99,7 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
     return created
 
 
-def _write_skills(project_root: Path, *, force: bool, skipped: list[Path]) -> list[Path]:
+def write_skills(project_root: Path, *, force: bool, skipped: list[Path]) -> list[Path]:
     files = {
         project_root / ".agents" / "skills" / "meguri" / "SKILL.md": _codex_skill(),
         project_root / ".claude" / "skills" / "meguri" / "SKILL.md": _claude_skill(),
@@ -275,7 +275,9 @@ Workflow:
    will refuse to run execute loops.
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
-10. After edits, run `meguri validate` and then `meguri run <loop> --open`
+10. If the user asks to refresh Meguri entrypoints or report indexes after an
+   update, run `meguri upgrade --skills --refresh-index`.
+11. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe. When the user asks to run several loops in order, use
    `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
    of starting loops manually or concurrently. When the user asks to run all
@@ -296,7 +298,7 @@ Workflow:
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and
    `remaining_loops` before deciding whether to resume, repair, or ask.
-11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
+12. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For a single completed loop, use
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
@@ -324,7 +326,7 @@ Workflow:
    structured data for a written summary. After making a repair, use the batch
    `retry_loops` list to understand which failed, blocked, or recovered running
    loops need another pass, then rerun only the named loop(s) intentionally.
-12. Stop and ask before enabling submit, deploy, payment, production writes,
+13. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -332,7 +334,7 @@ Workflow:
 def _codex_slash_prompt() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|loops|delete|run|validate|report [args]
+argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
 ---
 
 Use Meguri for this request: $ARGUMENTS
@@ -356,6 +358,9 @@ If the request asks to list or delete loops, list only user-added loops by
 default and delete only a named user-added loop unless the user explicitly asks
 to include or remove system loops.
 
+If the request asks to refresh Meguri after an update, run
+`meguri upgrade --skills --refresh-index`.
+
 Always prefer deterministic evidence over LLM self-evaluation. Keep loops in
 `dry_run` unless the user explicitly approves execute mode. After that approval,
 run execute-mode loops with `meguri run <loop> --allow-execute`; without that
@@ -368,7 +373,7 @@ def _claude_skill() -> str:
     return """---
 name: meguri
 description: Use when the user wants Claude Code to design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
-argument-hint: inspect|add|loops|delete|run|validate|report [args]
+argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
 disable-model-invocation: true
 ---
 
@@ -410,7 +415,9 @@ Workflow:
    will refuse to run execute loops.
 9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
    delete a named user-added loop.
-10. After edits, run `meguri validate` and then `meguri run <loop> --open`
+10. If the user asks to refresh Meguri entrypoints or report indexes after an
+   update, run `meguri upgrade --skills --refresh-index`.
+11. After edits, run `meguri validate` and then `meguri run <loop> --open`
    when safe. When the user asks to run several loops in order, use
    `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
    of starting loops manually or concurrently. When the user asks to run all
@@ -431,7 +438,7 @@ Workflow:
    current steps instead of guessing from the filesystem. If the batch is
    interrupted, read the blocked batch record's `interrupted` metadata and
    `remaining_loops` before deciding whether to resume, repair, or ask.
-11. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
+12. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
    `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
    linked artifacts before proposing fixes. For a single completed loop, use
    `meguri report <run_id> --json` or `meguri report --last --json` to get the
@@ -459,7 +466,7 @@ Workflow:
    structured data for a written summary. After making a repair, use the batch
    `retry_loops` list to understand which failed, blocked, or recovered running
    loops need another pass, then rerun only the named loop(s) intentionally.
-12. Stop and ask before enabling submit, deploy, payment, production writes,
+13. Stop and ask before enabling submit, deploy, payment, production writes,
     external sends, or data migrations.
 """
 
@@ -467,7 +474,7 @@ Workflow:
 def _claude_command() -> str:
     return """---
 description: Meguri verification loop workflow for the current project
-argument-hint: inspect|add|loops|delete|run|validate|report [args]
+argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]
 ---
 
 Use the Meguri loop workflow in this Claude Code session.
@@ -479,7 +486,7 @@ If the request is empty or starts with `inspect`, start the Meguri inspect
 workflow, follow the printed specification, and write
 `.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
 
-For add, loops, delete, run, validate, or report requests, follow the
+For add, loops, delete, run, validate, report, or upgrade requests, follow the
 project-local Meguri pack, prefer deterministic evidence, keep loops in
 `dry_run` unless explicitly approved, make helper scripts write crash-safe
 evidence to `MEGURI_EVIDENCE_DIR`, and ask before submit, deploy, payment,

@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from typing import Any
 
+from meguri.reports.theme import GLOW_BACKGROUND_HTML, GLOW_BASE_CSS
+
 
 def render_project_index(pack_root: Path) -> str:
     loops = _loop_summaries(pack_root)
@@ -497,13 +499,13 @@ def _page(
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{_esc(title)}</title>"
         f"<style>{_INDEX_CSS}</style></head>"
-        "<body><main>"
+        f"<body>{GLOW_BACKGROUND_HTML}<main>"
         f"{back}<header class=\"page-header\"><div><span class=\"eyebrow\">{_esc(eyebrow)}</span>"
         f"<h1>{_esc(title)}</h1>{subtitle_html}</div></header>{body}</main></body></html>"
     )
 
 
-_INDEX_CSS = """
+_INDEX_CSS = ("""
 :root {
   color-scheme: light;
   --bg: oklch(0.985 0.004 250);
@@ -776,4 +778,88 @@ td {
 @media (max-width: 440px) {
   .workspace-kpis { grid-template-columns: 1fr; }
 }
-""".strip()
+""" + "\n" + GLOW_BASE_CSS + """
+.back-link {
+  color: var(--glow-primary);
+}
+.page-header,
+.metric,
+.activity-row,
+.table-wrap {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.page-header {
+  padding: 18px;
+  align-items: center;
+}
+.eyebrow {
+  color: var(--glow-accent);
+  text-shadow: 0 0 16px rgba(180, 255, 219, 0.24);
+}
+.metric,
+.activity-row,
+.table-wrap {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.metric:hover,
+.activity-row:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  background: var(--surface-strong);
+  box-shadow: var(--shadow-panel), var(--shadow-glow);
+}
+.metric strong {
+  color: var(--ink);
+  text-shadow: 0 0 20px rgba(160, 196, 255, 0.2);
+}
+.status-chip,
+.status-badge {
+  border: 1px solid color-mix(in srgb, var(--status-color, var(--unknown)) 52%, transparent);
+  color: var(--status-color, var(--unknown));
+  background: color-mix(in srgb, var(--status-color, var(--unknown)) 13%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--status-color, var(--unknown)) 22%, transparent);
+}
+.status-chip::before,
+.status-badge::before {
+  box-shadow: 0 0 12px var(--status-color, var(--unknown));
+}
+.token {
+  color: var(--glow-primary);
+  border: 1px solid rgba(160, 196, 255, 0.22);
+  background: rgba(160, 196, 255, 0.08);
+}
+.activity-row {
+  color: inherit;
+}
+.activity-row:hover {
+  color: inherit;
+}
+.activity-kind {
+  color: var(--glow-secondary);
+}
+.table-wrap {
+  background: rgba(7, 10, 18, 0.42);
+}
+table {
+  background: rgba(7, 10, 18, 0.26);
+}
+th,
+td {
+  border-bottom-color: var(--line);
+}
+tr:hover td {
+  background: rgba(160, 196, 255, 0.045);
+}
+.inline-action,
+.primary-link {
+  color: var(--glow-primary);
+}
+.empty-state {
+  color: var(--muted);
+}
+""").strip()

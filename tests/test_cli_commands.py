@@ -71,6 +71,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "meguri run --all --exclude <loop>" in codex_skill
     assert "meguri run <loop> --allow-execute" in codex_skill
     assert "meguri report --running --json" in codex_skill
+    assert "meguri upgrade --skills --refresh-index" in codex_skill
     assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
     assert "live progress surface" in codex_skill
     assert "Shell stdout/stderr output also refreshes" in codex_skill
@@ -94,8 +95,9 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "per-loop `mode`" in codex_skill
     assert "per-loop `metrics`" in codex_skill
     assert "Replay command" not in codex_skill
-    assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in codex_prompt
+    assert "argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]" in codex_prompt
     assert "Use this active Codex session" in codex_prompt
+    assert "meguri upgrade --skills --refresh-index" in codex_prompt
     assert "MEGURI_EVIDENCE_DIR" in codex_prompt
     assert "--allow-execute" in codex_prompt
     assert "Meguri inspect workflow" in claude_skill
@@ -107,6 +109,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "silent-step heartbeats" in claude_skill
     assert "meguri run <loop> --allow-execute" in claude_skill
     assert "meguri report --running --json" in claude_skill
+    assert "meguri upgrade --skills --refresh-index" in claude_skill
     assert "live progress surface" in claude_skill
     assert "Shell stdout/stderr output also refreshes" in claude_skill
     assert "meguri report <run_id> --json" in claude_skill
@@ -129,9 +132,99 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "per-loop `mode`" in claude_skill
     assert "per-loop `metrics`" in claude_skill
     assert "Replay command" not in claude_skill
-    assert "argument-hint: inspect|add|loops|delete|run|validate|report [args]" in claude_skill
+    assert "argument-hint: inspect|add|loops|delete|run|validate|report|upgrade [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
+    assert "upgrade" in claude_command
+
+
+def test_upgrade_requires_an_action(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    assert main(["upgrade"]) == 2
+
+    assert "choose --skills and/or --refresh-index" in capsys.readouterr().err
+
+
+def test_upgrade_skills_overwrites_project_entrypoints(tmp_path: Path, monkeypatch, capsys) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    assert main(["init", "--install-skills"]) == 0
+    capsys.readouterr()
+
+    skill_paths = [
+        tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md",
+        tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md",
+        tmp_path / ".claude" / "commands" / "meguri.md",
+        tmp_path / "home" / ".codex" / "prompts" / "meguri.md",
+    ]
+    for path in skill_paths:
+        path.write_text("stale entrypoint\n", encoding="utf-8")
+
+    assert main(["upgrade", "--skills"]) == 0
+    output = capsys.readouterr().out
+
+    for path in skill_paths:
+        text = path.read_text(encoding="utf-8")
+        assert "stale entrypoint" not in text
+    assert "Meguri inspect workflow" in skill_paths[0].read_text(encoding="utf-8")
+    assert "Meguri inspect workflow" in skill_paths[1].read_text(encoding="utf-8")
+    assert "Meguri verification loop workflow" in skill_paths[2].read_text(encoding="utf-8")
+    assert "Use this active Codex session" in skill_paths[3].read_text(encoding="utf-8")
+    assert "updated .agents/skills/meguri/SKILL.md" in output
+    assert "updated .claude/skills/meguri/SKILL.md" in output
+    assert "updated .claude/commands/meguri.md" in output
+
+
+def test_upgrade_refresh_index_regenerates_project_and_loop_indexes(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["init"]) == 0
+    capsys.readouterr()
+
+    loop_dir = tmp_path / ".meguri" / "loops" / "checkout"
+    run_dir = loop_dir / "20260615_102001"
+    run_dir.mkdir(parents=True)
+    (run_dir / "index.html").write_text("<html>detail</html>", encoding="utf-8")
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": run_dir.name,
+                "scenario_name": "checkout",
+                "status": "fail",
+                "started_at": "2026-06-15T10:20:01+00:00",
+                "finished_at": "2026-06-15T10:20:02+00:00",
+                "updated_at": "2026-06-15T10:20:02+00:00",
+                "mode": "dry_run",
+                "summary": "checkout assertion failed",
+                "metadata": {"loop_id": "checkout"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".meguri" / "index.html").write_text("stale project index", encoding="utf-8")
+    (loop_dir / "index.html").write_text("stale loop index", encoding="utf-8")
+
+    assert main(["upgrade", "--refresh-index"]) == 0
+    output = capsys.readouterr().out
+
+    project_html = (tmp_path / ".meguri" / "index.html").read_text(encoding="utf-8")
+    loop_html = (loop_dir / "index.html").read_text(encoding="utf-8")
+    assert "Meguri Control Room" in project_html
+    assert "checkout" in project_html
+    assert "loops/checkout/index.html" in project_html
+    assert "Loop Detail" in loop_html
+    assert "20260615_102001/index.html" in loop_html
+    assert "checkout assertion failed" in loop_html
+    assert "stale project index" not in project_html
+    assert "stale loop index" not in loop_html
+    assert "updated .meguri/index.html" in output
+    assert "updated .meguri/loops/checkout/index.html" in output
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:

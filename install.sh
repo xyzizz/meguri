@@ -151,6 +151,10 @@ If slash entrypoints need selection:
 If a newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in this project.
 
+After updating an existing project, refresh generated entrypoints and indexes
+from the AI terminal:
+  /meguri upgrade --skills --refresh-index
+
 If a later Meguri step is not found, refresh the executable path with:
   python3 -m pipx ensurepath
 EOF
