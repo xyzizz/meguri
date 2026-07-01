@@ -58,6 +58,14 @@ def handle_validate(args: Any) -> int:
     return 0
 
 
+def validate_scenario_files(paths: list[Path]) -> tuple[list[str], list[str]]:
+    errors: list[str] = []
+    warnings: list[str] = []
+    for path in paths:
+        _validate_scenario_path(path, errors, warnings)
+    return errors, warnings
+
+
 def _validate_scenario_path(path: Path, errors: list[str], warnings: list[str]) -> None:
     try:
         scenario = load_scenario(path)

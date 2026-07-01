@@ -41,6 +41,12 @@ def _write_loop(tmp_path: Path, name: str, command: list[str]) -> None:
     )
 
 
+def _assert_argparse_rejects(argv: list[str]) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(argv)
+    assert excinfo.value.code == 2
+
+
 def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
@@ -199,93 +205,38 @@ def test_init_offline_uses_bundled_templates(tmp_path: Path, monkeypatch) -> Non
     assert calls == [True]
 
 
-def test_upgrade_requires_an_action(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
+def test_help_exposes_only_init_run_and_report(capsys) -> None:
+    with pytest.raises(SystemExit) as excinfo:
+        main(["--help"])
+    assert excinfo.value.code == 0
 
-    assert main(["upgrade"]) == 2
-
-    assert "choose --skills and/or --refresh-index" in capsys.readouterr().err
-
-
-def test_upgrade_skills_overwrites_project_entrypoints(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
-
-    skill_paths = [
-        tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md",
-        tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md",
-        tmp_path / ".claude" / "commands" / "meguri.md",
-        tmp_path / "home" / ".codex" / "prompts" / "meguri.md",
-    ]
-    for path in skill_paths:
-        path.write_text("stale entrypoint\n", encoding="utf-8")
-
-    assert main(["upgrade", "--skills"]) == 0
     output = capsys.readouterr().out
 
-    for path in skill_paths:
-        text = path.read_text(encoding="utf-8")
-        assert "stale entrypoint" not in text
-    assert "Meguri init workflow" in skill_paths[0].read_text(encoding="utf-8")
-    assert "Meguri init workflow" in skill_paths[1].read_text(encoding="utf-8")
-    assert "Meguri verification loop workflow" in skill_paths[2].read_text(encoding="utf-8")
-    assert "Use this active Codex session" in skill_paths[3].read_text(encoding="utf-8")
-    assert "updated .agents/skills/meguri/SKILL.md" in output
-    assert "updated .claude/skills/meguri/SKILL.md" in output
-    assert "updated .claude/commands/meguri.md" in output
+    assert "{init,run,report}" in output
+    for command in ("init", "run", "report"):
+        assert command in output
+    for removed in ("inspect", "add", "loops", "delete", "validate", "validate-scenario", "upgrade"):
+        assert removed not in output
 
 
-def test_upgrade_refresh_index_regenerates_project_and_loop_indexes(
-    tmp_path: Path,
-    monkeypatch,
-    capsys,
-) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
+def test_removed_public_commands_are_rejected_by_argparse() -> None:
+    for command in ("inspect", "add", "loops", "delete", "validate", "validate-scenario", "upgrade"):
+        _assert_argparse_rejects([command])
 
-    loop_dir = tmp_path / ".meguri" / "loops" / "checkout"
-    run_dir = loop_dir / "20260615_102001"
-    run_dir.mkdir(parents=True)
-    (run_dir / "index.html").write_text("<html>detail</html>", encoding="utf-8")
-    (run_dir / "run.json").write_text(
-        json.dumps(
-            {
-                "run_id": run_dir.name,
-                "scenario_name": "checkout",
-                "status": "fail",
-                "started_at": "2026-06-15T10:20:01+00:00",
-                "finished_at": "2026-06-15T10:20:02+00:00",
-                "updated_at": "2026-06-15T10:20:02+00:00",
-                "mode": "dry_run",
-                "summary": "checkout assertion failed",
-                "metadata": {"loop_id": "checkout"},
-            }
-        ),
-        encoding="utf-8",
-    )
-    (tmp_path / ".meguri" / "index.html").write_text("stale project index", encoding="utf-8")
-    (loop_dir / "index.html").write_text("stale loop index", encoding="utf-8")
 
-    assert main(["upgrade", "--refresh-index"]) == 0
-    output = capsys.readouterr().out
+def test_run_without_target_returns_usage_error(capsys) -> None:
+    assert main(["run"]) == 2
 
-    project_html = (tmp_path / ".meguri" / "index.html").read_text(encoding="utf-8")
-    loop_html = (loop_dir / "index.html").read_text(encoding="utf-8")
-    assert "Meguri Control Room" in project_html
-    assert "checkout" in project_html
-    assert "loops/checkout/index.html" in project_html
-    assert "Loop Detail" in loop_html
-    assert "20260615_102001/index.html" in loop_html
-    assert "checkout assertion failed" in loop_html
-    assert "stale project index" not in project_html
-    assert "stale loop index" not in loop_html
-    assert "updated .meguri/index.html" in output
-    assert "updated .meguri/loops/checkout/index.html" in output
+    assert "provide a loop name or all" in capsys.readouterr().err
+
+
+def test_removed_run_selection_flags_are_rejected_by_argparse() -> None:
+    for argv in (
+        ["run", "--all"],
+        ["run", "all", "--exclude", "checkout"],
+        ["run", "all", "--include-system"],
+    ):
+        _assert_argparse_rejects(argv)
 
 
 def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch) -> None:
@@ -328,115 +279,6 @@ def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypo
     assert generated_prompt.is_file()
     assert ".meguri/project-inspect.json" in generated_prompt.read_text(encoding="utf-8")
     assert "You are the current Codex / Claude Code agent" in output
-
-
-def test_add_asks_for_clarification_without_required_information(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
-
-    assert main(["add", "login"]) == 2
-    output = capsys.readouterr().out
-
-    assert "Please clarify" in output
-    assert "Provide --command" in output
-    assert not (tmp_path / ".meguri" / "scenarios" / "login.yaml").exists()
-
-
-def test_inspect_compatibility_alias_runs_init_workflow(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-
-    monkeypatch.setattr("meguri.cli.init.write_skills", lambda project_root, *, offline: [])
-
-    assert main(["inspect"]) == 0
-    output = capsys.readouterr().out
-
-    prompt_path = tmp_path / ".meguri" / "generated" / "inspect.md"
-    assert prompt_path.is_file()
-    prompt = prompt_path.read_text(encoding="utf-8")
-    assert "specification and harness layer" in prompt
-    assert "Use the active AI session" in prompt
-    assert "understanding, loop design" in prompt
-    assert ".meguri/project-inspect.json" in prompt
-    assert "MEGURI_EVIDENCE_DIR" in prompt
-    assert "Evidence must survive" in prompt
-    assert "You are the current Codex / Claude Code agent" in output
-    assert not (tmp_path / ".meguri" / "project-inspect.json").exists()
-    assert not (tmp_path / ".meguri" / "project-brief.md").exists()
-
-
-def test_add_writes_valid_scenario_when_required_fields_are_supplied(tmp_path: Path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-
-    assert main([
-        "add",
-        "login flow",
-        "--name",
-        "login_flow",
-        "--command",
-        f"{sys.executable} -c \"print('ok')\"",
-        "--pass-criteria",
-        "command exits with ok",
-    ]) == 0
-
-    scenario_path = tmp_path / ".meguri" / "loops" / "login_flow" / "_loop.yaml"
-    raw = yaml.safe_load(scenario_path.read_text(encoding="utf-8"))
-    assert raw["name"] == "login_flow"
-    assert raw["adapter"] == "shell"
-    assert raw["metadata"]["kind"] == "loop"
-    assert raw["metadata"]["loop_id"] == "login_flow"
-    assert raw["metadata"]["source"] == "user"
-    assert raw["metadata"]["pass_criteria"] == "command exits with ok"
-
-
-def test_loops_lists_user_added_loops_and_delete_removes_named_loop(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
-
-    assert main([
-        "add",
-        "checkout flow",
-        "--name",
-        "checkout",
-        "--command",
-        f"{sys.executable} -c \"print('ok')\"",
-        "--pass-criteria",
-        "command exits",
-    ]) == 0
-    capsys.readouterr()
-
-    assert main(["loops"]) == 0
-    output = capsys.readouterr().out
-    assert "loops=1" in output
-    assert "checkout" in output
-    assert "smoke" not in output
-
-    assert main(["loops", "--all"]) == 0
-    output = capsys.readouterr().out
-    assert "loops=2" in output
-    assert "checkout" in output
-    assert "smoke" in output
-
-    assert main(["delete", "checkout"]) == 0
-    output = capsys.readouterr().out
-    assert "deleted loop checkout" in output
-    assert not (tmp_path / ".meguri" / "loops" / "checkout").exists()
-
-    assert main(["loops"]) == 0
-    assert "loops=0" in capsys.readouterr().out
-
-
-def test_delete_refuses_system_loop_without_force(tmp_path: Path, monkeypatch, capsys) -> None:
-    monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
-    capsys.readouterr()
-
-    assert main(["delete", "smoke"]) == 1
-    output = capsys.readouterr().out
-    assert "Refusing to delete system loop" in output
-    assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").exists()
 
 
 def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -1016,34 +858,33 @@ def test_run_multiple_loops_blocks_batch_when_interrupted(tmp_path: Path, monkey
     assert "KeyboardInterrupt" in html
 
 
-def test_run_all_user_loops_excludes_named_loop_and_system_smoke(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_all_selects_user_loops_not_system_smoke_and_creates_batch_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     assert main(["init", "--offline"]) == 0
     capsys.readouterr()
     ran_path = tmp_path / "ran.txt"
     _write_loop(
         tmp_path,
-        "first_done",
+        "first_todo",
         [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text('first', encoding='utf-8')"],
     )
     _write_loop(
         tmp_path,
         "second_todo",
-        [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text('second', encoding='utf-8')"],
-    )
-    _write_loop(
-        tmp_path,
-        "third_todo",
         [sys.executable, "-c", f"from pathlib import Path; Path(r'{ran_path}').write_text(Path(r'{ran_path}').read_text(encoding='utf-8') + ',third', encoding='utf-8')"],
     )
 
-    assert main(["run", "--all", "--exclude", "first_done", "--json"]) == 0
+    assert main(["run", "all", "--json"]) == 0
     batch = json.loads(capsys.readouterr().out)
 
-    assert batch["planned_loops"] == ["second_todo", "third_todo"]
-    assert [run["loop"] for run in batch["runs"]] == ["second_todo", "third_todo"]
+    assert batch["planned_loops"] == ["first_todo", "second_todo"]
+    assert [run["loop"] for run in batch["runs"]] == ["first_todo", "second_todo"]
     assert "smoke" not in batch["planned_loops"]
-    assert ran_path.read_text(encoding="utf-8") == "second,third"
+    assert batch["batch_dir"]
+    assert Path(batch["batch_dir"]).parent == tmp_path / ".meguri" / "batches"
+    assert Path(batch["html_report_path"]).is_file()
+    assert Path(batch["batch_dir"]).joinpath("batch.json").is_file()
+    assert ran_path.read_text(encoding="utf-8") == "first,third"
 
 
 def test_report_last_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
@@ -2117,14 +1958,12 @@ def test_report_last_json_selects_newest_single_run(tmp_path: Path, monkeypatch,
     assert record["run_id"] == "run_20260613_120000_new"
 
 
-def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_run_validates_scenario_before_execution(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     assert main(["init", "--offline"]) == 0
     capsys.readouterr()
 
-    assert main(["validate"]) == 0
-    assert "ok" in capsys.readouterr().out
     assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()
 
     scenario_path = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
@@ -2132,5 +1971,8 @@ def test_validate_accepts_generated_pack_and_rejects_unknown_adapter(tmp_path: P
     raw["adapter"] = "missing_adapter"
     scenario_path.write_text(yaml.safe_dump(raw, sort_keys=False), encoding="utf-8")
 
-    assert main(["validate"]) == 1
-    assert "unknown adapter" in capsys.readouterr().out
+    assert main(["run", "smoke"]) == 1
+    captured = capsys.readouterr()
+
+    assert "unknown adapter" in captured.err
+    assert not list((tmp_path / ".meguri" / "loops" / "smoke").glob("20*/run.json"))

@@ -6,15 +6,12 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from meguri.cli.add import handle_add
 from meguri.cli.init import handle_init
-from meguri.cli.inspect import handle_inspect
-from meguri.cli.loops import handle_delete, handle_loops, read_loops
+from meguri.cli.loops import read_loops
 from meguri.cli.report import handle_report, open_path
-from meguri.cli.upgrade import handle_upgrade
-from meguri.cli.validate import handle_validate
+from meguri.cli.validate import validate_scenario_files
 from meguri.core.models import utc_now
-from meguri.project.pack import find_project_pack, resolve_scenario, slugify
+from meguri.project.pack import find_project_pack, resolve_scenario
 from meguri.reports.batch import (
     batch_attention_flags,
     batch_created_resources,
@@ -41,50 +38,15 @@ from meguri.scenarios.runner import report_to_json, run_scenario
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="meguri")
-    sub = parser.add_subparsers(dest="cmd", required=True)
+    parser = argparse.ArgumentParser(prog="meguri", allow_abbrev=False)
+    sub = parser.add_subparsers(dest="cmd", required=True, parser_class=_MeguriArgumentParser)
 
     init = sub.add_parser("init", help="Initialize Meguri and refresh Meguri agent entrypoints.")
     init.add_argument("--offline", action="store_true", help="Use bundled entrypoint templates instead of fetching from the official repository.")
     init.add_argument("--force", action="store_true", help="Overwrite generated Meguri system files.")
 
-    sub.add_parser("inspect", help="Compatibility alias for init.")
-
-    add = sub.add_parser("add", help="Add a verification loop when enough deterministic information is provided.")
-    add.add_argument("description", help="Natural-language description of the loop to close.")
-    add.add_argument("--name", help="Loop file/name. Defaults to a slug from the description.")
-    add.add_argument("--command", help="Safe execution entry for this loop.")
-    add.add_argument("--pass-criteria", help="Deterministic evidence that proves success.")
-    add.add_argument("--forbid", action="append", default=[], help="Forbidden side effect or output text. Can be repeated.")
-    add.add_argument("--mode", choices=["dry_run", "execute"], default="dry_run")
-    add.add_argument("--allow-execute", action="store_true", help="Confirm execute mode for this loop.")
-    add.add_argument("--timeout-seconds", type=float, default=300)
-    add.add_argument("--force", action="store_true", help="Overwrite an existing loop.")
-
-    loops = sub.add_parser("loops", help="List user-added loops.")
-    loops.add_argument("--all", action="store_true", help="Include system loops such as smoke.")
-    loops.add_argument("--json", action="store_true", help="Print clean JSON.")
-
-    delete = sub.add_parser("delete", help="Delete a named user-added loop.")
-    delete.add_argument("name", help="Loop name or alias to delete.")
-    delete.add_argument("--force", action="store_true", help="Allow deleting system loops.")
-    delete.add_argument("--dry-run", action="store_true", help="Show what would be deleted.")
-
-    validate_pack = sub.add_parser("validate", help="Validate a project pack or loop.")
-    validate_pack.add_argument("target", nargs="?", help="Loop alias/path. Defaults to the current project pack.")
-
-    validate_scenario = sub.add_parser("validate-scenario", help="Compatibility alias: load and validate a scenario file.")
-    validate_scenario.add_argument("scenario")
-
-    upgrade = sub.add_parser("upgrade", help="Refresh generated Meguri files in the current project.")
-    upgrade.add_argument("--skills", action="store_true", help="Refresh Codex and Claude Code entrypoints.")
-    upgrade.add_argument("--refresh-index", action="store_true", help="Regenerate project and loop index pages.")
-
-    run = sub.add_parser("run", help="Run one or more loops.")
-    run.add_argument("scenarios", nargs="*", help="Loop aliases/paths. Defaults to smoke.")
-    run.add_argument("--all", dest="run_all", action="store_true", help="Run all user-added loops sequentially.")
-    run.add_argument("--exclude", action="append", default=[], help="Skip a loop when using --all. Can be repeated.")
-    run.add_argument("--include-system", action="store_true", help="Include system loops such as smoke when using --all.")
+    run = sub.add_parser("run", help="Run one or more targets.")
+    run.add_argument("targets", nargs="*", help="Loop aliases/paths, or all for all user-added loops.")
     run.add_argument("--runs-dir")
     run.add_argument("--replay")
     run.add_argument("--retry-of")
@@ -106,36 +68,24 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.cmd == "init":
         return handle_init(args)
-    if args.cmd == "inspect":
-        return handle_inspect(args)
-    if args.cmd == "add":
-        return handle_add(args)
-    if args.cmd == "loops":
-        return handle_loops(args)
-    if args.cmd == "delete":
-        return handle_delete(args)
-    if args.cmd == "validate":
-        return handle_validate(args)
-    if args.cmd == "validate-scenario":
-        scenario = load_scenario(Path(args.scenario))
-        print(json.dumps({
-            "name": scenario.name,
-            "adapter": scenario.adapter,
-            "project_path": str(scenario.project_path),
-            "mode": scenario.mode,
-            "steps": len(scenario.steps),
-        }, ensure_ascii=False, indent=2))
-        return 0
-    if args.cmd == "upgrade":
-        return handle_upgrade(args)
     if args.cmd == "run":
         try:
             scenario_names = _select_run_targets(args)
             scenario_paths = [resolve_scenario(name) for name in scenario_names]
             runs_dir = Path(args.runs_dir).expanduser().resolve() if args.runs_dir else None
             replay_file = Path(args.replay).expanduser().resolve() if args.replay else None
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         except Exception as exc:  # noqa: BLE001
             print(f"error: {exc}", file=sys.stderr)
+            return 1
+        errors, warnings = validate_scenario_files(scenario_paths)
+        for warning in warnings:
+            print(f"warning: {warning}", file=sys.stderr)
+        for error in errors:
+            print(f"error: {error}", file=sys.stderr)
+        if errors:
             return 1
         execute_loops = _execute_loop_names(scenario_paths)
         if execute_loops and not args.allow_execute:
@@ -236,29 +186,26 @@ def main(argv: list[str] | None = None) -> int:
     return 2
 
 
+class _MeguriArgumentParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs) -> None:
+        kwargs.setdefault("allow_abbrev", False)
+        super().__init__(*args, **kwargs)
+
+
 def _select_run_targets(args) -> list[str]:
-    if args.run_all and args.scenarios:
-        raise ValueError("use either explicit loop names or --all, not both")
-    if args.include_system and not args.run_all:
-        raise ValueError("--include-system can only be used with --all")
-    if args.run_all:
+    targets = list(args.targets)
+    if not targets:
+        raise ValueError("provide a loop name or all")
+    if "all" in targets:
+        if targets != ["all"]:
+            raise ValueError("use either all or explicit loop names, not both")
         pack = find_project_pack(Path.cwd())
         entries = read_loops(pack)
-        if not args.include_system:
-            entries = [entry for entry in entries if entry.source == "user"]
-        scenario_names = [entry.loop_id for entry in entries]
-    else:
-        scenario_names = args.scenarios or ["smoke"]
-    if args.exclude:
-        raw_excludes = {str(value) for value in args.exclude}
-        normalized_excludes = {slugify(str(value), fallback=str(value)) for value in args.exclude}
-        scenario_names = [
-            name for name in scenario_names
-            if name not in raw_excludes and slugify(name, fallback=name) not in normalized_excludes
-        ]
-    if not scenario_names:
-        raise ValueError("no loops selected")
-    return scenario_names
+        scenario_names = [entry.loop_id for entry in entries if entry.source == "user"]
+        if not scenario_names:
+            raise ValueError("no user loops found; ask /meguri to add a loop first")
+        return scenario_names
+    return targets
 
 
 def _execute_loop_names(scenario_paths: list[Path]) -> list[str]:
