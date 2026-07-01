@@ -42,52 +42,10 @@ def handle_report(args: Any) -> int:
         print(str(exc), file=sys.stderr)
         return 1
 
-    json_record = None
     try:
-        if getattr(args, "refresh", False) and (
-            getattr(args, "running", False)
-            or args.recent is not None
-            or getattr(args, "runs", None)
-            or getattr(args, "loops", None)
-        ):
-            raise FileNotFoundError("--refresh can only be used with a single run report")
-        if getattr(args, "running", False):
-            if args.run_id or args.last or args.recent is not None or getattr(args, "runs", None) or getattr(args, "loops", None):
-                raise FileNotFoundError("--running cannot be combined with run id, --last, --recent, --runs, or --loops")
-            running_record = running_reports(pack)
-            if getattr(args, "json", False):
-                print(json.dumps(running_record, ensure_ascii=False, indent=2, default=str))
-            else:
-                for path in running_record["html_report_paths"]:
-                    print(path)
-            if args.open and running_record["html_report_paths"]:
-                if not open_path(Path(running_record["html_report_paths"][0])):
-                    print(f"could not open report automatically: {running_record['html_report_paths'][0]}", file=sys.stderr)
-            return 0
-        if args.recent is not None:
-            if getattr(args, "runs", None) or getattr(args, "loops", None):
-                raise FileNotFoundError("--recent cannot be combined with --runs or --loops")
-            batch_record = recent_batch_report(pack, args.recent)
-            html_path = Path(batch_record["html_report_path"])
-            json_record = batch_record
-        elif getattr(args, "runs", None):
-            if args.run_id or getattr(args, "loops", None):
-                raise FileNotFoundError("--runs cannot be combined with run id or --loops")
-            batch_record = selected_batch_report(pack, list(args.runs))
-            html_path = Path(batch_record["html_report_path"])
-            json_record = batch_record
-        elif getattr(args, "loops", None):
-            if args.run_id:
-                raise FileNotFoundError("run id positional cannot be combined with --loops")
-            batch_record = latest_loop_batch_report(pack, list(args.loops))
-            html_path = Path(batch_record["html_report_path"])
-            json_record = batch_record
-        else:
-            html_path = latest_report(pack) if args.last or not args.run_id else report_for_run(pack, args.run_id)
-            if getattr(args, "refresh", False):
-                refresh_run_html(html_path.parent)
-            if getattr(args, "json", False):
-                json_record = report_record_for_html(html_path)
+        html_path = latest_report(pack) if not args.run_id else report_for_run(pack, args.run_id)
+        if getattr(args, "json", False):
+            json_record = report_record_for_html(html_path)
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1

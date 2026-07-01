@@ -56,14 +56,8 @@ def main(argv: list[str] | None = None) -> int:
 
     report = sub.add_parser("report", help="Show or open an existing HTML run report.")
     report.add_argument("run_id", nargs="?")
-    report.add_argument("--last", action="store_true", help="Select the newest run report.")
-    report.add_argument("--recent", type=int, help="Create a batch report from the newest N standalone run reports.")
-    report.add_argument("--runs", nargs="+", help="Create a batch report from explicit run ids or report paths.")
-    report.add_argument("--loops", nargs="+", help="Create a batch report from the newest run for each named loop.")
-    report.add_argument("--running", action="store_true", help="List run and batch reports that are currently marked running.")
-    report.add_argument("--json", action="store_true", help="Print clean JSON when creating a batch report.")
+    report.add_argument("--json", action="store_true", help="Print report metadata as JSON.")
     report.add_argument("--open", action="store_true", help="Open the report.")
-    report.add_argument("--refresh", action="store_true", help="Regenerate single-run HTML and Markdown reports from run.json.")
 
     args = parser.parse_args(argv)
     if args.cmd == "init":
