@@ -244,7 +244,11 @@ def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch
     assert project_yaml.read_text(encoding="utf-8") == "custom: true\n"
 
 
-def test_init_preserves_existing_loops_and_user_prompts(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypoints(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     smoke_loop = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
@@ -262,7 +266,9 @@ def test_init_preserves_existing_loops_and_user_prompts(tmp_path: Path, monkeypa
 
     assert smoke_loop.read_text(encoding="utf-8") == "custom loop\n"
     assert user_prompt.read_text(encoding="utf-8") == "custom project prompt\n"
-    assert codex_prompt.read_text(encoding="utf-8") == "custom slash prompt\n"
+    codex_prompt_text = codex_prompt.read_text(encoding="utf-8")
+    assert "custom slash prompt" not in codex_prompt_text
+    assert "Use this active Codex session" in codex_prompt_text
     generated_prompt = tmp_path / ".meguri" / "generated" / "inspect.md"
     assert generated_prompt.is_file()
     assert ".meguri/project-inspect.json" in generated_prompt.read_text(encoding="utf-8")

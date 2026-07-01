@@ -89,6 +89,28 @@ def test_refresh_entrypoints_remote_failure_raises_before_writing(
     assert not (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").exists()
 
 
+def test_refresh_entrypoints_bad_remote_template_raises_before_writing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    project = tmp_path / "project"
+    project.mkdir()
+
+    def fake_fetch(url: str) -> str:
+        name = url.rsplit("/", 1)[-1]
+        if name == "codex_prompt.md":
+            return "remote template for codex_prompt.md\n/meguri\nmeguri init\nmeguri run\n"
+        return f"remote template for {name}\n/meguri\nmeguri init\nmeguri run\nmeguri report\n"
+
+    with pytest.raises(SkillRefreshError, match=r"codex_prompt\.md.*meguri report"):
+        refresh_entrypoints(project, offline=False, fetch_text=fake_fetch)
+
+    assert not (project / ".agents").exists()
+    assert not (project / ".claude").exists()
+    assert not (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").exists()
+
+
 def _display(project: Path, path: Path) -> str:
     try:
         return str(path.relative_to(project))
