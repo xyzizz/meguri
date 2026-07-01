@@ -119,6 +119,6 @@ Write these files:
 After writing the files:
 1. If `questions` is non-empty, stop and ask the user those questions.
 2. If status is `ready`, suggest the smallest next implementation step.
-3. Do not run `meguri add`, write loops, or edit tests during inspect unless
-   the user explicitly asked you to continue beyond inspection.
+3. Do not write loops or edit tests during inspect unless the user explicitly
+   asked you to continue beyond inspection.
 """

@@ -71,6 +71,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
     generated_readme = (tmp_path / ".meguri" / "README.md").read_text(encoding="utf-8")
+    generated_inspect = (tmp_path / ".meguri" / "generated" / "inspect.md").read_text(encoding="utf-8")
     generated_texts = {
         "codex_skill": codex_skill,
         "claude_skill": claude_skill,
@@ -124,6 +125,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
         "claude_command": claude_command,
         "codex_prompt": codex_prompt,
         "generated_readme": generated_readme,
+        "generated_inspect": generated_inspect,
     }.items():
         for removed in removed_strings:
             assert removed not in text, (key, removed)

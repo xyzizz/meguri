@@ -156,6 +156,8 @@ def test_user_facing_docs_and_templates_do_not_reference_removed_public_surface(
         Path("prompts/install.md"),
         Path("install.sh"),
         Path("meguri/cli/entrypoints.py"),
+        Path("meguri/cli/inspect.py"),
+        Path("meguri/cli/add.py"),
         *sorted(Path("meguri/templates").glob("*.md")),
     ]
     removed_surface = re.compile(

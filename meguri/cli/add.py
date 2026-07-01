@@ -22,7 +22,7 @@ def handle_add(args: Any) -> int:
         pack = find_project_pack(Path.cwd())
     except FileNotFoundError:
         print("Cannot add a loop yet: no .meguri/ pack found.")
-        print("Run meguri init first, then retry meguri add.")
+        print("Run meguri init first, then ask /meguri to add the loop.")
         return 2
 
     questions = _missing_questions(args)
