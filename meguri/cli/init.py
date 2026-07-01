@@ -18,9 +18,17 @@ def handle_init(args: Any) -> int:
     created: list[Path] = []
     skipped: list[Path] = []
     force = bool(getattr(args, "force", False))
+    offline = bool(getattr(args, "offline", False))
+
+    try:
+        created.extend(write_skills(project_root, offline=offline))
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: Meguri skill refresh failed: {exc}", file=sys.stderr)
+        if not offline:
+            print("rerun with --offline to use bundled templates without network access", file=sys.stderr)
+        return 1
 
     created.extend(_write_pack(project_root, pack_root, force=force, skipped=skipped))
-    created.extend(write_skills(project_root, offline=True))
     pack = load_project_pack(project_root)
     prompt_path, prompt = write_inspect_spec(pack)
 

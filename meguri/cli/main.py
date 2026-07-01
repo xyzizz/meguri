@@ -44,9 +44,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="meguri")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    init = sub.add_parser("init", help="Initialize Meguri and print the project inspection workflow.")
-    init.add_argument("--install-skills", action="store_true", help="Compatibility no-op; init writes entrypoints by default.")
-    init.add_argument("--force", action="store_true", help="Overwrite generated files.")
+    init = sub.add_parser("init", help="Initialize Meguri and refresh Meguri agent entrypoints.")
+    init.add_argument("--offline", action="store_true", help="Use bundled entrypoint templates instead of fetching from the official repository.")
+    init.add_argument("--force", action="store_true", help="Overwrite generated Meguri system files.")
 
     sub.add_parser("inspect", help="Compatibility alias for init.")
 
