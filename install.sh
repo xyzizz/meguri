@@ -4,7 +4,6 @@ set -euo pipefail
 REPO_URL="${MEGURI_REPO_URL:-https://github.com/xyzizz/meguri.git}"
 PACKAGE_SPEC="${MEGURI_PACKAGE_SPEC:-git+${REPO_URL}}"
 RUN_INIT=true
-INSTALL_SKILLS=false
 FORCE=false
 
 usage() {
@@ -45,7 +44,6 @@ while [ "$#" -gt 0 ]; do
       ;;
     --install-skills)
       RUN_INIT=true
-      INSTALL_SKILLS=true
       ;;
     --force)
       FORCE=true
@@ -125,9 +123,6 @@ log "installed: ${MEGURI_BIN}"
 
 if [ "${RUN_INIT}" = true ]; then
   init_args=()
-  if [ "${INSTALL_SKILLS}" = true ]; then
-    init_args+=(--install-skills)
-  fi
   if [ "${FORCE}" = true ]; then
     init_args+=(--force)
   fi

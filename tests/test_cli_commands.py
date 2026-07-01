@@ -144,7 +144,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "upgrade" in claude_command
 
 
-def test_init_refreshes_skills_before_writing_pack(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_init_refreshes_skills_before_writing_pack(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     calls: list[tuple[Path, bool]] = []
