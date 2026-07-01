@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from meguri.cli.entrypoints import (
     ENTRYPOINT_SPECS,
     SkillRefreshError,
+    bundled_templates,
     refresh_entrypoints,
 )
 
@@ -135,6 +137,49 @@ def test_refresh_entrypoints_bad_remote_template_raises_before_writing(
     assert not (project / ".agents").exists()
     assert not (project / ".claude").exists()
     assert not (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").exists()
+
+
+def test_checked_in_templates_match_bundled_entrypoint_fallbacks() -> None:
+    bundled = bundled_templates()
+
+    assert set(bundled) == {spec.key for spec in ENTRYPOINT_SPECS}
+    for spec in ENTRYPOINT_SPECS:
+        path = Path("meguri/templates") / spec.remote_name
+        assert path.read_text(encoding="utf-8") == bundled[spec.key], spec.key
+
+
+def test_user_facing_docs_and_templates_do_not_reference_removed_public_surface() -> None:
+    paths = [
+        Path("README.md"),
+        Path("README.zh-CN.md"),
+        Path("PRODUCT.md"),
+        Path("prompts/install.md"),
+        Path("install.sh"),
+        Path("meguri/cli/entrypoints.py"),
+        *sorted(Path("meguri/templates").glob("*.md")),
+    ]
+    removed_surface = re.compile(
+        r"meguri (add|loops|delete|validate|upgrade|inspect)"
+        r"|/meguri upgrade"
+        r"|report --(recent|runs|loops|running|refresh|last)"
+        r"|run --(all|exclude|include-system)"
+    )
+
+    failures = []
+    for path in paths:
+        for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            if removed_surface.search(line):
+                failures.append(f"{path}:{line_no}: {line}")
+
+    assert failures == []
+
+    install_guidance = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (Path("README.md"), Path("prompts/install.md"), Path("install.sh"))
+    )
+    assert "official" in install_guidance
+    assert "by default" in install_guidance
+    assert "meguri init --offline" in install_guidance
 
 
 def _display(project: Path, path: Path) -> str:
