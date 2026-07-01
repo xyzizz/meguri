@@ -23,5 +23,6 @@ def test_install_script_uses_simplified_refresh_guidance() -> None:
     assert "meguri upgrade" not in script
     assert "/meguri upgrade" not in script
     assert "invoke /meguri" in script
-    assert "meguri init again" in script
-    assert "meguri init --offline" in script
+    assert "meguri refresh again" in script
+    assert "meguri init to repair or initialize" in script
+    assert "meguri refresh --offline" in script

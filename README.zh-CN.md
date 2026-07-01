@@ -15,6 +15,7 @@ Meguri 不会自己理解你的项目。项目理解、测试流程设计、测�
 
 ```text
 Initialize this project with Meguri.
+Update Meguri.
 Add a verification loop for <goal>.
 Run all verification.
 Open the latest report.
@@ -30,13 +31,14 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 
 After installation, invoke /meguri and ask:
 Initialize this project with Meguri.
+Update Meguri.
 ```
 
 更完整的可复制安装提示词在 [`prompts/install.md`](prompts/install.md)。
 
 如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话，然后输入 `/` 搜索 `meguri`。
 
-`meguri init` 默认会从官方仓库刷新 Meguri 管理的 agent 入口文件。网络不可用时，运行 `meguri init --offline` 使用随包模板。
+`meguri init` 初始化项目 pack。`meguri refresh` 从官方仓库更新 Meguri 管理的 agent 入口文件；网络不可用时，运行 `meguri refresh --offline` 使用随包模板。
 
 ## 创建内容
 
@@ -95,13 +97,14 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 
 ```text
 meguri init
+meguri refresh
 meguri run <loop>
 meguri run <loop1> <loop2>
 meguri run all
 meguri report [run_or_batch_id]
 ```
 
-`init` 准备项目 pack，并默认从官方仓库刷新 Meguri 管理的 agent 入口文件；网络不可用时，`meguri init --offline` 会使用随包模板。`run` 运行一个命名 loop、一个明确的顺序列表，或全部用户 loop。`report` 是只读命令，用于返回最新报告或指定 run / batch 报告。
+`init` 初始化或修复项目 pack。`refresh` 从官方仓库更新 Meguri 管理的 agent 入口文件；网络不可用时，`meguri refresh --offline` 会使用随包模板。`run` 运行一个命名 loop、一个明确的顺序列表，或全部用户 loop。`report` 是只读命令，用于返回最新报告或指定 run / batch 报告。
 
 ## 工作规则
 

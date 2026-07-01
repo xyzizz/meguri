@@ -7,7 +7,6 @@ from typing import Any
 
 import yaml
 
-from meguri.cli.entrypoints import refresh_entrypoints
 from meguri.cli.inspect import write_inspect_spec
 from meguri.project.pack import load_project_pack, pack_root_for
 
@@ -18,15 +17,6 @@ def handle_init(args: Any) -> int:
     created: list[Path] = []
     skipped: list[Path] = []
     force = bool(getattr(args, "force", False))
-    offline = bool(getattr(args, "offline", False))
-
-    try:
-        created.extend(write_skills(project_root, offline=offline))
-    except Exception as exc:  # noqa: BLE001
-        print(f"error: Meguri skill refresh failed: {exc}", file=sys.stderr)
-        if not offline:
-            print("rerun with --offline to use bundled templates without network access", file=sys.stderr)
-        return 1
 
     created.extend(_write_pack(project_root, pack_root, force=force, skipped=skipped))
     pack = load_project_pack(project_root)
@@ -112,11 +102,6 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
             created.append(written)
     return created
 
-
-def write_skills(project_root: Path, *, offline: bool) -> list[Path]:
-    return refresh_entrypoints(project_root, offline=offline)
-
-
 def _write_if_allowed(path: Path, text: str, *, force: bool, skipped: list[Path]) -> Path | None:
     if path.exists() and not force:
         skipped.append(path)
@@ -189,15 +174,20 @@ The public CLI bottom layer is intentionally small:
 
 ```text
 meguri init
+meguri refresh
 meguri run <loop>
 meguri run <loop1> <loop2>
 meguri run all
 meguri report [run_or_batch_id]
 ```
 
-Use natural language through `/meguri` for loop creation and cleanup. The agent
-adds or changes loops by editing `.meguri/loops/<loop_id>/_loop.yaml` and removes
-a user loop by deleting its loop directory after the user names it clearly.
+Use natural language through `/meguri` for initialization, Meguri updates, loop
+creation, cleanup, verification runs, and reports. `meguri init` initializes or
+repairs the project pack. `meguri refresh` updates Meguri-owned agent entrypoints
+from the official repository; use `meguri refresh --offline` when network access
+is unavailable. The agent adds or changes loops by editing
+`.meguri/loops/<loop_id>/_loop.yaml` and removes a user loop by deleting its loop
+directory after the user names it clearly.
 
 Keep loops deterministic. Do not treat an LLM's self-evaluation as passing
 evidence. If you write helper or verifier scripts, write structured JSON

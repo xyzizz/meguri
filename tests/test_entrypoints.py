@@ -29,7 +29,7 @@ def test_refresh_entrypoints_fetches_remote_templates_and_overwrites_only_entryp
 
     def fake_fetch(url: str) -> str:
         name = url.rsplit("/", 1)[-1]
-        return f"remote template for {name}\n/meguri\nmeguri init\nmeguri run\nmeguri report\n"
+        return f"remote template for {name}\n/meguri\nmeguri init\nmeguri refresh\nmeguri run\nmeguri report\n"
 
     written = refresh_entrypoints(project, offline=False, fetch_text=fake_fetch)
 
@@ -68,6 +68,7 @@ def test_refresh_entrypoints_offline_uses_bundled_templates(
     combined = "\n".join(spec.path_for(project).read_text(encoding="utf-8") for spec in ENTRYPOINT_SPECS)
     assert "/meguri" in combined
     assert "meguri init" in combined
+    assert "meguri refresh" in combined
     assert "meguri run" in combined
     assert "meguri report" in combined
 
@@ -83,10 +84,10 @@ def test_refresh_entrypoints_offline_validates_each_template(
     monkeypatch.setattr(
         "meguri.cli.entrypoints.bundled_templates",
         lambda: {
-            "codex_skill": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
-            "claude_skill": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
-            "claude_command": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
-            "codex_prompt": "/meguri\nmeguri init\nmeguri run\n",
+            "codex_skill": "/meguri\nmeguri init\nmeguri refresh\nmeguri run\nmeguri report\n",
+            "claude_skill": "/meguri\nmeguri init\nmeguri refresh\nmeguri run\nmeguri report\n",
+            "claude_command": "/meguri\nmeguri init\nmeguri refresh\nmeguri run\nmeguri report\n",
+            "codex_prompt": "/meguri\nmeguri init\nmeguri refresh\nmeguri run\n",
         },
     )
 
@@ -128,8 +129,8 @@ def test_refresh_entrypoints_bad_remote_template_raises_before_writing(
     def fake_fetch(url: str) -> str:
         name = url.rsplit("/", 1)[-1]
         if name == "codex_prompt.md":
-            return "remote template for codex_prompt.md\n/meguri\nmeguri init\nmeguri run\n"
-        return f"remote template for {name}\n/meguri\nmeguri init\nmeguri run\nmeguri report\n"
+            return "remote template for codex_prompt.md\n/meguri\nmeguri init\nmeguri refresh\nmeguri run\n"
+        return f"remote template for {name}\n/meguri\nmeguri init\nmeguri refresh\nmeguri run\nmeguri report\n"
 
     with pytest.raises(SkillRefreshError, match=r"codex_prompt\.md.*meguri report"):
         refresh_entrypoints(project, offline=False, fetch_text=fake_fetch)
@@ -163,6 +164,7 @@ def test_user_facing_docs_and_templates_do_not_reference_removed_public_surface(
     removed_surface = re.compile(
         r"meguri (add|loops|delete|validate|upgrade|inspect)"
         r"|/meguri upgrade"
+        r"|meguri init --offline"
         r"|report --(recent|runs|loops|running|refresh|last)"
         r"|run --(all|exclude|include-system)"
     )
@@ -181,7 +183,7 @@ def test_user_facing_docs_and_templates_do_not_reference_removed_public_surface(
     )
     assert "official" in install_guidance
     assert "by default" in install_guidance
-    assert "meguri init --offline" in install_guidance
+    assert "meguri refresh --offline" in install_guidance
 
 
 def _display(project: Path, path: Path) -> str:

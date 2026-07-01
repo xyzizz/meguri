@@ -8,6 +8,7 @@ from pathlib import Path
 
 from meguri.cli.init import handle_init
 from meguri.cli.loops import read_loops
+from meguri.cli.refresh import handle_refresh
 from meguri.cli.report import handle_report, open_path
 from meguri.cli.validate import validate_scenario_files
 from meguri.core.models import utc_now
@@ -41,9 +42,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="meguri", allow_abbrev=False)
     sub = parser.add_subparsers(dest="cmd", required=True, parser_class=_MeguriArgumentParser)
 
-    init = sub.add_parser("init", help="Initialize Meguri and refresh Meguri agent entrypoints.")
-    init.add_argument("--offline", action="store_true", help="Use bundled entrypoint templates instead of fetching from the official repository.")
+    init = sub.add_parser("init", help="Initialize the Meguri project pack.")
     init.add_argument("--force", action="store_true", help="Overwrite generated Meguri system files.")
+
+    refresh = sub.add_parser("refresh", help="Refresh Meguri agent entrypoints.")
+    refresh.add_argument("--offline", action="store_true", help="Use bundled entrypoint templates instead of fetching from the official repository.")
 
     run = sub.add_parser("run", help="Run one or more targets.")
     run.add_argument("targets", nargs="*", help="Loop aliases/paths, or all for all user-added loops.")
@@ -62,6 +65,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.cmd == "init":
         return handle_init(args)
+    if args.cmd == "refresh":
+        return handle_refresh(args)
     if args.cmd == "run":
         try:
             scenario_names = _select_run_targets(args)

@@ -47,11 +47,12 @@ def _assert_argparse_rejects(argv: list[str]) -> None:
     assert excinfo.value.code == 2
 
 
-def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> None:
+def test_refresh_and_init_create_project_pack_and_skills(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
-    assert main(["init", "--offline"]) == 0
+    assert main(["refresh", "--offline"]) == 0
+    assert main(["init"]) == 0
 
     assert (tmp_path / ".meguri" / "project.yaml").is_file()
     assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()
@@ -82,6 +83,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     for key, text in generated_texts.items():
         assert "/meguri" in text, key
         assert "meguri init" in text, key
+        assert "meguri refresh" in text, key
         assert "meguri run" in text, key
         assert "meguri report" in text, key
     for text in (codex_skill, claude_skill, codex_prompt):
@@ -97,10 +99,10 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     for text in (codex_skill, claude_skill):
         assert "description: Use when the user wants" in text
         assert "Public CLI surface" in text
-    assert "argument-hint: init|run|report [args]" in codex_prompt
-    assert "argument-hint: init|run|report [args]" in claude_skill
+    assert "argument-hint: init|refresh|run|report [args]" in codex_prompt
+    assert "argument-hint: init|refresh|run|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
-    assert "argument-hint: init|run|report [args]" in claude_command
+    assert "argument-hint: init|refresh|run|report [args]" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
     assert "crash-safe structured evidence" in claude_command
     removed_strings = (
@@ -131,7 +133,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
             assert removed not in text, (key, removed)
 
 
-def test_init_refreshes_skills_before_writing_pack(tmp_path: Path, monkeypatch) -> None:
+def test_refresh_updates_entrypoints_without_writing_pack(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
     calls: list[tuple[Path, bool]] = []
@@ -140,35 +142,35 @@ def test_init_refreshes_skills_before_writing_pack(tmp_path: Path, monkeypatch) 
         calls.append((project_root, offline))
         path = project_root / ".agents" / "skills" / "meguri" / "SKILL.md"
         path.parent.mkdir(parents=True)
-        path.write_text("remote /meguri meguri init meguri run meguri report\n", encoding="utf-8")
+        path.write_text("remote /meguri meguri init meguri refresh meguri run meguri report\n", encoding="utf-8")
         return [path]
 
-    monkeypatch.setattr("meguri.cli.init.write_skills", fake_refresh)
+    monkeypatch.setattr("meguri.cli.refresh.refresh_entrypoints", fake_refresh)
 
-    assert main(["init"]) == 0
+    assert main(["refresh"]) == 0
 
     assert calls == [(tmp_path, False)]
-    assert (tmp_path / ".meguri" / "project.yaml").is_file()
+    assert not (tmp_path / ".meguri").exists()
     assert "remote /meguri" in (tmp_path / ".agents" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
 
 
-def test_init_refresh_failure_stops_before_pack_writes(tmp_path: Path, monkeypatch, capsys) -> None:
+def test_refresh_failure_stops_before_pack_writes(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
 
     def failing_refresh(project_root: Path, *, offline: bool) -> list[Path]:
         raise RuntimeError("network down")
 
-    monkeypatch.setattr("meguri.cli.init.write_skills", failing_refresh)
+    monkeypatch.setattr("meguri.cli.refresh.refresh_entrypoints", failing_refresh)
 
-    assert main(["init"]) == 1
+    assert main(["refresh"]) == 1
     captured = capsys.readouterr()
 
-    assert "Meguri skill refresh failed" in captured.err
+    assert "Meguri refresh failed" in captured.err
     assert "network down" in captured.err
     assert not (tmp_path / ".meguri").exists()
 
 
-def test_init_offline_uses_bundled_templates(tmp_path: Path, monkeypatch) -> None:
+def test_refresh_offline_uses_bundled_templates(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
     calls: list[bool] = []
 
@@ -176,25 +178,37 @@ def test_init_offline_uses_bundled_templates(tmp_path: Path, monkeypatch) -> Non
         calls.append(offline)
         path = project_root / ".agents" / "skills" / "meguri" / "SKILL.md"
         path.parent.mkdir(parents=True)
-        path.write_text("offline /meguri meguri init meguri run meguri report\n", encoding="utf-8")
+        path.write_text("offline /meguri meguri init meguri refresh meguri run meguri report\n", encoding="utf-8")
         return [path]
 
-    monkeypatch.setattr("meguri.cli.init.write_skills", fake_refresh)
+    monkeypatch.setattr("meguri.cli.refresh.refresh_entrypoints", fake_refresh)
 
-    assert main(["init", "--offline"]) == 0
+    assert main(["refresh", "--offline"]) == 0
 
     assert calls == [True]
 
 
-def test_help_exposes_only_init_run_and_report(capsys) -> None:
+def test_init_does_not_refresh_entrypoints(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+
+    assert main(["init"]) == 0
+
+    assert (tmp_path / ".meguri" / "project.yaml").is_file()
+    assert not (tmp_path / ".agents").exists()
+    assert not (tmp_path / ".claude").exists()
+    assert not (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").exists()
+
+
+def test_help_exposes_only_init_refresh_run_and_report(capsys) -> None:
     with pytest.raises(SystemExit) as excinfo:
         main(["--help"])
     assert excinfo.value.code == 0
 
     output = capsys.readouterr().out
 
-    assert "{init,run,report}" in output
-    for command in ("init", "run", "report"):
+    assert "{init,refresh,run,report}" in output
+    for command in ("init", "refresh", "run", "report"):
         assert command in output
     for removed in ("inspect", "add", "loops", "delete", "validate", "validate-scenario", "upgrade"):
         assert removed not in output
@@ -203,6 +217,10 @@ def test_help_exposes_only_init_run_and_report(capsys) -> None:
 def test_removed_public_commands_are_rejected_by_argparse() -> None:
     for command in ("inspect", "add", "loops", "delete", "validate", "validate-scenario", "upgrade"):
         _assert_argparse_rejects([command])
+
+
+def test_init_rejects_refresh_flags() -> None:
+    _assert_argparse_rejects(["init", "--offline"])
 
 
 def test_run_without_target_returns_usage_error(capsys) -> None:
@@ -226,12 +244,12 @@ def test_init_preserves_existing_files_without_force(tmp_path: Path, monkeypatch
     project_yaml.parent.mkdir(parents=True)
     project_yaml.write_text("custom: true\n", encoding="utf-8")
 
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
 
     assert project_yaml.read_text(encoding="utf-8") == "custom: true\n"
 
 
-def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypoints(
+def test_refresh_preserves_existing_loops_and_project_prompts_but_refreshes_entrypoints(
     tmp_path: Path,
     monkeypatch,
     capsys,
@@ -248,7 +266,8 @@ def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypo
     user_prompt.write_text("custom project prompt\n", encoding="utf-8")
     codex_prompt.write_text("custom slash prompt\n", encoding="utf-8")
 
-    assert main(["init", "--offline"]) == 0
+    assert main(["refresh", "--offline"]) == 0
+    assert main(["init"]) == 0
     output = capsys.readouterr().out
 
     assert smoke_loop.read_text(encoding="utf-8") == "custom loop\n"
@@ -264,7 +283,7 @@ def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypo
 
 def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
 
     assert main(["run", "smoke", "--json"]) == 0
@@ -283,7 +302,7 @@ def test_run_alias_writes_project_local_html_report(tmp_path: Path, monkeypatch,
 
 def test_run_json_output_compacts_large_stdout(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     loop_path = tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml"
     raw = yaml.safe_load(loop_path.read_text(encoding="utf-8"))
@@ -305,7 +324,7 @@ def test_run_prints_live_report_path_before_final_output(tmp_path: Path, monkeyp
     from meguri.core.models import RunReport, utc_now
 
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "long_running", [sys.executable, "-c", "print('done')"])
 
@@ -364,7 +383,7 @@ def test_run_prints_live_output_progress_for_same_running_step(tmp_path: Path, m
     from meguri.core.models import Artifact, RunReport, StepResult
 
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "long_output", [sys.executable, "-c", "print('done')"])
 
@@ -437,7 +456,7 @@ def test_run_prints_live_output_progress_for_same_running_step(tmp_path: Path, m
 
 def test_run_execute_loop_requires_explicit_approval(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     marker_path = tmp_path / "execute_ran.txt"
     _write_loop(
@@ -460,7 +479,7 @@ def test_run_execute_loop_requires_explicit_approval(tmp_path: Path, monkeypatch
 
 def test_batch_retry_loops_do_not_emit_retry_command(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     for loop_name in ("first_execute_fail", "second_execute_fail"):
         _write_loop(
@@ -492,7 +511,7 @@ def test_batch_retry_loops_do_not_emit_retry_command(tmp_path: Path, monkeypatch
 
 def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     marker_path = tmp_path / "second_loop_ran.txt"
     _write_loop(
@@ -588,7 +607,7 @@ def test_run_multiple_loops_continues_in_order_after_failure(tmp_path: Path, mon
 
 def test_run_multiple_loops_records_created_resources_in_batch(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(
         tmp_path,
@@ -633,7 +652,7 @@ def test_run_multiple_loops_records_created_resources_in_batch(tmp_path: Path, m
 
 def test_run_multiple_loops_records_attention_flags_in_batch(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(
         tmp_path,
@@ -672,7 +691,7 @@ def test_run_multiple_loops_records_attention_flags_in_batch(tmp_path: Path, mon
 
 def test_run_multiple_loops_updates_batch_record_after_each_loop(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     marker_path = tmp_path / "batch_snapshot_seen.txt"
     _write_loop(
@@ -716,7 +735,7 @@ def test_run_batch_refreshes_record_when_current_loop_step_advances(tmp_path: Pa
     from meguri.core.models import RunReport, StepResult, utc_now
 
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "first_running", [sys.executable, "-c", "print('first')"])
     _write_loop(tmp_path, "second_later", [sys.executable, "-c", "print('second')"])
@@ -792,7 +811,7 @@ def test_run_multiple_loops_blocks_batch_when_interrupted(tmp_path: Path, monkey
     from meguri.core.models import RunReport, utc_now
 
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "first_pass", [sys.executable, "-c", "print('first')"])
     _write_loop(tmp_path, "second_interrupt", [sys.executable, "-c", "print('second')"])
@@ -841,7 +860,7 @@ def test_run_multiple_loops_blocks_batch_when_interrupted(tmp_path: Path, monkey
 
 def test_run_all_selects_user_loops_not_system_smoke_and_creates_batch_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     ran_path = tmp_path / "ran.txt"
     _write_loop(
@@ -870,7 +889,7 @@ def test_run_all_selects_user_loops_not_system_smoke_and_creates_batch_report(tm
 
 def test_report_defaults_to_latest_existing_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "user_check", [sys.executable, "-c", "print('user ok')"])
 
@@ -887,7 +906,7 @@ def test_report_defaults_to_latest_existing_report(tmp_path: Path, monkeypatch, 
 
 def test_report_rejects_manual_batch_and_refresh_flags(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
 
     for argv in [
         ["report", "--recent", "2"],
@@ -902,7 +921,7 @@ def test_report_rejects_manual_batch_and_refresh_flags(tmp_path: Path, monkeypat
 
 def test_report_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     assert main(["run", "smoke"]) == 0
     capsys.readouterr()
 
@@ -915,7 +934,7 @@ def test_report_selects_newest_html_report(tmp_path: Path, monkeypatch, capsys) 
 
 def test_report_prefers_run_json_time_over_directory_mtime(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
 
     older = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_100000"
@@ -943,7 +962,7 @@ def test_report_prefers_run_json_time_over_directory_mtime(tmp_path: Path, monke
 
 def test_report_uses_batch_updated_at_for_latest_batch(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
 
     loop_run = tmp_path / ".meguri" / "loops" / "checkout" / "20260613_110000"
@@ -980,7 +999,7 @@ def test_report_uses_batch_updated_at_for_latest_batch(tmp_path: Path, monkeypat
 
 def test_report_resolves_existing_batch_from_multi_loop_run(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     _write_loop(tmp_path, "first_todo", [sys.executable, "-c", "print('first')"])
     _write_loop(tmp_path, "second_todo", [sys.executable, "-c", "print('second')"])
@@ -997,7 +1016,7 @@ def test_report_resolves_existing_batch_from_multi_loop_run(tmp_path: Path, monk
 
 def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     run_dir = tmp_path / ".meguri" / "runs" / "run_20260613_120000_single"
     run_dir.mkdir(parents=True)
@@ -1065,7 +1084,7 @@ def test_report_run_json_prints_single_run_summary(tmp_path: Path, monkeypatch, 
 
 def test_report_json_selects_newest_single_run(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
     for run_id, loop, finished_at in [
         ("run_20260613_100000_old", "old_loop", "2026-06-13T10:00:00+00:00"),
@@ -1098,7 +1117,7 @@ def test_report_json_selects_newest_single_run(tmp_path: Path, monkeypatch, caps
 def test_run_validates_scenario_before_execution(tmp_path: Path, monkeypatch, capsys) -> None:
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    assert main(["init", "--offline"]) == 0
+    assert main(["init"]) == 0
     capsys.readouterr()
 
     assert (tmp_path / ".meguri" / "loops" / "smoke" / "_loop.yaml").is_file()

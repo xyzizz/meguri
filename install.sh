@@ -5,6 +5,7 @@ REPO_URL="${MEGURI_REPO_URL:-https://github.com/xyzizz/meguri.git}"
 PACKAGE_SPEC="${MEGURI_PACKAGE_SPEC:-git+${REPO_URL}}"
 RUN_INIT=true
 FORCE=false
+OFFLINE=false
 
 usage() {
   cat <<'USAGE'
@@ -16,13 +17,13 @@ Usage:
 Agent-first install:
   Paste the prompt from prompts/install.md into Codex or Claude Code while the
   target project is open. The current AI agent will run this installer and then
-  continue with the /meguri init workflow. Meguri init refreshes official agent
-  entrypoint templates by default; use meguri init --offline when network access
-  is unavailable.
+  continue with the /meguri workflow. The installer refreshes official agent
+  entrypoint templates first, then initializes the project pack.
 
 Options:
   --init             Compatibility no-op; project initialization runs by default.
   --install-skills   Compatibility no-op; slash entrypoints are installed by default.
+  --offline          Use bundled slash entrypoint templates during refresh.
   --force            Overwrite generated Meguri files during initialization.
   --repo-url URL     Install from a different Git repository URL.
   --package-spec S   Install an explicit pip package spec.
@@ -46,6 +47,9 @@ while [ "$#" -gt 0 ]; do
       ;;
     --install-skills)
       RUN_INIT=true
+      ;;
+    --offline)
+      OFFLINE=true
       ;;
     --force)
       FORCE=true
@@ -124,10 +128,16 @@ MEGURI_BIN="$(resolve_meguri)" || die "Meguri installed, but the executable was 
 log "installed: ${MEGURI_BIN}"
 
 if [ "${RUN_INIT}" = true ]; then
+  refresh_args=()
+  if [ "${OFFLINE}" = true ]; then
+    refresh_args+=(--offline)
+  fi
   init_args=()
   if [ "${FORCE}" = true ]; then
     init_args+=(--force)
   fi
+  log "refreshing Meguri entrypoints"
+  "${MEGURI_BIN}" refresh "${refresh_args[@]}"
   log "initializing current project"
   "${MEGURI_BIN}" init "${init_args[@]}"
 fi
@@ -147,10 +157,10 @@ If slash entrypoints need selection:
 If a newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in this project.
 
-After updating an existing project, run meguri init again from the target
-project to refresh Meguri entrypoints and the project pack from the official
-repository. If network access is unavailable, run meguri init --offline to use
-the bundled templates.
+After updating an existing project, run meguri refresh again from the target
+project to refresh Meguri entrypoints from the official repository, then run
+meguri init to repair or initialize the project pack. If network access is
+unavailable, run meguri refresh --offline to use the bundled templates.
 
 If a later Meguri step is not found, refresh the executable path with:
   python3 -m pipx ensurepath

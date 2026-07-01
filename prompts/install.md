@@ -16,14 +16,15 @@ Initialize this project with Meguri.
 If `meguri` does not appear in the slash menu yet, restart Codex / Claude Code
 or open a new session in this project, then type `/` and search `meguri`.
 
-`meguri init` refreshes Meguri-owned agent entrypoints from the official
-repository by default. If network access is unavailable, run
-`meguri init --offline` to use the bundled templates.
+`meguri init` initializes the project pack. `meguri refresh` updates
+Meguri-owned agent entrypoints from the official repository. If network access
+is unavailable, run `meguri refresh --offline` to use the bundled templates.
 
 Common `/meguri` requests:
 
 ```text
 Initialize this project with Meguri.
+Update Meguri.
 Add a verification loop for <goal>.
 Run all verification.
 Open the latest report.
@@ -33,6 +34,7 @@ The public CLI bottom layer is:
 
 ```text
 meguri init
+meguri refresh
 meguri run <loop>
 meguri run <loop1> <loop2>
 meguri run all
