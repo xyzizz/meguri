@@ -99,6 +99,7 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     assert "argument-hint: init|run|report [args]" in codex_prompt
     assert "argument-hint: init|run|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
+    assert "argument-hint: init|run|report [args]" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
     assert "crash-safe structured evidence" in claude_command
     removed_strings = (
@@ -120,7 +121,9 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     for key, text in {
         "codex_skill": codex_skill,
         "claude_skill": claude_skill,
+        "claude_command": claude_command,
         "codex_prompt": codex_prompt,
+        "generated_readme": generated_readme,
     }.items():
         for removed in removed_strings:
             assert removed not in text, (key, removed)

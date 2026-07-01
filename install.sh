@@ -16,7 +16,9 @@ Usage:
 Agent-first install:
   Paste the prompt from prompts/install.md into Codex or Claude Code while the
   target project is open. The current AI agent will run this installer and then
-  continue with the Meguri init workflow.
+  continue with the /meguri init workflow. Meguri init refreshes official agent
+  entrypoint templates by default; use meguri init --offline when network access
+  is unavailable.
 
 Options:
   --init             Compatibility no-op; project initialization runs by default.
@@ -134,8 +136,8 @@ cat <<EOF
 
 Meguri is ready.
 
-Run from the AI terminal:
-  /meguri init
+Open Codex or Claude Code in the target project, invoke /meguri, and ask:
+  Initialize this project with Meguri.
 
 If slash entrypoints need selection:
   Claude Code: type /, search meguri, choose /meguri
@@ -145,9 +147,10 @@ If slash entrypoints need selection:
 If a newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in this project.
 
-After updating an existing project, refresh generated entrypoints and indexes
-from the AI terminal:
-  /meguri upgrade --skills --refresh-index
+After updating an existing project, run meguri init again from the target
+project to refresh Meguri entrypoints and the project pack from the official
+repository. If network access is unavailable, run meguri init --offline to use
+the bundled templates.
 
 If a later Meguri step is not found, refresh the executable path with:
   python3 -m pipx ensurepath

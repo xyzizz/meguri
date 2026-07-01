@@ -16,9 +16,10 @@ Meguri provides an agent-facing verification specification around Codex and Clau
 
 The first-run experience is also agent-facing: the operator can paste a single
 installation prompt into Codex or Claude Code, and the active AI session installs
-Meguri, initializes the current project, runs `meguri inspect`, and continues
-from the generated specification. Meguri still never launches a second model or
-agent process.
+Meguri, invokes `/meguri`, runs `meguri init`, follows the generated inspection
+workflow in the same session, and continues from the resulting project
+specification. Meguri still never launches a second model or agent process, and
+project inspection is not exposed as a separate public command.
 
 Success means an operator can ask an AI agent to design a loop for a new project and still see what happened, why a run passed or failed, which evidence supports that result, and whether the loop stopped before forbidden side effects. The product should make future self-repair loops safer by letting agents propose and implement changes while Meguri owns budgets, gates, artifacts, and success criteria.
 

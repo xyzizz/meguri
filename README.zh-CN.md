@@ -36,6 +36,8 @@ Initialize this project with Meguri.
 
 如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话，然后输入 `/` 搜索 `meguri`。
 
+`meguri init` 默认会从官方仓库刷新 Meguri 管理的 agent 入口文件。网络不可用时，运行 `meguri init --offline` 使用随包模板。
+
 ## 创建内容
 
 安装器会创建项目工作流文件：
@@ -99,7 +101,7 @@ meguri run all
 meguri report [run_or_batch_id]
 ```
 
-`init` 准备项目 pack，并刷新 Meguri 管理的入口文件。`run` 运行一个命名 loop、一个明确的顺序列表，或全部用户 loop。`report` 是只读命令，用于返回最新报告或指定 run / batch 报告。
+`init` 准备项目 pack，并默认从官方仓库刷新 Meguri 管理的 agent 入口文件；网络不可用时，`meguri init --offline` 会使用随包模板。`run` 运行一个命名 loop、一个明确的顺序列表，或全部用户 loop。`report` 是只读命令，用于返回最新报告或指定 run / batch 报告。
 
 ## 工作规则
 

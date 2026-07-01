@@ -64,7 +64,7 @@ def refresh_entrypoints(
     fetch_text: Callable[[str], str] | None = None,
 ) -> list[Path]:
     templates = bundled_templates() if offline else remote_templates(fetch_text or _fetch_url_text)
-    _validate_templates(templates, require_terms_per_template=not offline)
+    _validate_templates(templates)
     written: list[Path] = []
     for spec in ENTRYPOINT_SPECS:
         path = spec.path_for(project_root)
@@ -92,29 +92,19 @@ def _fetch_url_text(url: str) -> str:
         raise SkillRefreshError(str(exc)) from exc
 
 
-def _validate_templates(templates: dict[str, str], *, require_terms_per_template: bool) -> None:
+def _validate_templates(templates: dict[str, str]) -> None:
     missing = [spec.key for spec in ENTRYPOINT_SPECS if not templates.get(spec.key, "").strip()]
     if missing:
         raise SkillRefreshError(f"missing Meguri skill templates: {', '.join(missing)}")
     required = ("/meguri", "meguri init", "meguri run", "meguri report")
-    if require_terms_per_template:
-        for spec in ENTRYPOINT_SPECS:
-            text = templates[spec.key]
-            missing_terms = [term for term in required if term not in text]
-            if missing_terms:
-                raise SkillRefreshError(
-                    f"Meguri skill template {spec.remote_name} is missing required terms: "
-                    + ", ".join(missing_terms)
-                )
-        return
-
-    combined = "\n".join(templates[spec.key] for spec in ENTRYPOINT_SPECS)
-    missing_terms = [term for term in required if term not in combined]
-    if missing_terms:
-        raise SkillRefreshError(
-            "Meguri skill templates are missing required terms: "
-            + ", ".join(missing_terms)
-        )
+    for spec in ENTRYPOINT_SPECS:
+        text = templates[spec.key]
+        missing_terms = [term for term in required if term not in text]
+        if missing_terms:
+            raise SkillRefreshError(
+                f"Meguri skill template {spec.remote_name} is missing required terms: "
+                + ", ".join(missing_terms)
+            )
 
 
 def bundled_templates() -> dict[str, str]:

@@ -70,6 +70,32 @@ def test_refresh_entrypoints_offline_uses_bundled_templates(
     assert "meguri report" in combined
 
 
+def test_refresh_entrypoints_offline_validates_each_template(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    project = tmp_path / "project"
+    project.mkdir()
+
+    monkeypatch.setattr(
+        "meguri.cli.entrypoints.bundled_templates",
+        lambda: {
+            "codex_skill": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
+            "claude_skill": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
+            "claude_command": "/meguri\nmeguri init\nmeguri run\nmeguri report\n",
+            "codex_prompt": "/meguri\nmeguri init\nmeguri run\n",
+        },
+    )
+
+    with pytest.raises(SkillRefreshError, match=r"codex_prompt\.md.*meguri report"):
+        refresh_entrypoints(project, offline=True)
+
+    assert not (project / ".agents").exists()
+    assert not (project / ".claude").exists()
+    assert not (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").exists()
+
+
 def test_refresh_entrypoints_remote_failure_raises_before_writing(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

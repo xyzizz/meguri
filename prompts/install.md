@@ -16,6 +16,10 @@ Initialize this project with Meguri.
 If `meguri` does not appear in the slash menu yet, restart Codex / Claude Code
 or open a new session in this project, then type `/` and search `meguri`.
 
+`meguri init` refreshes Meguri-owned agent entrypoints from the official
+repository by default. If network access is unavailable, run
+`meguri init --offline` to use the bundled templates.
+
 Common `/meguri` requests:
 
 ```text

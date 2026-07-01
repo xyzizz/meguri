@@ -42,6 +42,10 @@ A fuller copyable install prompt lives in
 If the newly installed entrypoint does not appear, restart Codex / Claude Code
 or open a new session in the same project, then type `/` and search `meguri`.
 
+`meguri init` refreshes Meguri-owned agent entrypoints from the official
+repository by default. When network access is unavailable, run
+`meguri init --offline` to use the bundled templates.
+
 ## What It Creates
 
 The installer creates the project workflow files:
@@ -112,9 +116,11 @@ meguri run all
 meguri report [run_or_batch_id]
 ```
 
-`init` prepares the project pack and refreshes Meguri-owned entrypoints. `run`
-executes one named loop, an explicit sequence, or all user loops. `report` is
-read-only and returns the latest report or the requested run or batch report.
+`init` prepares the project pack and refreshes Meguri-owned agent entrypoints
+from the official repository by default; `meguri init --offline` uses bundled
+templates when network access is unavailable. `run` executes one named loop, an
+explicit sequence, or all user loops. `report` is read-only and returns the
+latest report or the requested run or batch report.
 
 ## Workflow Rules
 
