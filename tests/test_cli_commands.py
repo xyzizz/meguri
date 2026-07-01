@@ -70,70 +70,60 @@ def test_init_creates_project_pack_and_skills(tmp_path: Path, monkeypatch) -> No
     claude_skill = (tmp_path / ".claude" / "skills" / "meguri" / "SKILL.md").read_text(encoding="utf-8")
     claude_command = (tmp_path / ".claude" / "commands" / "meguri.md").read_text(encoding="utf-8")
     codex_prompt = (tmp_path / "home" / ".codex" / "prompts" / "meguri.md").read_text(encoding="utf-8")
-    assert "Meguri init workflow" in codex_skill
-    assert "loop design" in codex_skill
-    assert "evidence crash-safe" in codex_skill
-    assert ".meguri/loops/<loop_id>/<run_id>/timeline.ndjson" in codex_skill
-    assert "`run.json`, `report.md`, `index.html`" in codex_skill
-    assert "meguri run <loop1> <loop2>" in codex_skill
-    assert "live_report=..." in codex_skill
-    assert "live_stdout_path=..." in codex_skill
-    assert "live character counts" in codex_skill
-    assert "silent-step heartbeats" in codex_skill
-    assert "meguri run --all --exclude <loop>" in codex_skill
-    assert "meguri run <loop> --allow-execute" in codex_skill
-    assert "meguri upgrade --skills --refresh-index" in codex_skill
-    assert ".meguri/batches/<batch_id>/batch.json" in codex_skill
-    assert "live progress surface" in codex_skill
-    assert "Shell stdout/stderr output also refreshes" in codex_skill
-    assert "meguri report <run_id> --json" in codex_skill
-    assert "`evidence_files`" in codex_skill
-    assert "`replay_command`" not in codex_skill
-    assert "`status_counts`" in codex_skill
-    assert "`failed_loops`" in codex_skill
-    assert "`retry_loops`" in codex_skill
-    assert "`attention_flags`" in codex_skill
-    assert "`created_resources`" in codex_skill
-    assert "`failed_items`" in codex_skill
-    assert "`validation_issues`" in codex_skill
-    assert "`repair_hints`" in codex_skill
-    assert "per-loop `mode`" in codex_skill
-    assert "per-loop `metrics`" in codex_skill
-    assert "Replay command" not in codex_skill
-    assert "argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]" in codex_prompt
-    assert "Use this active Codex session" in codex_prompt
-    assert "meguri upgrade --skills --refresh-index" in codex_prompt
-    assert "MEGURI_EVIDENCE_DIR" in codex_prompt
-    assert "--allow-execute" in codex_prompt
-    assert "Meguri init workflow" in claude_skill
-    assert "evidence crash-safe" in claude_skill
-    assert "meguri run --all --exclude <loop>" in claude_skill
-    assert "live_report=..." in claude_skill
-    assert "live_stdout_path=..." in claude_skill
-    assert "live character counts" in claude_skill
-    assert "silent-step heartbeats" in claude_skill
-    assert "meguri run <loop> --allow-execute" in claude_skill
-    assert "meguri upgrade --skills --refresh-index" in claude_skill
-    assert "live progress surface" in claude_skill
-    assert "Shell stdout/stderr output also refreshes" in claude_skill
-    assert "meguri report <run_id> --json" in claude_skill
-    assert "`evidence_files`" in claude_skill
-    assert "`replay_command`" not in claude_skill
-    assert "`status_counts`" in claude_skill
-    assert "`failed_loops`" in claude_skill
-    assert "`retry_loops`" in claude_skill
-    assert "`attention_flags`" in claude_skill
-    assert "`created_resources`" in claude_skill
-    assert "`failed_items`" in claude_skill
-    assert "`validation_issues`" in claude_skill
-    assert "`repair_hints`" in claude_skill
-    assert "per-loop `mode`" in claude_skill
-    assert "per-loop `metrics`" in claude_skill
-    assert "Replay command" not in claude_skill
-    assert "argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]" in claude_skill
+    generated_readme = (tmp_path / ".meguri" / "README.md").read_text(encoding="utf-8")
+    generated_texts = {
+        "codex_skill": codex_skill,
+        "claude_skill": claude_skill,
+        "claude_command": claude_command,
+        "codex_prompt": codex_prompt,
+        "generated_readme": generated_readme,
+    }
+    for key, text in generated_texts.items():
+        assert "/meguri" in text, key
+        assert "meguri init" in text, key
+        assert "meguri run" in text, key
+        assert "meguri report" in text, key
+    for text in (codex_skill, claude_skill, codex_prompt):
+        assert "meguri run <loop>" in text
+        assert "meguri run <loop1> <loop2>" in text
+        assert "meguri run all" in text
+        assert "meguri report [run_or_batch_id]" in text
+        assert ".meguri/loops/<loop_id>/_loop.yaml" in text
+        assert "MEGURI_EVIDENCE_DIR" in text
+        assert "--allow-execute" in text
+        assert "crash-safe structured evidence" in text
+        assert "Never treat LLM self-evaluation as passing evidence" in text
+    for text in (codex_skill, claude_skill):
+        assert "description: Use when the user wants" in text
+        assert "Public CLI surface" in text
+    assert "argument-hint: init|run|report [args]" in codex_prompt
+    assert "argument-hint: init|run|report [args]" in claude_skill
     assert "Meguri verification loop workflow" in claude_command
     assert "MEGURI_EVIDENCE_DIR" in claude_command
-    assert "upgrade" in claude_command
+    assert "crash-safe structured evidence" in claude_command
+    removed_strings = (
+        "meguri add",
+        "meguri loops",
+        "meguri delete",
+        "meguri validate",
+        "meguri upgrade",
+        "meguri report --recent",
+        "meguri report --runs",
+        "meguri report --loops",
+        "meguri report --running",
+        "meguri report --refresh",
+        "meguri report --last",
+        "meguri run --all",
+        "meguri run --exclude",
+        "meguri run --include-system",
+    )
+    for key, text in {
+        "codex_skill": codex_skill,
+        "claude_skill": claude_skill,
+        "codex_prompt": codex_prompt,
+    }.items():
+        for removed in removed_strings:
+            assert removed not in text, (key, removed)
 
 
 def test_init_refreshes_skills_before_writing_pack(tmp_path: Path, monkeypatch) -> None:
@@ -260,7 +250,7 @@ def test_init_preserves_existing_loops_and_project_prompts_but_refreshes_entrypo
     assert user_prompt.read_text(encoding="utf-8") == "custom project prompt\n"
     codex_prompt_text = codex_prompt.read_text(encoding="utf-8")
     assert "custom slash prompt" not in codex_prompt_text
-    assert "Use this active Codex session" in codex_prompt_text
+    assert "Use `/meguri` for this request in the current Codex session" in codex_prompt_text
     generated_prompt = tmp_path / ".meguri" / "generated" / "inspect.md"
     assert generated_prompt.is_file()
     assert ".meguri/project-inspect.json" in generated_prompt.read_text(encoding="utf-8")

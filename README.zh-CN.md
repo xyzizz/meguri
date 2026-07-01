@@ -7,40 +7,34 @@
 Meguri 是一个放在目标项目里的 AI loop 工作流。它让当前 Codex / Claude
 Code 会话可以用稳定的方式理解项目、设计确定性的验证闭环、安全运行验证、必要时修复并复测，最后留下可审计的报告。
 
-Meguri 不会自己理解你的项目。项目理解、测试流程设计、测试代码编写，仍然由当前终端里的 AI 完成；Meguri 负责提供结构、约束、校验、执行和记录。
+Meguri 不会自己理解你的项目。项目理解、测试流程设计、测试代码编写，仍然由当前终端里的 AI 完成；Meguri 负责提供结构、安全规则、执行和记录。
 
 ## 快速开始
 
-在目标项目里打开 Codex 或 Claude Code，然后粘贴：
+在目标项目里打开 Codex 或 Claude Code，然后调用 `/meguri` 并提出请求：
 
 ```text
-请在当前项目安装 Meguri，并启用 Codex / Claude Code 的 slash 入口。
+Initialize this project with Meguri.
+Add a verification loop for <goal>.
+Run all verification.
+Open the latest report.
+```
 
-运行：
+首次安装时，可以把这段提示词粘贴给 Codex 或 Claude Code：
+
+```text
+Install Meguri in this project and enable the Codex / Claude Code slash entrypoint.
+
+Run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
 
-安装完成后，执行：
-/meguri init
+After installation, invoke /meguri and ask:
+Initialize this project with Meguri.
 ```
 
 更完整的可复制安装提示词在 [`prompts/install.md`](prompts/install.md)。
 
-完成首次设置后，在 AI 终端里使用 Meguri：
-
-```text
-Claude Code: 输入 `/`，搜索 `meguri`，选择 `/meguri`
-Codex: 重启/新开会话后输入 `/`，搜索 `meguri`，选择 `prompts:meguri`
-Codex 备选：`/skills` -> `meguri`，或 `$meguri init`
-```
-
-如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话。
-
-后续更新已有项目时，仍然使用同一个 curl 安装方式，然后在 AI 终端里刷新生成的入口和报告索引：
-
-```text
-curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
-/meguri upgrade --skills --refresh-index
-```
+如果新安装的入口没有出现，重启 Codex / Claude Code，或在同一个项目里开启新会话，然后输入 `/` 搜索 `meguri`。
 
 ## 创建内容
 
@@ -63,7 +57,6 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
 
 ```text
 .meguri/
-  index.html
   batches/<batch_id>/
     batch.json
     index.html
@@ -82,8 +75,6 @@ curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bas
       steps/<step_id>/result.json
 ```
 
-项目首页展示所有 loops 和多 loop batch 记录，loop 首页展示该 loop 的历史运行记录，每次 run 的报告都是自包含文件并使用相对链接。单次 run 的 HTML 报告会在时间线前展示结构化失败原因、attention flags 和已创建资源，让部分 execute 副作用与不完整 agent 链路不用钻 stdout 也能先被看见。多 loop 顺序运行会在 batch 开始时创建 `.meguri/batches/<batch_id>/batch.json` 和 `index.html`，当前 loop 每次写入运行中快照时都会刷新 batch，已完成 loop 结束后也会刷新，并在最后写入最终状态；loop 仍在运行时，batch 会通过 `current_run` 暴露 live report 路径和当前 step；如果多 loop 运行被中断，batch 会收敛为 blocked，并记录 `interrupted` metadata 和剩余 loop 列表；batch 报告会按执行顺序链接到已完成的 loop 报告，从结构化证据中提取 turn 数、submitted、关闭状态校验、提交成功/失败数等指标，并在确定性证据可解析时聚合同类失败原因，也会展示每个 loop 的 mode，让 execute 风险在汇总里保持可见；短跑、未最终提交、crash traceback 这类不完整 agent 链路会提升到 `attention_flags`，便于先扫描再钻原始日志；如果 execute 证据里有成功写入，batch 会用 `created_resources` 暴露 loop、run、类型、ID 和来源，便于重试或清理前审计真实副作用；失败的 execute item 会提升到 `failed_items`，包含 loop、run、类型、ID、名称、错误和来源，方便直接定位需要修 prompt 或测试数据的坏对象；agent schema / parser 失败会提升到 `validation_issues`，包含 loop、run、对象、错误数量、字段路径、校验类型和来源，方便不用钻 traceback 就能看到过宽 prompt 或输出结构回归；同时会给出 `status_counts` 汇总 pass/fail/blocked 分布，给出 `failed_loops` 标记失败或阻塞的 loop，给出 `repair_hints` 把陈旧/无效测试数据、schema 输出问题、不完整 agent 链路、未完成 loop、部分 execute 副作用归成下一步修复提示，并给出 `retry_loops` 标记修复后可能需要重跑的失败、阻塞或未完成 loop，也包含事后归并到 batch 的 `running` 报告。`timeline.ndjson` 是追加写入的事件流水，会随着 loop 和每个 step 的推进持续落盘；`run.json`、`report.md`、`index.html` 会在 loop 开始时写入，并在每个 step 开始、shell stdout/stderr 推进、静默 step 心跳、step 完成时刷新；shell step 的 stdout/stderr artifact 也会在命令运行中持续更新，所以长时间运行的 loop 不需要等最后一步结束才能检查部分记录。普通文本模式下，`meguri run` 一旦出现 running 快照、输出推进或静默心跳，就会打印 `live_report=...`、`live_artifact_dir=...`、`live_updated_at=...`、当前 step、live stdout/stderr artifact 路径和字符数；`--json` 仍只输出干净的最终 JSON。`run.json.updated_at` 会在每次快照刷新时变化，前端或 AI 可以用它安全判断当前记录是否已推进。如果 run 被中断，Meguri 会把最后一个活跃 step 收敛为 blocked，追加 `run_interrupted` timeline 事件，并保留可读报告。`run.json` 和命令 JSON 输出只保留 stdout/stderr 摘要与字符数，完整流仍保存在 step artifacts。如果 step 的结构化 stdout 声明了运行目录内的 `evidence_json` 或 `evidence_markdown` 文件，Meguri 会把它们提升成 step artifact 链接。Replay metadata 还会记录运行开始前的 git branch、commit、dirty 标记和 dirty 文件列表，方便把报告和当时的项目状态对应起来；修复后需要再次触发时，直接运行指定 loop，不再依赖报告生成的重放命令。旧的 `.meguri/scenarios/*.yaml` loop 文件仍可运行，新的运行记录会写入 `.meguri/loops/<loop_id>/`；既有 `.meguri/runs/<run_id>/` 报告仍然可读。
-
 ## Loop
 
 Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一条完整的完成链路：
@@ -92,52 +83,31 @@ Loop 是 Meguri 的用户主概念。它不是单纯的测试流程，而是一�
 目标 -> 安全执行 -> 确定性检查 -> 证据 -> 安全时修复 -> 复测 -> 通过 / 阻塞 / 询问
 ```
 
-新 loop 存储在 `.meguri/loops/<loop_id>/_loop.yaml`。每次运行会创建一个带时间戳的 `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/` 记录。旧的 `.meguri/scenarios/*.yaml` 文件仍可运行，并会把新记录写入 loop history 结构。
+新 loop 存储在 `.meguri/loops/<loop_id>/_loop.yaml`。每次运行会创建一个带时间戳的 `.meguri/loops/<loop_id>/<YYYYMMDD_HHMMSS>/` 记录。多 loop 顺序运行会创建 `.meguri/batches/<batch_id>/` 记录。
 
-## AI 工作流
+通过 `/meguri` 用自然语言初始化项目、添加或移除 loop、运行验证、打开报告。请求清楚时，agent 会直接编辑 Meguri 管理的 loop 文件；如果目标、安全执行入口、通过标准、凭证、数据准备或禁止副作用不清楚，它会先提问。
 
-让 Codex / Claude Code 用 Meguri 完成：
+## CLI 底层命令
 
-| 工作流 | 当前 AI 会做什么 |
-| --- | --- |
-| Init | 准备 Meguri、阅读项目，并创建项目检查产物。 |
-| Add loop | 在目标、安全执行入口、通过标准都清楚后，设计确定性的 loop。 |
-| List loops | 查看当前项目里有多少个用户 add 过的 loop。 |
-| Delete loop | 删除指定命名的用户 loop。 |
-| Validate | 检查项目 pack、loop、adapter 引用、skill 文件和运行配置。 |
-| Run | 执行一个 loop、多个指定 loop，或带排除项的全部用户 loop；写入运行中快照并持续更新 shell stdout/stderr artifacts；execute-mode loop 必须先获得明确批准。 |
-| Report | 打开报告、从 `run.json` 刷新旧的单 run HTML/Markdown、列出运行中报告、输出带 evidence/replay 指针的单 run JSON 摘要，或把最近多个散落 run、指定 run id/路径、指定 loop 的最新 run 归并成一个 batch 报告。 |
-| Upgrade | 安装新版本后，刷新生成的 slash 入口和项目/loop 索引页。 |
+公开 CLI 刻意保持很小：
 
 ```text
-示例：
-/meguri init
-$meguri init
-用 Meguri 增加一个下单 loop。
-用 Meguri 查看当前有多少 loop。
-用 Meguri 删除 checkout loop。
-用 Meguri validate 并运行 smoke loop。
-用 Meguri 运行除 checkout 之外的所有 loop。
-用 Meguri 以 JSON 查看运行中的报告。
-用 Meguri 以 JSON 汇总这个 run id。
-用 Meguri 汇总最近 7 个 run 报告。
-用 Meguri 以 JSON 汇总最近 7 个 run 报告。
-用 Meguri 以 JSON 汇总这些指定的 run 报告路径。
-用 Meguri 以 JSON 汇总这些 loop 名称各自最新的 run。
-用 Meguri 打开最新报告。
-/meguri upgrade --skills --refresh-index
+meguri init
+meguri run <loop>
+meguri run <loop1> <loop2>
+meguri run all
+meguri report [run_or_batch_id]
 ```
 
-新增 loop 会保持保守。如果请求语义不清、缺少安全执行入口，或缺少确定性的通过标准，Meguri 会要求澄清，并且不写入文件。
+`init` 准备项目 pack，并刷新 Meguri 管理的入口文件。`run` 运行一个命名 loop、一个明确的顺序列表，或全部用户 loop。`report` 是只读命令，用于返回最新报告或指定 run / batch 报告。
 
 ## 工作规则
 
 - 让 Codex / Claude Code 读取现有文档、测试、脚本和配置，再编写项目专属的 loop 或辅助测试。
-- 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。批准后，execute-mode loop 也必须带 `--allow-execute` 确认标记运行。
+- 除非用户明确批准 execute 模式，否则新 loop 保持 `dry_run`。批准后，execute-mode run 必须带 `--allow-execute` 确认标记。
 - 不要把 LLM 的自我评价当作通过标准。通过证据应来自命令、结构化输出、日志、产物、截图或文件。
 - 编写 helper/verifier 脚本时，即使异常也要向 `MEGURI_EVIDENCE_DIR` 写结构化 evidence，包含部分输入/输出、错误、traceback 和 artifact 链接。
 - 在启用 submit、deploy、payment、production writes、external sends 或 data migrations 前，必须先询问。
-- 修改后，在安全的情况下校验 Meguri pack，并运行对应的安全 loop。
 
 ## 开发
 

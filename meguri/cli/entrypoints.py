@@ -126,260 +126,99 @@ def bundled_templates() -> dict[str, str]:
     }
 
 
+_SIMPLIFIED_BODY = """Meguri is an agent-facing verification workflow for the current project.
+The normal user entrypoint is `/meguri`: interpret the user's natural-language
+request, inspect the project yourself, edit Meguri-owned files when needed, and
+use the CLI only as the deterministic bottom layer.
+
+Public CLI surface:
+
+- `meguri init`
+- `meguri run <loop>`
+- `meguri run <loop1> <loop2>`
+- `meguri run all`
+- `meguri report [run_or_batch_id]`
+
+Natural-language workflow:
+
+1. For setup requests such as "Initialize this project with Meguri", run
+   `meguri init`, follow the printed inspection instructions in this same agent
+   session, and write `.meguri/project-inspect.json` plus
+   `.meguri/project-brief.md` from repository evidence.
+2. For requests such as "Add a verification loop for <goal>", read the project
+   docs, manifests, tests, scripts, CI config, app entrypoints, and existing
+   `.meguri/loops/*/_loop.yaml` files. If the goal, execution entry, pass
+   criteria, credentials, data setup, or forbidden side effects are unclear,
+   ask concrete questions before editing.
+3. Add or change user loops by editing
+   `.meguri/loops/<loop_id>/_loop.yaml` and any project-local helper scripts.
+   Remove a user loop by deleting that loop directory only after the user has
+   named it clearly.
+4. For run requests, use `meguri run <loop>` for one loop,
+   `meguri run <loop1> <loop2>` for an explicit sequence, or `meguri run all`
+   for all user loops.
+5. For report requests, use `meguri report [run_or_batch_id]`. Use report
+   `--json` when structured data is needed and report `--open` when the user
+   asks to open a report.
+
+Safety rules:
+
+- Keep loops in `dry_run` unless the user explicitly approves execute mode.
+- Execute-mode runs require the `--allow-execute` confirmation marker.
+- Never treat LLM self-evaluation as passing evidence.
+- Passing evidence must be deterministic: commands, structured output, logs,
+  artifacts, screenshots, or files.
+- Helper and verifier scripts must write crash-safe structured evidence to
+  `MEGURI_EVIDENCE_DIR`, including partial input/output, errors, traceback, and
+  artifact paths even when the target app, command, or model response crashes.
+- Ask before dangerous side effects, including submit, deploy, payment,
+  production writes, external sends, or data migrations.
+"""
+
+
 def _codex_skill() -> str:
-    return """---
+    return f"""---
 name: meguri
-description: Use when the user wants Codex to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to work through the /meguri natural-language verification workflow using only meguri init, meguri run, and meguri report as the CLI bottom layer.
 ---
 
-You are using the Meguri init workflow for Codex.
-
-Meguri is an agent-facing verification workflow. Its user-facing unit is a
-loop: check evidence, repair when safe, rerun, then pass, block, or ask.
-Meguri owns specification files, deterministic validation, loop execution, and
-reports. Codex owns project understanding, loop design, and any code/test
-authoring.
-
-Use `$meguri` as the user-facing entrypoint in conversation.
-
-Workflow:
-1. If the request is empty, starts with `init`, or `.meguri/project.yaml` is
-   missing, run `meguri init`.
-2. Follow the printed Meguri init specification yourself in this Codex session.
-3. Read README, AGENTS.md, project manifests, existing tests, scripts, CI config,
-   app entrypoints, and existing Meguri loops before editing.
-4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
-   evidence. If user goals, execution entries, pass criteria, credentials, data
-   setup, or forbidden side effects are unclear, ask concrete questions and stop.
-5. When the user asks to design or add verification, produce deterministic loops
-   and any required test/helper code. Use `meguri add` only after the required
-   fields are clear.
-6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
-   because the model says it passed.
-7. When writing verifier/helper scripts, make evidence crash-safe: write
-   structured JSON evidence to `MEGURI_EVIDENCE_DIR` in a `finally` path, and
-   include partial input/output, errors, traceback, and artifact paths even when
-   the target app or model response crashes.
-8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-   After that approval, run execute-mode loops with
-   `meguri run <loop> --allow-execute`; without that confirmation marker Meguri
-   will refuse to run execute loops.
-9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
-   delete a named user-added loop.
-10. If the user asks to refresh Meguri entrypoints or report indexes after an
-   update, run `meguri upgrade --skills --refresh-index`.
-11. After edits, run `meguri validate` and then `meguri run <loop> --open`
-   when safe. When the user asks to run several loops in order, use
-   `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
-   of starting loops manually or concurrently. When the user asks to run all
-   remaining user-added loops, use `meguri run --all --exclude <loop>` after
-   confirming the exclusion list. Batch `batch.json` and `index.html` are
-   created when the batch starts, refreshed whenever the current loop writes a
-   running snapshot, and refreshed again after each loop completes; use them as
-   the live progress surface. Shell stdout/stderr output also refreshes the
-   current run's HTML/stdout excerpts while the command is still running, and
-   silent-step heartbeats refresh `updated_at` even when stdout is quiet. In
-   normal text mode, `meguri run` also prints `live_report=...`,
-   `live_artifact_dir=...`, `live_updated_at=...`, `live_step=...`,
-   `live_stdout_path=...`, `live_stderr_path=...`, and live character counts
-   as soon as a running snapshot exists, output advances, or a silent heartbeat
-   refreshes the run; `--json` stays clean final JSON only. Read batch
-   `current_run` for the live report path and current step. While long loops are still running, use
-   `meguri report --running --json` to find active run/batch report paths and
-   current steps instead of guessing from the filesystem. If the batch is
-   interrupted, read the blocked batch record's `interrupted` metadata and
-   `remaining_loops` before deciding whether to resume, repair, or ask.
-12. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
-   `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes. For a single completed loop, use
-   `meguri report <run_id> --json` or `meguri report --last --json` to get the
-   structured run summary, metrics, failure reasons, `evidence_files`,
-   `evidence_warnings`, `replay_status`, and `replay_missing` before drilling
-   into raw artifacts. If an older single-run `index.html` or `report.md`
-   predates the current Meguri renderer, use `meguri report <run_id> --refresh`
-   to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
-   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failed_items`, `validation_issues`,
-   `repair_hints`, `failure_groups`, and per-loop summaries to prioritize
-   shared repairs, identify bad source objects, identify schema/output-shape
-   failures, identify incomplete agent chains, and audit partial execute-mode
-   side effects, then drill into each linked loop report. If
-   earlier runs were started separately and you know the loop names, use
-   `meguri report --loops <loop> ...` to group the newest run for each named
-   loop before summarizing. If you only know the count, use
-   `meguri report --recent <N>` to group the latest standalone reports into a
-   recoverable batch report. If you have exact run ids or report paths, use
-   `meguri report --runs <run_id-or-path> ...` so unrelated reports are not
-   included. Use `meguri report --loops <loop> ... --json`,
-   `meguri report --recent <N> --json`, or
-   `meguri report --runs <run_id-or-path> ... --json` when you need clean
-   structured data for a written summary. After making a repair, use the batch
-   `retry_loops` list to understand which failed, blocked, or recovered running
-   loops need another pass, then rerun only the named loop(s) intentionally.
-13. Stop and ask before enabling submit, deploy, payment, production writes,
-    external sends, or data migrations.
-"""
+{_SIMPLIFIED_BODY}"""
 
 
 def _codex_slash_prompt() -> str:
-    return """---
+    return f"""---
 description: Meguri verification loop workflow for the current project
-argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
+argument-hint: init|run|report [args]
 ---
 
-Use Meguri for this request: $ARGUMENTS
+Use `/meguri` for this request in the current Codex session: $ARGUMENTS
 
-Meguri is a specification and harness layer. Use this active Codex session for
-project understanding, loop design, and any code/test authoring.
-
-If the request is empty or starts with `init`, run `meguri init`, follow the
-printed specification yourself, and write
-`.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
-
-If the request asks to add/design a loop, first inspect existing docs,
-manifests, tests, scripts, CI, and entrypoints. Ask concrete questions when the
-goal, execution entry, pass criteria, credentials, data setup, or forbidden side
-effects are unclear. Then write deterministic loops and any needed test/helper
-code. Verifier/helper scripts must write structured evidence to
-`MEGURI_EVIDENCE_DIR` even on exceptions, including partial transcript, errors,
-traceback, and artifact paths; do not rely only on stdout.
-
-If the request asks to list or delete loops, list only user-added loops by
-default and delete only a named user-added loop unless the user explicitly asks
-to include or remove system loops.
-
-If the request asks to refresh Meguri after an update, run
-`meguri upgrade --skills --refresh-index`.
-
-Always prefer deterministic evidence over LLM self-evaluation. Keep loops in
-`dry_run` unless the user explicitly approves execute mode. After that approval,
-run execute-mode loops with `meguri run <loop> --allow-execute`; without that
-confirmation marker Meguri refuses execute loops. Before reporting completion,
-run `meguri validate` and the relevant `meguri run <loop> --open` when safe.
-"""
+{_SIMPLIFIED_BODY}"""
 
 
 def _claude_skill() -> str:
-    return """---
+    return f"""---
 name: meguri
-description: Use when the user wants Claude Code to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
-argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
+description: Use when the user wants Claude Code to work through the /meguri natural-language verification workflow using only meguri init, meguri run, and meguri report as the CLI bottom layer.
+argument-hint: init|run|report [args]
 disable-model-invocation: true
 ---
 
-You are using the Meguri init workflow for Claude Code.
-
-Meguri is an agent-facing verification workflow. Its user-facing unit is a
-loop: check evidence, repair when safe, rerun, then pass, block, or ask.
-Meguri owns specification files, deterministic validation, loop execution, and
-reports. Claude Code owns project understanding, loop design, and any code/test
-authoring.
-
-Use `/meguri` as the user-facing entrypoint in conversation.
-
 Requested Meguri workflow:
 $ARGUMENTS
 
-Workflow:
-1. If the request is empty, starts with `init`, or `.meguri/project.yaml` is
-   missing, run `meguri init`.
-2. Follow the printed Meguri init specification yourself in this Claude Code
-   session.
-3. Read README, CLAUDE.md, project manifests, existing tests, scripts, CI config,
-   app entrypoints, and existing Meguri loops before editing.
-4. Write `.meguri/project-inspect.json` and `.meguri/project-brief.md` from your
-   evidence. If user goals, execution entries, pass criteria, credentials, data
-   setup, or forbidden side effects are unclear, ask concrete questions and stop.
-5. When the user asks to design or add verification, produce deterministic loops
-   and any required test/helper code. Use `meguri add` only after the required
-   fields are clear.
-6. Prefer deterministic checks over LLM judgment. Never mark a run as passing
-   because the model says it passed.
-7. When writing verifier/helper scripts, make evidence crash-safe: write
-   structured JSON evidence to `MEGURI_EVIDENCE_DIR` in a `finally` path, and
-   include partial input/output, errors, traceback, and artifact paths even when
-   the target app or model response crashes.
-8. Keep loops in `dry_run` unless the user explicitly approves execute mode.
-   After that approval, run execute-mode loops with
-   `meguri run <loop> --allow-execute`; without that confirmation marker Meguri
-   will refuse to run execute loops.
-9. Use `meguri loops` to list user-added loops. Use `meguri delete <loop>` to
-   delete a named user-added loop.
-10. If the user asks to refresh Meguri entrypoints or report indexes after an
-   update, run `meguri upgrade --skills --refresh-index`.
-11. After edits, run `meguri validate` and then `meguri run <loop> --open`
-   when safe. When the user asks to run several loops in order, use
-   `meguri run <loop1> <loop2>` so Meguri records one sequential batch instead
-   of starting loops manually or concurrently. When the user asks to run all
-   remaining user-added loops, use `meguri run --all --exclude <loop>` after
-   confirming the exclusion list. Batch `batch.json` and `index.html` are
-   created when the batch starts, refreshed whenever the current loop writes a
-   running snapshot, and refreshed again after each loop completes; use them as
-   the live progress surface. Shell stdout/stderr output also refreshes the
-   current run's HTML/stdout excerpts while the command is still running, and
-   silent-step heartbeats refresh `updated_at` even when stdout is quiet. In
-   normal text mode, `meguri run` also prints `live_report=...`,
-   `live_artifact_dir=...`, `live_updated_at=...`, `live_step=...`,
-   `live_stdout_path=...`, `live_stderr_path=...`, and live character counts
-   as soon as a running snapshot exists, output advances, or a silent heartbeat
-   refreshes the run; `--json` stays clean final JSON only. Read batch
-   `current_run` for the live report path and current step. While long loops are still running, use
-   `meguri report --running --json` to find active run/batch report paths and
-   current steps instead of guessing from the filesystem. If the batch is
-   interrupted, read the blocked batch record's `interrupted` metadata and
-   `remaining_loops` before deciding whether to resume, repair, or ask.
-12. Inspect the latest `.meguri/loops/<loop_id>/<run_id>/timeline.ndjson`,
-   `run.json`, `report.md`, `index.html`, stdout, stderr, evidence, and
-   linked artifacts before proposing fixes. For a single completed loop, use
-   `meguri report <run_id> --json` or `meguri report --last --json` to get the
-   structured run summary, metrics, failure reasons, `evidence_files`,
-   `evidence_warnings`, `replay_status`, and `replay_missing` before drilling
-   into raw artifacts. If an older single-run `index.html` or `report.md`
-   predates the current Meguri renderer, use `meguri report <run_id> --refresh`
-   to rebuild both from `run.json` before opening or quoting them. For multi-loop runs, inspect
-   `.meguri/batches/<batch_id>/batch.json` and its `index.html` first, use
-   `status_counts`, `failed_loops`, per-loop `mode`, per-loop `metrics`,
-   `attention_flags`, `created_resources`, `failed_items`, `validation_issues`,
-   `repair_hints`, `failure_groups`, and per-loop summaries to prioritize
-   shared repairs, identify bad source objects, identify schema/output-shape
-   failures, identify incomplete agent chains, and audit partial execute-mode
-   side effects, then drill into each linked loop report. If
-   earlier runs were started separately and you know the loop names, use
-   `meguri report --loops <loop> ...` to group the newest run for each named
-   loop before summarizing. If you only know the count, use
-   `meguri report --recent <N>` to group the latest standalone reports into a
-   recoverable batch report. If you have exact run ids or report paths, use
-   `meguri report --runs <run_id-or-path> ...` so unrelated reports are not
-   included. Use `meguri report --loops <loop> ... --json`,
-   `meguri report --recent <N> --json`, or
-   `meguri report --runs <run_id-or-path> ... --json` when you need clean
-   structured data for a written summary. After making a repair, use the batch
-   `retry_loops` list to understand which failed, blocked, or recovered running
-   loops need another pass, then rerun only the named loop(s) intentionally.
-13. Stop and ask before enabling submit, deploy, payment, production writes,
-    external sends, or data migrations.
-"""
+{_SIMPLIFIED_BODY}"""
 
 
 def _claude_command() -> str:
-    return """---
+    return f"""---
 description: Meguri verification loop workflow for the current project
-argument-hint: init|add|loops|delete|run|validate|report|upgrade [args]
+argument-hint: init|run|report [args]
 ---
 
-Use the Meguri loop workflow in this Claude Code session.
+Use `/meguri` for this request in the current Claude Code session.
 
 Requested Meguri workflow:
 $ARGUMENTS
 
-If the request is empty or starts with `init`, run `meguri init`, follow the
-printed specification, and write
-`.meguri/project-inspect.json` plus `.meguri/project-brief.md`.
-
-For add, loops, delete, run, validate, report, or upgrade requests, follow the
-project-local Meguri pack, prefer deterministic evidence, keep loops in
-`dry_run` unless explicitly approved, make helper scripts write crash-safe
-evidence to `MEGURI_EVIDENCE_DIR`, and ask before submit, deploy, payment,
-production writes, external sends, or data migrations.
-"""
+{_SIMPLIFIED_BODY}"""

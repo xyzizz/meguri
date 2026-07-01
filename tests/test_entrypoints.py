@@ -61,8 +61,8 @@ def test_refresh_entrypoints_offline_uses_bundled_templates(
     assert len(written) == 4
     codex_skill = project / ".agents" / "skills" / "meguri" / "SKILL.md"
     text = codex_skill.read_text(encoding="utf-8")
-    assert "Trigger for $meguri, loop design" in text
-    assert "Trigger for $meguri or /meguri" not in text
+    assert "normal user entrypoint is `/meguri`" in text
+    assert "meguri add" not in text
     combined = "\n".join(spec.path_for(project).read_text(encoding="utf-8") for spec in ENTRYPOINT_SPECS)
     assert "/meguri" in combined
     assert "meguri init" in combined

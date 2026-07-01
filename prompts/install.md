@@ -9,28 +9,28 @@ Install Meguri in this project and enable the Codex / Claude Code slash entrypoi
 From the current project root, run:
 curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
 
-After installation, run:
-/meguri init
+After installation, invoke /meguri and ask:
+Initialize this project with Meguri.
 ```
 
 If `meguri` does not appear in the slash menu yet, restart Codex / Claude Code
 or open a new session in this project, then type `/` and search `meguri`.
 
+Common `/meguri` requests:
+
 ```text
-Claude Code: type `/`, search `meguri`, choose `/meguri`
-Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
-Codex alternatives: `/skills` -> `meguri`, or `$meguri init`
+Initialize this project with Meguri.
+Add a verification loop for <goal>.
+Run all verification.
+Open the latest report.
 ```
 
-For an existing project update, keep the same installer and then refresh the
-generated project entrypoints and indexes from the AI terminal:
+The public CLI bottom layer is:
 
 ```text
-Update Meguri in this project.
-
-Run:
-curl -fsSL https://raw.githubusercontent.com/xyzizz/meguri/main/install.sh | bash
-
-After the installer finishes, run:
-/meguri upgrade --skills --refresh-index
+meguri init
+meguri run <loop>
+meguri run <loop1> <loop2>
+meguri run all
+meguri report [run_or_batch_id]
 ```

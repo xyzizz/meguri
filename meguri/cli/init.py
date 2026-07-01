@@ -166,73 +166,44 @@ def _pack_readme(project_name: str) -> str:
 This directory contains the Meguri project pack for `{project_name}`.
 
 Meguri's user-facing unit is a loop: a verification goal that can move from
-check, to evidence, to safe repair, to rerun, and finally pass, blocked, or
-needs-confirmation. New loops live under `.meguri/loops/<loop_id>/_loop.yaml`,
-and each run writes history under `.meguri/loops/<loop_id>/<run_id>/`. Legacy
-`.meguri/scenarios/*.yaml` files remain runnable, but new records are written
-into the loop history structure. Multi-loop sequential runs write aggregate
+safe execution, to deterministic evidence, to repair when safe, to rerun, and
+finally pass, blocked, or ask. New loops live under
+`.meguri/loops/<loop_id>/_loop.yaml`, and each run writes history under
+`.meguri/loops/<loop_id>/<run_id>/`. Multi-loop sequential runs write aggregate
 records under `.meguri/batches/<batch_id>/`.
-During a run, `timeline.ndjson` is appended as each step advances, and
-`run.json`, `report.md`, and `index.html` are refreshed when the loop starts,
-when a step starts, when shell stdout/stderr advances, on silent-step
-heartbeats, and when a step finishes. `run.json.updated_at` changes on every
-snapshot refresh. If a run is interrupted, Meguri records the active step as
-blocked, appends a
-`run_interrupted` timeline event, and leaves the report readable. Replay
-metadata records the run-local `replay.json` status and pre-run project state;
-after repair, rerun the named loop directly instead of copying a generated
-replay command.
-In normal text mode, `meguri run` prints `live_report=...`,
-`live_artifact_dir=...`, `live_updated_at=...`, the current step, and live
-stdout/stderr artifact paths plus character counts as soon as running snapshots
-exist, output advances, or silent heartbeats refresh the run; `--json` stays
-clean final JSON only.
-Batch reports include `status_counts` for the pass/fail/blocked distribution,
-`failed_loops` for failed or blocked loops, plus batch `retry_loops` for failed,
-blocked, or unfinished loops, including `running` reports recovered from
-separate runs. Batch run summaries include per-loop `mode` so execute risk
-remains visible during review. While a loop is
-still running, the batch record exposes `current_run` with the live report path
-and current step. Batch `attention_flags` surface incomplete agent chains such
-as short runs, missing final submit, or crash tracebacks. When structured
-execute evidence reports successful writes, batch records expose
-`created_resources` so partial side effects can be audited before retry or
-cleanup. Batch `repair_hints` group stale or invalid test data, incomplete
-agent chains, unfinished loops, and partial execute-mode side effects into
-evidence-derived next steps before drilling into raw artifacts. Batch
-`failed_items` expose failed execute item type, id, name, error, and source so
-prompt or fixture repairs can target the bad object directly. Batch
-`validation_issues` expose agent schema and parser failures with object, count,
-field path, validation types, and source so broad prompts or output-shape
-regressions are visible before reading raw tracebacks.
 
 ## AI terminal entrypoints
 
-- Claude Code: type `/`, search `meguri`, choose `/meguri`
-- Codex: restart/open a new session, type `/`, search `meguri`, choose `prompts:meguri`
-- Codex alternatives: `/skills` -> `meguri`, or `$meguri init`
+- Use `/meguri` in Codex or Claude Code.
 
 ## Common AI requests
 
 ```text
-Use Meguri to initialize and inspect this project.
-Use Meguri to validate this project pack.
-Use Meguri to list loops.
-Use Meguri to delete the <name> loop.
-Use Meguri to run the smoke loop and open the report.
-Use Meguri to open the latest report.
+Initialize this project with Meguri.
+Add a verification loop for <goal>.
+Run all verification.
+Open the latest report.
 ```
 
-Add new loops with:
+The public CLI bottom layer is intentionally small:
 
 ```text
-Use Meguri to add a dry-run loop for <describe the goal>.
+meguri init
+meguri run <loop>
+meguri run <loop1> <loop2>
+meguri run all
+meguri report [run_or_batch_id]
 ```
 
-Keep loops deterministic. Do not treat an LLM's self-evaluation as a passing
-check. If you write helper or verifier scripts, write structured JSON evidence
-to `MEGURI_EVIDENCE_DIR` in a `finally` path so failures still include partial
-input/output, errors, traceback, and artifact paths. Keep loops in `dry_run`
-unless the user explicitly approves execute mode; after approval, execute-mode
-loops must be run with `meguri run <loop> --allow-execute`.
+Use natural language through `/meguri` for loop creation and cleanup. The agent
+adds or changes loops by editing `.meguri/loops/<loop_id>/_loop.yaml` and removes
+a user loop by deleting its loop directory after the user names it clearly.
+
+Keep loops deterministic. Do not treat an LLM's self-evaluation as passing
+evidence. If you write helper or verifier scripts, write structured JSON
+evidence to `MEGURI_EVIDENCE_DIR` in a `finally` path so failures still include
+partial input/output, errors, traceback, and artifact paths. Keep loops in
+`dry_run` unless the user explicitly approves execute mode; after approval,
+execute-mode runs require the `--allow-execute` confirmation marker. Ask before
+submit, deploy, payment, production writes, external sends, or data migrations.
 """
