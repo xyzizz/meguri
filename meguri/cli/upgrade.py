@@ -19,8 +19,7 @@ def handle_upgrade(args: Any) -> int:
 
     try:
         if args.skills:
-            skipped: list[Path] = []
-            updated.extend(write_skills(project_root, force=True, skipped=skipped))
+            updated.extend(write_skills(project_root, offline=True))
         if args.refresh_index:
             pack = find_project_pack(project_root)
             updated.extend(refresh_indexes(pack))

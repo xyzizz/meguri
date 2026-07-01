@@ -20,7 +20,7 @@ def handle_init(args: Any) -> int:
     force = bool(getattr(args, "force", False))
 
     created.extend(_write_pack(project_root, pack_root, force=force, skipped=skipped))
-    created.extend(write_skills(project_root, force=force, skipped=skipped))
+    created.extend(write_skills(project_root, offline=True))
     pack = load_project_pack(project_root)
     prompt_path, prompt = write_inspect_spec(pack)
 
@@ -105,7 +105,7 @@ def _write_pack(project_root: Path, pack_root: Path, *, force: bool, skipped: li
     return created
 
 
-def write_skills(project_root: Path, *, offline: bool = True, **_: Any) -> list[Path]:
+def write_skills(project_root: Path, *, offline: bool) -> list[Path]:
     return refresh_entrypoints(project_root, offline=offline)
 
 

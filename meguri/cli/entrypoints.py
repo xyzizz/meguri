@@ -64,7 +64,7 @@ def refresh_entrypoints(
     fetch_text: Callable[[str], str] | None = None,
 ) -> list[Path]:
     templates = bundled_templates() if offline else remote_templates(fetch_text or _fetch_url_text)
-    _validate_templates(templates, require_terms=not offline)
+    _validate_templates(templates)
     written: list[Path] = []
     for spec in ENTRYPOINT_SPECS:
         path = spec.path_for(project_root)
@@ -92,21 +92,18 @@ def _fetch_url_text(url: str) -> str:
         raise SkillRefreshError(str(exc)) from exc
 
 
-def _validate_templates(templates: dict[str, str], *, require_terms: bool) -> None:
+def _validate_templates(templates: dict[str, str]) -> None:
     missing = [spec.key for spec in ENTRYPOINT_SPECS if not templates.get(spec.key, "").strip()]
     if missing:
         raise SkillRefreshError(f"missing Meguri skill templates: {', '.join(missing)}")
-    if not require_terms:
-        return
-    for spec in ENTRYPOINT_SPECS:
-        text = templates[spec.key]
-        required = ("/meguri", "meguri init", "meguri run", "meguri report")
-        missing_terms = [term for term in required if term not in text]
-        if missing_terms:
-            raise SkillRefreshError(
-                f"Meguri skill template {spec.remote_name} is missing required terms: "
-                + ", ".join(missing_terms)
-            )
+    required = ("/meguri", "meguri init", "meguri run", "meguri report")
+    combined = "\n".join(templates[spec.key] for spec in ENTRYPOINT_SPECS)
+    missing_terms = [term for term in required if term not in combined]
+    if missing_terms:
+        raise SkillRefreshError(
+            "Meguri skill templates are missing required terms: "
+            + ", ".join(missing_terms)
+        )
 
 
 def bundled_templates() -> dict[str, str]:
@@ -121,7 +118,7 @@ def bundled_templates() -> dict[str, str]:
 def _codex_skill() -> str:
     return """---
 name: meguri
-description: Use when the user wants Codex to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri or /meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
+description: Use when the user wants Codex to initialize, design, add, list, delete, run, validate, inspect, or repair Meguri verification loops in this repository. Trigger for $meguri, loop design, project verification planning, loop generation, loop deletion, run reports, artifacts, and evidence-driven agent repair.
 ---
 
 You are using the Meguri init workflow for Codex.
